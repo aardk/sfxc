@@ -2,7 +2,11 @@
 #include "utils.h"
 
 #ifdef USE_IPP
-sfxc_fft_ipp::sfxc_fft_ipp():buffer(NULL), buffer_r2c(NULL), ippspec(NULL), ippspec_r2c(NULL){
+#include <ippcore.h>
+
+sfxc_fft_ipp::sfxc_fft_ipp():buffer(NULL), buffer_r2c(NULL), 
+                             ippspec(NULL), ippspec_r2c(NULL),
+                             specbuffer(NULL), specbuffer_r2c(NULL){
   size = 0;
   order = 0;
 }
@@ -21,12 +25,20 @@ sfxc_fft_ipp::free_buffers(){
     ippsFree(buffer_r2c);
     buffer_r2c = NULL;
   }
+  if(specbuffer != NULL){
+    ippsFree(specbuffer);
+    specbuffer = NULL;
+  }
+  if(specbuffer_r2c != NULL){
+    ippsFree(specbuffer_r2c);
+    specbuffer_r2c = NULL;
+  }
   if(ippspec != NULL){
-    ippsFFTFree_C_64fc(ippspec);
+    ippsFree(ippspec);
     ippspec = NULL;
   }
   if(ippspec_r2c != NULL){
-    ippsFFTFree_R_64f(ippspec_r2c);
+    ippsFree(ippspec_r2c);
     ippspec_r2c = NULL;
   }
 }
@@ -45,23 +57,33 @@ sfxc_fft_ipp::resize(int size_){
 void
 sfxc_fft_ipp::alloc(){
   IppStatus status;
-  status = ippsFFTInitAlloc_C_64fc(&ippspec, order, IPP_FFT_NODIV_BY_ANY, ippAlgHintFast);
+  int specbufsize, initbufsize, extbufsize;
+  status = ippsFFTGetSize_C_64fc(order, IPP_FFT_NODIV_BY_ANY, ippAlgHintFast,
+                                 &specbufsize, &initbufsize, &extbufsize);
+  buffer = (Ipp8u*) ippMalloc(extbufsize);
+  Ipp8u *initbuffer = (Ipp8u*) ippMalloc(initbufsize);
+  specbuffer = (Ipp8u*) ippMalloc(specbufsize);
+  status = ippsFFTInit_C_64fc(&ippspec, order, IPP_FFT_NODIV_BY_ANY,
+                              ippAlgHintFast, specbuffer, initbuffer);
   if(status != ippStsNoErr)
-    sfxc_abort("Unable to allocate IPP fft buffer");
-  int buffersize;
-  ippsFFTGetBufSize_C_64fc(ippspec, &buffersize);
-  buffer = ippsMalloc_8u(buffersize);
+    sfxc_abort("Unable to allocate IPP fft");
+  ippFree(initbuffer);
 }
 
 void
 sfxc_fft_ipp::alloc_r2c(){
   IppStatus status;
-  status = ippsFFTInitAlloc_R_64f(&ippspec_r2c, order, IPP_FFT_NODIV_BY_ANY, ippAlgHintFast);
+  int specbufsize, initbufsize, extbufsize;
+  status = ippsFFTGetSize_R_64f(order, IPP_FFT_NODIV_BY_ANY, ippAlgHintFast,
+                                 &specbufsize, &initbufsize, &extbufsize);
+  buffer_r2c = (Ipp8u*) ippMalloc(extbufsize);
+  Ipp8u *initbuffer = (Ipp8u*) ippMalloc(initbufsize);
+  specbuffer_r2c = (Ipp8u*) ippMalloc(specbufsize);
+  status = ippsFFTInit_R_64f(&ippspec_r2c, order, IPP_FFT_NODIV_BY_ANY,
+                              ippAlgHintFast, specbuffer_r2c, initbuffer);
   if(status != ippStsNoErr)
-    sfxc_abort("Unable to allocate IPP fft buffer");
-  int buffersize;
-  ippsFFTGetBufSize_R_64f(ippspec_r2c, &buffersize);
-  buffer_r2c = ippsMalloc_8u(buffersize);
+    sfxc_abort("Unable to allocate IPP rfft");
+  ippFree(initbuffer);
 }
 
 void
