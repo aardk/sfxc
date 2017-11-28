@@ -18,27 +18,27 @@ sfxc_fft_ipp_float::~sfxc_fft_ipp_float(){
 void
 sfxc_fft_ipp_float::free_buffers(){
   if(buffer != NULL){
-    ippsFree(buffer);
+    ippFree(buffer);
     buffer = NULL;
   }
   if(buffer_r2c != NULL){
-    ippsFree(buffer_r2c);
+    ippFree(buffer_r2c);
     buffer_r2c = NULL;
   }
   if(specbuffer != NULL){
-    ippsFree(specbuffer);
+    ippFree(specbuffer);
     specbuffer = NULL;
   }
   if(specbuffer_r2c != NULL){
-    ippsFree(specbuffer_r2c);
+    ippFree(specbuffer_r2c);
     specbuffer_r2c = NULL;
   }
   if(ippspec != NULL){
-    ippsFree(ippspec);
+    ippFree(ippspec);
     ippspec = NULL;
   }
   if(ippspec_r2c != NULL){
-    ippsFree(ippspec_r2c);
+    ippFree(ippspec_r2c);
     ippspec_r2c = NULL;
   }
 }
