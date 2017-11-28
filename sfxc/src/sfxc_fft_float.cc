@@ -33,14 +33,6 @@ sfxc_fft_ipp_float::free_buffers(){
     ippFree(specbuffer_r2c);
     specbuffer_r2c = NULL;
   }
-  if(ippspec != NULL){
-    ippFree(ippspec);
-    ippspec = NULL;
-  }
-  if(ippspec_r2c != NULL){
-    ippFree(ippspec_r2c);
-    ippspec_r2c = NULL;
-  }
 }
 
 void
@@ -60,14 +52,20 @@ sfxc_fft_ipp_float::alloc(){
   int specbufsize, initbufsize, extbufsize;
   status = ippsFFTGetSize_C_32fc(order, IPP_FFT_NODIV_BY_ANY, ippAlgHintFast,
                                  &specbufsize, &initbufsize, &extbufsize);
-  buffer = (Ipp8u*) ippMalloc(extbufsize);
-  Ipp8u *initbuffer = (Ipp8u*) ippMalloc(initbufsize);
+  // Create buffers
+  Ipp8u *initbuffer = NULL;
+  if (initbufsize > 0)
+    initbuffer = (Ipp8u*) ippMalloc(initbufsize);
+  if (extbufsize > 0)
+    buffer = (Ipp8u*) ippMalloc(extbufsize);
   specbuffer = (Ipp8u*) ippMalloc(specbufsize);
+  // Initialize FFT spec
   status = ippsFFTInit_C_32fc(&ippspec, order, IPP_FFT_NODIV_BY_ANY, 
                               ippAlgHintFast, specbuffer, initbuffer);
-  if(status != ippStsNoErr)
+  if (status != ippStsNoErr)
     sfxc_abort("Unable to allocate IPP fft");
-  ippFree(initbuffer);
+  if (initbufsize > 0)
+    ippFree(initbuffer);
 }
 
 void
@@ -76,14 +74,20 @@ sfxc_fft_ipp_float::alloc_r2c(){
   int specbufsize, initbufsize, extbufsize;
   status = ippsFFTGetSize_R_32f(order, IPP_FFT_NODIV_BY_ANY, ippAlgHintFast,
                                  &specbufsize, &initbufsize, &extbufsize);
-  buffer_r2c = (Ipp8u*) ippMalloc(extbufsize);
-  Ipp8u *initbuffer = (Ipp8u*) ippMalloc(initbufsize);
+  // Create buffers
+  Ipp8u *initbuffer = NULL;
+  if (initbufsize > 0)
+    initbuffer = (Ipp8u*) ippMalloc(initbufsize);
+  if (extbufsize > 0)
+    buffer_r2c = (Ipp8u*) ippMalloc(extbufsize);
   specbuffer_r2c = (Ipp8u*) ippMalloc(specbufsize);
+  // Initialize FFT spec
   status = ippsFFTInit_R_32f(&ippspec_r2c, order, IPP_FFT_NODIV_BY_ANY, 
                               ippAlgHintFast, specbuffer_r2c, initbuffer);
-  if(status != ippStsNoErr)
+  if (status != ippStsNoErr)
     sfxc_abort("Unable to allocate IPP rfft");
-  ippFree(initbuffer);
+  if (initbufsize > 0)
+    ippFree(initbuffer);
 }
 
 void
