@@ -150,8 +150,8 @@ def read_baselines(infile, data, nbaseline, nchan, printauto):
         #pdb.set_trace()
         # format is [nbaseline, nif, num_sb, npol, nchan+1], dtype=complex128
         if (station1 == station2):
-          amp_real = sum(vreal) / nchan
-          amp_imag = sum(vim) / nchan 
+          amp_real = (sum(vreal[1:-1]) + vreal[0]/2 + vreal[-1]/2) / (nchan)
+          amp_imag = sum(vim) / (nchan + 1)
           nstr = 'freq = %d, sb = %d , pol = %d, ampl_real = %.6e , ampl_imag == %.6e, weight = %.6f'%(freq_nr, sideband, pol, amp_real, amp_imag, weight)
         else:
           val, snr, offset = get_baseline_stats(vreal + J*vim)

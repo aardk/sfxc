@@ -449,9 +449,9 @@ Control_parameters::check(std::ostream &writer) const {
     for(int i = 0; i < window.size(); i++)
       window[i] = toupper(window[i]);
     if ((window != "RECTANGULAR") and (window != "COSINE") and (window != "HAMMING") and 
-      (window != "HANN") and (window != "NONE")){
+      (window != "HANN") and (window != "PFB") and (window != "NONE")){
       writer << "Invalid window function " << window 
-             << ", valid choises are : RECTANGULAR, COSINE, HAMMING, HANN, and NONE" << std::endl;
+             << ", valid choises are : RECTANGULAR, COSINE, HAMMING, HANN, PFB, and NONE" << std::endl;
       ok = false;
     }
   }
@@ -656,6 +656,8 @@ Control_parameters::window_function() const{
       windowval = SFXC_WINDOW_HANN;
     else if (window == "NONE")
       windowval = SFXC_WINDOW_NONE;
+    else if (window == "PFB")
+      windowval = SFXC_WINDOW_PFB;
   }
   return windowval;
 }

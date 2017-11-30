@@ -83,7 +83,8 @@ Correlation_core_phased::create_baselines(const Correlation_parameters &paramete
       parameters.sample_rate,
       parameters.fft_size_correlation); 
   // One less because of the overlapping windows
-  if (parameters.window != SFXC_WINDOW_NONE)
+  if ((parameters.window != SFXC_WINDOW_NONE) &&
+      (parameters.window != SFXC_WINDOW_PFB))
     number_ffts_in_integration -= 1;
 
   number_ffts_in_sub_integration =

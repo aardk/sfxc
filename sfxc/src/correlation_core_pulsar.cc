@@ -65,7 +65,8 @@ Correlation_core_pulsar::set_parameters(const Correlation_parameters &parameters
 
   // Compute the phase at the start of the period
   double DT;
-  if (parameters.window == SFXC_WINDOW_NONE)
+  if ((parameters.window != SFXC_WINDOW_NONE) &&
+      (parameters.window != SFXC_WINDOW_PFB))
     DT = ((start_mjd - polyco->tmid) + fft_duration/(2*us_per_day))*1440;
   else
     DT = ((start_mjd - polyco->tmid) + fft_duration/us_per_day)*1440;
