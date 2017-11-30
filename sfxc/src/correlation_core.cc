@@ -138,8 +138,11 @@ Correlation_core::create_baselines(const Correlation_parameters &parameters){
       parameters.sample_rate,
       parameters.fft_size_correlation); 
   // One less because of the overlapping windows
-  if(parameters.window != SFXC_WINDOW_NONE)
+  if ((parameters.window != SFXC_WINDOW_NONE) &&
+      (parameters.window != SFXC_WINDOW_PFB))
     number_ffts_in_integration -= 1;
+  else if (parameters.window == SFXC_WINDOW_PFB)
+    number_ffts_in_integration -= SFXC_NTAPS*2 - 1; 
 
   number_ffts_in_sub_integration =
     Control_parameters::nr_ffts_per_integration_slice(
@@ -692,6 +695,14 @@ hann(int n, int i)
 }
 
 double
+pfb(int n, int i)
+{
+  double x = M_PI * (i-n/2) * SFXC_NTAPS / n;
+  double f = (i == n/2) ? 1 : sin(x) / x;
+  return 0.5 * (1 - cos(2 * M_PI * i / n)) * f;
+}
+
+double
 convolve(double (*f)(int, int), int n, int i)
 {
   double sum = 0.0;
@@ -732,28 +743,31 @@ Correlation_core::create_weights(){
   case SFXC_WINDOW_HANN:
     f = hann;
     break;
+  case SFXC_WINDOW_PFB:
+    f = pfb;
+    break;
   default:
     sfxc_abort("Invalid windowing function");
   }
   // Create zero padded window
-  const int n = fft_size();
-  std::vector<FLOAT> tbuf(4*n);
-  std::vector<std::complex<FLOAT> > fbuf(2*n+1), conjbuf(2*n+1);
-  weights.resize(4*n);
-  for (int i = 0; i < 2*n; i++){
-    tbuf[i] = f(2*n-1, i);
+  const int n = (correlation_parameters.window == SFXC_WINDOW_PFB)? 
+                              2 * fft_size() * SFXC_NTAPS : 2 * fft_size();
+  std::vector<FLOAT> tbuf(2*n);
+  std::vector<std::complex<FLOAT> > fbuf(n+1), conjbuf(n+1);
+  for (int i = 0; i < n; i++) {
+    tbuf[i] = f(n, i);
   }
-  memset(&tbuf[2*n], 0, 2*n*sizeof(FLOAT));
+  memset(&tbuf[n], 0, n * sizeof(FLOAT));
   // Compute auto correlation of windowfunction in Fourier space
   SFXC_FFT fft;
-  fft.resize(4*n);
+  fft.resize(2 * n);
   fft.rfft(&tbuf[0], &fbuf[0]);
-  SFXC_CONJ_FC(&fbuf[0], &conjbuf[0], 2*n + 1);
-  SFXC_MUL_FC_I(&conjbuf[0], &fbuf[0], 2*n + 1);
+  SFXC_CONJ_FC(&fbuf[0], &conjbuf[0], n + 1);
+  SFXC_MUL_FC_I(&conjbuf[0], &fbuf[0], n + 1);
   fft.irfft(&fbuf[0], &tbuf[0]);
   // We assume that the window function is symmetric
-  weights.resize(n);
-  for (int i=0; i<n; i++){
+  weights.resize(fft_size());
+  for (int i = 0; i < fft_size(); i++){
     weights[i] = tbuf[i] / (tbuf[0]);
   }
 }
@@ -762,6 +776,8 @@ void
 Correlation_core::create_window() {
   const int n = 2 * number_channels();
   const int m = 2 * fft_size();
+  const int k = (correlation_parameters.window == SFXC_WINDOW_PFB)?
+                                                        SFXC_NTAPS * n : n;
   double (*f)(int, int);
 
   if (!window.empty())
@@ -797,15 +813,18 @@ Correlation_core::create_window() {
   case SFXC_WINDOW_HANN:
     f = hann;
     break;
+  case SFXC_WINDOW_PFB:
+    f = pfb;
+    break;
   default:
     sfxc_abort("Invalid windowing function");
   }
 
-  window[0] = (m / n) * convolve(f, n, n / 2) / convolve(f, m, m / 2);
+  window[0] = (m / k) * convolve(f, k, k / 2) / convolve(f, m, m / 2);
   for (int i = 1; i < n / 2; i++)
     window[i] = window[n - i] =
-      (m / n) * convolve(f, n, n / 2 + i) / convolve(f, m, m / 2 + i);
-  window[n / 2] = (m / n) * convolve(f, n, n) / convolve(f, m, (n + m) / 2);
+      (m / k) * convolve(f, k, k / 2 + i) / convolve(f, m, m / 2 + i);
+  window[n / 2] = (m / k) * convolve(f, k, (k + n) / 2) / convolve(f, m, (m + n) / 2);
 }
 
 void

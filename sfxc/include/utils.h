@@ -211,6 +211,9 @@ void pause_sfxc_for_gdb(void);
 #define SFXC_WINDOW_COS        2   // Cosine window
 #define SFXC_WINDOW_HAMMING    3   // Hamming window
 #define SFXC_WINDOW_HANN       4   // Hann window
+#define SFXC_WINDOW_PFB        5   // Use filterbank
+
+#define SFXC_NTAPS 8
 
 #ifdef PRINT_PROGRESS
 inline void getusec(unsigned long long &utime) {
