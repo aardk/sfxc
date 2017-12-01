@@ -337,11 +337,14 @@ def get_bandpass(infile, cfg, polarization):
     if (n <= 3) or (n*inttime <= 3):
         start = 0
         toread = n
+    elif (n <= 5) or (n*inttime <= 5):
+        p = int(ceil(1./inttime))
+        start = p
+        toread = n - p - start
     else:
         m = int(ceil(5./inttime))
-        p = int(ceil(1./inttime))
-        start = min(p, n/2 - m)
-        toread = min(n-p, n/2 + m) - start
+        start = n/2 - m
+        toread = n/2 + m - start
 
     # Make the bandpass
     infile.seek(global_header_size + start*size)
@@ -351,12 +354,17 @@ def get_bandpass(infile, cfg, polarization):
         data, nsubint = read_integration(infile, cfg, polarization)
         bandpass += data.sum(axis=0)
     
-    # Now normalize the bandpass per IF
+    # Now normalize the bandpass per IF using median and smoothing RFI lines
     nsubband = cfg["nsubband"]
     nchan = cfg["nchan"]
     for i in range(nsubband):
-        maxnorm = max(bandpass[i*nchan:(i+1)*nchan])
-        bandpass /= max(1., maxnorm)
+        guard = int(round(nchan/10.))
+        inner = bandpass[(i*nchan + guard):((i+1)*nchan - guard)]
+        p = poly1d(polyfit(arange(len(inner)), inner, 8, w=1./(inner + 1e-6)))
+        inner[:] = p(arange(len(inner)))
+    maxnorm = median(bandpass)
+    bandpass /= max(1., maxnorm)
+
     return bandpass
 
 #########
@@ -428,18 +436,16 @@ for infile in infiles:
       # NB: we ordered subbands in reverse order
       start = (cfg["nsubband"] - eif - 1) * nchan
       end = (cfg["nsubband"] - bif) * nchan
-      if zerodm:
-          print 'The range =', start/nchan, ', to', end/nchan
-          for i in range(start/cfg["nchan"], end/cfg["nchan"]):
-              cdata = data[:, i*nchan:(i+1)*nchan]
-              cbandpass = bandpass[i*nchan:(i+1)*nchan]
-              for j in range(data.shape[0]):
-                  av = cdata[j].sum() / nchan
-                  cdata[j] -= av * cbandpass
       if dobp:
           # Don't blow up band edges too much
           bp = [x if x > 1e-2 else 1. for x in bandpass]
           data /= bp
+      if zerodm:
+          print 'The range =', start/nchan, ', to', end/nchan
+          for i in range(start/cfg["nchan"], end/cfg["nchan"]):
+              cdata = data[:, i*nchan:(i+1)*nchan]
+              for j in range(data.shape[0]):
+                  cdata[j] -= cdata[j].sum() / nchan
       data[:, start:end:decimate_frac].tofile(outfile)
       dlen = data[:, start:end:decimate_frac].size * 1. / cfg["nsubint"]
       print 'subint ', total_written, ' : Wrote ', nread, ' sub-integrations, dlen = ', dlen
