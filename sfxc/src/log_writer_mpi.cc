@@ -82,6 +82,10 @@ void Log_writer_mpi_buffer::put_buffer() {
     if (current_level <= max_level) {
       struct timeval time_struct;
       gettimeofday(&time_struct,NULL);
+      // Round to the nearest millisecond
+      suseconds_t ms = (time_struct.tv_usec + 500) / 1000;
+      time_struct.tv_sec += ms / 1000;
+      time_struct.tv_usec = (ms % 1000) * 1000;
       struct tm *tm_struct = localtime(&time_struct.tv_sec);
       snprintf(buffer, 20, "%02dh%02dm%02d.%03ds, %02d, ",
                tm_struct->tm_hour, tm_struct->tm_min, tm_struct->tm_sec,
