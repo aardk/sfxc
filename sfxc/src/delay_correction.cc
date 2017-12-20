@@ -36,6 +36,7 @@ void Delay_correction::do_task() {
     cur_output->data.resize(nfft_cor * output_stride);
 #ifndef DUMMY_CORRELATION
   size_t tbuf_size = time_buffer.size();
+  size_t pos = tbuf_end;
   for(int buf=0;buf<nbuffer;buf++){
     double delay = get_delay(current_time + fft_length/2);
     double delay_in_samples = delay*sample_rate();
@@ -53,7 +54,8 @@ void Delay_correction::do_task() {
     current_time.inc_samples(fft_size());
     total_ffts++;
   }
- 
+  SFXC_ASSERT(tbuf_end - tbuf_start <= tbuf_size);
+
   size_t nsamp_per_window = (window_func == SFXC_WINDOW_NONE) ? fft_rot_size()/2 : fft_rot_size();
   for(int i=0; i<nfft_cor; i++){
     // apply window function
@@ -204,8 +206,10 @@ Delay_correction::set_parameters(const Correlation_parameters &parameters, Delay
   SFXC_ASSERT(((int64_t)fft_size() * 1000000) % sample_rate() == 0);
   fft_length = Time((double)fft_size() / (sample_rate() / 1000000));
 
-  size_t nfft_min = std::max(2*fft_rot_size()/fft_size(), (size_t)1);
-  size_t nfft_max = std::max(CORRELATOR_BUFFER_SIZE / fft_size(), nfft_min) + nfft_min;
+  size_t nfft_min = std::max(2 * fft_cor_size() / fft_size(), (size_t)1);
+  size_t nfft_max =
+    (std::max(CORRELATOR_BUFFER_SIZE / fft_size(), nfft_min) *
+     (uint64_t)sample_rate()) / correlation_parameters.sample_rate + nfft_min;
   time_buffer.resize(nfft_max * fft_size());
 
   exp_array.resize(fft_size());
