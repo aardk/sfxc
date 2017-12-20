@@ -58,7 +58,8 @@ void Delay_correction::do_task() {
     current_time.inc_samples(fft_size());
     total_ffts++;
   }
- 
+  SFXC_ASSERT(tbuf_end - tbuf_start <= tbuf_size);
+
   size_t nsamp_per_window;
   if (window_func == SFXC_WINDOW_NONE) 
     nsamp_per_window = fft_rot_size() / 2;
@@ -225,8 +226,10 @@ Delay_correction::set_parameters(const Correlation_parameters &parameters, Delay
   SFXC_ASSERT(((int64_t)fft_size() * 1000000) % sample_rate() == 0);
   fft_length = Time((double)fft_size() / (sample_rate() / 1000000));
 
-  size_t nfft_min = std::max(2*SFXC_NTAPS*fft_rot_size()/fft_size(), (size_t)1);
-  size_t nfft_max = std::max(CORRELATOR_BUFFER_SIZE / fft_size(), nfft_min) + nfft_min;
+  size_t nfft_min = std::max((SFXC_NTAPS + 1) * fft_cor_size() / fft_size(), (size_t)1);
+  size_t nfft_max =
+    (std::max(CORRELATOR_BUFFER_SIZE / fft_size(), nfft_min) *
+     (uint64_t)sample_rate()) / correlation_parameters.sample_rate + nfft_min;
   time_buffer.resize(nfft_max * fft_size());
 
   exp_array.resize(fft_size());
