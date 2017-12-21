@@ -441,7 +441,7 @@ int initialise_data(const char *vex_filename,
     for (Vex::Node::const_iterator scan_it = scan->begin("station");
          scan_it != scan->end("station"); ++scan_it) {
       if (scan_it[0]->to_string() == station_name) {
-        n_scans +=1;
+        n_scans++;
       }
     }
   }
@@ -504,7 +504,7 @@ int initialise_data(const char *vex_filename,
           }
           assert(i != n_sources);
         }
-        scan_nr +=1;
+        scan_nr++;
       }
     }
   }
