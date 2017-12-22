@@ -465,6 +465,8 @@ int initialise_data(const char *vex_filename,
         assert(scan_nr < n_scans);
         struct Scan_data &scan = scan_data[scan_nr];
 
+	memset(scan.scan_name, 0, sizeof(scan.scan_name));
+	strncpy(scan.scan_name, scan_block.key().c_str(), 80);
         startTime = scan_block["start"]->to_string();
         scan.year = str_to_long(startTime,0,4);  //pos=0, length=4
         int doy = str_to_long(startTime,5,3);

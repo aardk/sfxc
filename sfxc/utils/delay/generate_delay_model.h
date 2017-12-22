@@ -35,6 +35,8 @@ struct Source_data{
 };
 
 struct Scan_data {
+  // Name of the scan.
+  char   scan_name[81];
   // Observation time.
   int    year, month, day, hour, min;
   double sec, sec_of_day;

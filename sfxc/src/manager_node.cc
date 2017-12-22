@@ -507,7 +507,6 @@ void Manager_node::initialise_scan(const std::string &scan) {
   const Vex &vex = control_parameters.get_vex();
   Vex::Date start_of_scan = vex.start_of_scan(scan);
   Vex::Date stop_of_scan = vex.stop_of_scan(scan);
-  const std::string &source = control_parameters.scan_source(scan);
 
   int start_mjd = mjd(1, 1, start_of_scan.year) + start_of_scan.day - 1;
   Time scan_start(start_mjd, start_of_scan.to_miliseconds() / 1000.);
@@ -542,7 +541,7 @@ void Manager_node::initialise_scan(const std::string &scan) {
     Delay_table delay_table;
     const std::string &delay_file =
       control_parameters.get_delay_table_name(station_name); // also generates delay file if it doesn't exist
-    delay_table.open(delay_file.c_str(), scan_start, stop_time_scan, source);
+    delay_table.open(delay_file.c_str(), scan_start, stop_time_scan, scan);
     SFXC_ASSERT(delay_table.initialised());
 
     // Get clock offset
@@ -617,7 +616,7 @@ void Manager_node::initialise_scan(const std::string &scan) {
     Uvw_model uvw_table;
     const std::string &delay_file =
       control_parameters.get_delay_table_name(station_name);
-    uvw_table.open(delay_file.c_str(), scan_start, stop_time_scan, source);
+    uvw_table.open(delay_file.c_str(), scan_start, stop_time_scan, scan);
 
     correlator_node_set_all(uvw_table, station_name);
   }
