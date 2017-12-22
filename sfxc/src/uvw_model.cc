@@ -76,7 +76,7 @@ int Uvw_model::open(const char *delayTableName) {
   return open(delayTableName, start, stop, "");
 }
 
-int Uvw_model::open(const char *delayTableName, Time tstart, Time tstop, const std::string &source) {
+int Uvw_model::open(const char *delayTableName, Time tstart, Time tstop, const std::string &scan) {
   std::ifstream in(delayTableName);
   if(!in.is_open())
     sfxc_abort((std::string("Could not open delay table ")+std::string(delayTableName)).c_str());
@@ -92,13 +92,15 @@ int Uvw_model::open(const char *delayTableName, Time tstart, Time tstop, const s
 
   double line[7], scan_start, scan_end;
   int32_t current_mjd;
+  char current_scan[81];
   char current_source[81];
   int state = READ_SCAN_HEADER;
   bool done_reading = false;
   while((!done_reading) && (in.good())){
     switch(state){
     case READ_SCAN_HEADER:{
-      if(in.read(current_source, sizeof(char) * 81)){
+      if (in.read(current_scan, sizeof(char) * 81)) {
+	in.read(current_source, sizeof(char) * 81);
         in.read(reinterpret_cast < char * > (&current_mjd), sizeof(int32_t));
         in.read(reinterpret_cast < char * > (line), 7*sizeof(double));
         Time start_time_scan(current_mjd, line[0]);
@@ -109,7 +111,7 @@ int Uvw_model::open(const char *delayTableName, Time tstart, Time tstop, const s
             break;
           }
         }
-	if (source != std::string() && source != current_source) {
+	if (scan != std::string() && scan != current_scan) {
 	  state = SKIP_SCAN;
 	} else if (start_time_scan < tstart) {
           state = FIND_TSTART;

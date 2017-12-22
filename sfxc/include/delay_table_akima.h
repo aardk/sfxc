@@ -102,7 +102,7 @@ public:
   //calculate coefficients for parabolic interpolation
   void open(const char *delayTableName);
   void open(const char *delayTableName, const Time tstart, const Time tstop,
-	    const std::string &source);
+	    const std::string &scan);
 
   //Set clock offset and rate
   void set_clock_offset(const double offset, const Time start, const double rate, const Time epoch);

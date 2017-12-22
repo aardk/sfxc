@@ -48,7 +48,7 @@ public:
   //calculate coefficients for parabolic interpolation
   int open(const char *delayTableName);
   int open(const char *delayTableName, Time tstart, Time tstop,
-	   const std::string &source);
+	   const std::string &scan);
 
   void add_scans(const Uvw_model &other);
 
