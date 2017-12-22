@@ -507,7 +507,12 @@ void Manager_node::initialise_scan(const std::string &scan) {
   const Vex &vex = control_parameters.get_vex();
   Vex::Date start_of_scan = vex.start_of_scan(scan);
   Vex::Date stop_of_scan = vex.stop_of_scan(scan);
-  const std::string &source = control_parameters.scan_source(scan);
+
+  std::string source;
+  if (control_parameters.multi_phase_center())
+    source = std::string();
+  else
+    source = control_parameters.scan_source(scan);
 
   int start_mjd = mjd(1, 1, start_of_scan.year) + start_of_scan.day - 1;
   Time scan_start(start_mjd, start_of_scan.to_miliseconds() / 1000.);
