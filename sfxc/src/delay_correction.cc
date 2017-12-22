@@ -226,10 +226,15 @@ Delay_correction::set_parameters(const Correlation_parameters &parameters, Delay
   SFXC_ASSERT(((int64_t)fft_size() * 1000000) % sample_rate() == 0);
   fft_length = Time((double)fft_size() / (sample_rate() / 1000000));
 
-  size_t nfft_min = std::max((SFXC_NTAPS + 1) * fft_cor_size() / fft_size(), (size_t)1);
-  size_t nfft_max =
+  // We use a ringbuffer to implement the window overlap and PFB.
+  // That buffer needs to be large enough to prevent samples that we
+  // still need to be overwritten by the buffers we receive from the
+  // bit2float module.  The following calculation over-estimates the
+  // size a little bit, but that is ok.
+  size_t nfft_min = std::max(fft_rot_size() / fft_size(), (size_t)1);
+  size_t nfft_max = nfft_min * SFXC_NTAPS +
     (std::max(CORRELATOR_BUFFER_SIZE / fft_size(), nfft_min) *
-     (uint64_t)sample_rate()) / correlation_parameters.sample_rate + nfft_min;
+     (uint64_t)sample_rate()) / correlation_parameters.sample_rate;
   time_buffer.resize(nfft_max * fft_size());
 
   exp_array.resize(fft_size());
