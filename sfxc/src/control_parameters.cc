@@ -1318,24 +1318,25 @@ get_vdif_tracks(const std::string &mode,
       for (size_t ch_nr = 0; ch_nr < number_frequency_channels(); ch_nr++) {
 	const std::string &channel_name = frequency_channel(ch_nr, mode, station);
 
-	Input_node_parameters::Channel_parameters channel_param;
+        if (channel_name != std::string()) {
+	  Input_node_parameters::Channel_parameters channel_param;
 
-	int thread_id = -1;
-	for (Vex::Node::const_iterator channel_it = thread->begin("channel");
-	     channel_it != thread->end("channel"); channel_it++) {
-	  if (channel_name == channel_it[0]->to_string())
-	    thread_id = channel_it[1]->to_int();
-	}
+	  int thread_id = -1;
+	  for (Vex::Node::const_iterator channel_it = thread->begin("channel");
+	       channel_it != thread->end("channel"); channel_it++) {
+	    if (channel_name == channel_it[0]->to_string())
+	      thread_id = channel_it[1]->to_int();
+	  }
 
-	channel_param.bits_per_sample = bits_per_sample(mode, station);
-	channel_param.sideband = sideband(channel(ch_nr), setup_station(), mode);
-	channel_param.polarisation = polarisation(channel(ch_nr), setup_station(), mode);
-	channel_param.frequency_number = frequency_number(ch_nr, mode);
-	channel_param.tracks.push_back(thread_id);
-	channel_param.tracks.push_back(-1); // XXX
-	input_parameters.channels.push_back(channel_param);
+  	  channel_param.bits_per_sample = bits_per_sample(mode, station);
+	  channel_param.sideband = sideband(channel(ch_nr), setup_station(), mode);
+	  channel_param.polarisation = polarisation(channel(ch_nr), setup_station(), mode);
+	  channel_param.frequency_number = frequency_number(ch_nr, mode);
+	  channel_param.tracks.push_back(thread_id);
+	  channel_param.tracks.push_back(-1); // XXX
+	  input_parameters.channels.push_back(channel_param);
+        }
       }
-
       return;
   }
 
