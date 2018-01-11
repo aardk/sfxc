@@ -31,6 +31,8 @@ from fringeplot import FringePlotWindow
 from vex import Vex
 from cordata import CorrelatedData
 
+dbhost = 'db0'
+
 def vex2time(str):
     tupletime = time.strptime(str, "%Yy%jd%Hh%Mm%Ss");
     return time.mktime(tupletime)
@@ -74,7 +76,7 @@ class progressDialog(QtGui.QDialog):
             correlator_version = ""
             pass
 
-        conn = db.connect(host="db0", port=3306,
+        conn = db.connect(host=dbhost, port=3306,
                           db="correlator_control",
                           read_default_file="~/.my.cnf")
 
@@ -97,6 +99,7 @@ class progressDialog(QtGui.QDialog):
         if self.subjob == -1:
             return
 
+        sources = []
         try:
             if self.json_input['pulsar_binning']:
                 return
@@ -104,18 +107,42 @@ class progressDialog(QtGui.QDialog):
             pass
         try:
             if self.json_input['multi_phase_center']:
-                return
+                scans = self.json_input['scans']
+                for scan in scans:
+                    for source in self.vex['SCHED'][scan].getall('source'):
+                        source_name = self.vex['SOURCE'][source]['source_name']
+                        sources.append(source_name)
+                    continue
+                pass
         except:
             pass
 
-        conn = db.connect(host="db0", port=3306,
+        conn = db.connect(host=dbhost, port=3306,
                           db="correlator_control",
                           read_default_file="~/.my.cnf")
 
         cursor = conn.cursor()
         output_file = self.json_input['output_file']
-        cursor.execute("INSERT INTO data_output (subjob_id, output_uri)" \
-                           + " VALUES (%d, '%s')" % (self.subjob, output_file))
+        if sources:
+            for source in sources:
+                output_uri = "%s_%s" % (output_file, source)
+                path = urlparse.urlparse(output_uri).path
+                if os.path.exists(path):
+                    cursor.execute("INSERT INTO data_output" \
+                                   + " (subjob_id, output_uri, mpc_source)" \
+                                   + " VALUES (%d, '%s', '%s')" \
+                                   % (self.subjob, output_uri, source))
+                    pass
+                continue
+        else:
+            output_uri = output_file
+            path = urlparse.urlparse(output_uri).path
+            if os.path.exists(path):
+                cursor.execute("INSERT INTO data_output" \
+                               + " (subjob_id, output_uri)" \
+                               + " VALUES (%d, '%s')" % \
+                               (self.subjob, output_uri))
+                pass
         cursor.close()
         conn.commit()
         conn.close()
@@ -125,7 +152,7 @@ class progressDialog(QtGui.QDialog):
         if self.subjob == -1:
             return -1
 
-        conn = db.connect(host="db0", port=3306,
+        conn = db.connect(host=dbhost, port=3306,
                           db="correlator_control",
                           read_default_file="~/.my.cnf")
 
