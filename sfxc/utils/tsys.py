@@ -603,6 +603,9 @@ for secs in times[station]:
         except:
             val = 999.9
             pass
+        if np.isnan(val):
+            val = 999.9
+            pass
         if val > options.cutoff:
             val = 999.9
             pass
