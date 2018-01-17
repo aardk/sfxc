@@ -133,7 +133,7 @@ def get_station_list(vexfile):
 def initialize(base_file_name, nbins, station_list):
   inputfiles = []
   # open all input files and read global header
-  for bin in range(nbins):
+  for bin in range(1,nbins+1):
     filename = base_file_name + '.bin'+str(bin)
     try:
       inputfile = open(filename, 'rb')
