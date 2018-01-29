@@ -165,7 +165,8 @@ void Manager_node::start() {
         // If no stations participate in the current scan move on to the next
         if (nstation_in_scan == 0) {
           Time dt = stop_time_scan - start_time;
-          integration_slice_nr = (int) (dt / integration_time());
+          // NB: In GOTO_NEXT_TIMESLICE integration_slice_nr will be increased by one
+          integration_slice_nr = (int) (dt / integration_time()) - 1;
           if ((dt % integration_time()) != Time()) {
             integration_slice_nr ++;
           }
