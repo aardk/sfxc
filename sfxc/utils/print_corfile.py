@@ -186,7 +186,7 @@ def read_time_slice(infile, stats, uvw, data, nchan, printauto):
     # Get next time slice header
     tsheader_buf = infile.read(timeslice_header_size)
     if len(tsheader_buf) != timeslice_header_size:
-      return 
+      return current_slice 
     timeslice_header = struct.unpack('4i', tsheader_buf)
   # We read one time slice to many
   infile.seek(-timeslice_header_size, 1) 
