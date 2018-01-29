@@ -190,6 +190,7 @@ def read_time_slice(infile, stats, uvw, data, nchan, printauto):
     timeslice_header = struct.unpack('4i', tsheader_buf)
   # We read one time slice to many
   infile.seek(-timeslice_header_size, 1) 
+  return current_slice
 
 def get_stations(vex_file):
   f = open(vex_file, 'r')
@@ -259,21 +260,19 @@ infile.seek(0)
 gheader_buf = infile.read(global_header_size)
 global_header = struct.unpack('i32s2h5i4c',gheader_buf[:64])
 nchan = global_header[5]
-nslices = 0
 while True:
   stats = {}
   uvw = {}
   data = {}
   try:
-    read_time_slice(infile, stats, uvw, data, nchan, printauto)
-    nslices += 1
+    slicenr = read_time_slice(infile, stats, uvw, data, nchan, printauto)
   except Exception, e:
     if e.args[0] != 'EOF':
       raise
     print "Reached end of file"
     sys.exit(0)
    
-  print "---------- time slice ", nslices," ---------"
+  print "---------- time slice ", slicenr," ---------"
   if printstats:
     print_stats(stats, stations)
 
