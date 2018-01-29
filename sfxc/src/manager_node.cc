@@ -151,14 +151,26 @@ void Manager_node::start() {
         initialise_scan(control_parameters.scan(current_scan));
 
         std::vector<bool> station_in_scan(control_parameters.number_stations(), false);
+        int nstation_in_scan = 0;
         for (size_t station=0; station < control_parameters.number_stations();
              station++) {
           for(int ch=0; ch<ch_number_in_scan.size(); ch++){
             if (ch_number_in_scan[ch][station] >= 0){
               station_in_scan[station] = true;
+              nstation_in_scan++;
               break;
             }
           }
+        }
+        // If no stations participate in the current scan move on to the next
+        if (nstation_in_scan == 0) {
+          Time dt = stop_time_scan - start_time;
+          integration_slice_nr = (int) (dt / integration_time());
+          if ((dt % integration_time()) != Time()) {
+            integration_slice_nr ++;
+          }
+          status = GOTO_NEXT_TIMESLICE;
+          break;
         }
 
         // Set the input nodes to the proper start time
