@@ -503,8 +503,6 @@ else:
         continue
     pass
 
-scan = 0
-binned_secs = scans[0][0]
 delta_secs = options.delta_secs
 
 for tsys_file in tsys_files:
@@ -529,14 +527,15 @@ for tsys_file in tsys_files:
         secs = (mjd - 40587) * 86400 + entry[5]
         if stations[station] != antab_station:
             continue
-        if secs < scans[scan][0]:
+        if secs < scans[0][0]:
             continue
+        if secs >= scans[-1][1]:
+            continue
+        scan = 0
         while secs >= scans[scan][1]:
             scan += 1
             continue
-        if binned_secs < scans[scan][0]:
-            binned_secs = scans[scan][0]
-            pass
+        binned_secs = scans[scan][0]
         while secs >= binned_secs + delta_secs:
             binned_secs += delta_secs
             continue
