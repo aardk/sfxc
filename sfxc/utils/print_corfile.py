@@ -10,7 +10,7 @@ baseline_header_size = 8
 max_stations = 32
 fringe_guard = 0.05  # Used to compute the SNR, this is the percentage that is ignored around the maximum
 
-def print_global_header(infile):
+def parse_global_header(infile, doprint):
   infile.seek(0)
   gheader_buf = infile.read(global_header_size)
   if global_header_size == 64:
@@ -20,32 +20,52 @@ def print_global_header(infile):
   hour = global_header[4] / (60*60)
   minute = (global_header[4]%(60*60))/60
   second = global_header[4]%60
-  pol = ['LL', 'RR', 'LL+RR', 'LL+RR+LR+RL'][global_header[9]]
-  
-  if global_header_size == 64:
-    print "SFXC version = %s"%(global_header[8])
-  else:
-    n = global_header[-1].index('\0')
-    print "SFXC version = %s, branch = %s"%(global_header[8], global_header[-1][:n])
+  inttime = global_header[6]
+  nchan = global_header[5]
+ 
+  if doprint: 
+    if global_header_size == 64:
+      print "SFXC version = %s"%(global_header[8])
+    else:
+      n = global_header[-1].index('\0')
+      print "SFXC version = %s, branch = %s"%(global_header[8], global_header[-1][:n])
 
-  n = global_header[1].index('\0')
-  print "Experiment %s, date = %dy%dd%dh%dm%ds, int_time = %d, nchan = %d, polarization = %s"%(global_header[1][:n], global_header[2], global_header[3], hour, minute, second, global_header[6], global_header[5], pol)
+    pol = ['LL', 'RR', 'LL+RR', 'LL+RR+LR+RL'][global_header[9]]
+    n = global_header[1].index('\0')
+    print "Experiment %s, date = %dy%03dd%02dh%02dm%02ds, int_time = %d, nchan = %d, polarization = %s"%(global_header[1][:n], global_header[2], global_header[3], hour, minute, second, inttime, nchan, pol)
+
+  start_date = (global_header[2], global_header[3], 60 * (hour*60 + minute) + second)
+  return start_date, nchan, inttime
+
+def make_time_string(start_date, inttime, slicenr):
+    newsec = start_date[2] + slicenr * (inttime / 1000000.)
+    days = int(newsec / 86400)
+    newsec -= days * 86400
+    newday = start_date[1] + days
+    daysperyear = 366 if (start_date[0] % 4 == 0) else 365
+    newyear = start_date[0] + int(newday / daysperyear)
+    newday %= daysperyear
+    hours = int(newsec / 3600)
+    newsec -= hours * 3600
+    minutes = int(newsec / 60)
+    second = newsec - minutes * 60
+    return "%dy%03dd%02dh%02dm%09.6fs"%(newyear, newday, hours, minutes, second)
 
 def print_uvw(uvws, stations=None):
   for uvw in uvws.iteritems():
     if stations == None:
-      print "Station ", uvw[0]
+      print "Station", uvw[0]
     else:
-      print "Station ", stations[uvw[0]]
+      print "Station", stations[uvw[0]]
     for nstr in uvw[1]:
       print nstr
 
 def print_stats(stats, stations=None):
   for stat in stats.iteritems():
     if stations == None:
-      print "Station ", stat[0]
+      print "Station", stat[0]
     else:
-      print "Station ", stations[stat[0]]
+      print "Station", stations[stat[0]]
     for nstr in stat[1]:
       print nstr
 
@@ -55,9 +75,9 @@ def print_baselines(data, stations=None):
   for key in keys:
     bl = data[key]
     if stations == None:
-      print "Baseline :  station1 = ", key[0], ", station2 = ", key[1]
+      print "Baseline: station1 = %s, station2 = %s"%(key[0], key[1])
     else:
-      print "Baseline :  station1 = ", stations[key[0]], ", station2 = ", stations[key[1]]
+      print "Baseline: station1 = %s, station2 = %s"%(stations[key[0]], stations[key[1]])
     for nstr in bl:
       print nstr
 
@@ -113,9 +133,7 @@ def read_statistics(infile, stats, nstatistics):
     levels = sheader[4:9]
     tot = sum(levels) + 0.0001
     levels = [a / tot for a in levels]
-    nstr = 'freq = ' + str(frequency_nr) + ", sb = " + str(sideband) + ", pol = " + str(polarisation) + \
-           ", levels : --=" + str(levels[0]) + " -+ = " + str(levels[1]) +  " +- = " + str(levels[2]) +  " ++= " + str(levels[3]) + \
-           " invalid = " + str(levels[4])
+    nstr = 'freq = %d, sb = %d, pol = %d, levels: -- %.3f, -+ %.3f, +- %.3f, ++ %.3f, invalid %.3f' % (frequency_nr, sideband, polarisation, levels[0], levels[1], levels[2], levels[3], levels[4])
     try:
       stats[station_nr].append(nstr)
     except KeyError:
@@ -152,10 +170,10 @@ def read_baselines(infile, data, nbaseline, nchan, printauto):
         if (station1 == station2):
           amp_real = (sum(vreal[1:-1]) + vreal[0]/2 + vreal[-1]/2) / (nchan)
           amp_imag = sum(vim) / (nchan + 1)
-          nstr = 'freq = %d, sb = %d , pol = %d, ampl_real = %.6e , ampl_imag == %.6e, weight = %.6f'%(freq_nr, sideband, pol, amp_real, amp_imag, weight)
+          nstr = 'freq = %d, sb = %d, pol = %d, ampl_real = %.6e, ampl_imag = %.6e, weight = %.6f'%(freq_nr, sideband, pol, amp_real, amp_imag, weight)
         else:
           val, snr, offset = get_baseline_stats(vreal + J*vim)
-          nstr = 'freq = %d, sb = %d , pol = %d, fringe ampl = %.6f , SNR = %.6f, offset = %d, weight = %.6f'%(freq_nr, sideband, pol, val, snr, offset, weight)
+          nstr = 'freq = %d, sb = %d, pol = %d, fringe ampl = %.6f, SNR = %.6f, offset = %d, weight = %.6f'%(freq_nr, sideband, pol, val, snr, offset, weight)
         try:
           data[baseline].append(nstr)
         except KeyError:
@@ -253,13 +271,11 @@ stations = get_stations(vex_file) if vex_file != None else None
 
 # Read global header
 global_header_size = struct.unpack('i', infile.read(4))[0]
-if not noheader:
-  print_global_header(infile)
+start_date, nchan, inttime = parse_global_header(infile, not noheader)
 
 infile.seek(0)
 gheader_buf = infile.read(global_header_size)
 global_header = struct.unpack('i32s2h5i4c',gheader_buf[:64])
-nchan = global_header[5]
 while True:
   stats = {}
   uvw = {}
@@ -272,7 +288,8 @@ while True:
     print "Reached end of file"
     sys.exit(0)
    
-  print "---------- time slice ", slicenr," ---------"
+  t = make_time_string(start_date, inttime, slicenr)
+  print "---------- time slice %d, t = %s ---------"%(slicenr, t)
   if printstats:
     print_stats(stats, stations)
 
