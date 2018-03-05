@@ -491,6 +491,11 @@ int initialise_data(const char *vex_filename,
              source_it != scan_block->end("source"); ++source_it) {
           int i;
           const char *source = source_it->to_c_string();
+          if (root["SOURCE"][source] == root["SOURCE"]->end()) {
+	    std::cerr << "source " << source << " not found" << std::endl;
+            exit(EXIT_FAILURE);
+          }
+          source = root["SOURCE"][source]["source_name"]->to_c_string();
           const int source_len = strlen(source);
           for(i = 0; i < n_sources ; i++){
             int pos;
