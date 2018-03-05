@@ -117,10 +117,11 @@ class Mask_parameters {
 class Correlation_parameters {
 public:
   Correlation_parameters()
-      : number_channels(0), fft_size_delaycor(0), fft_size_correlation(0), integration_nr(-1), slice_nr(-1), 
-        slice_offset(-1), sample_rate(0), channel_freq(0), bandwidth(0),
-        sideband('n'), frequency_nr(-1), polarisation('n'), pulsar_binning(false), window(SFXC_WINDOW_RECT) {}
-
+    : number_channels(0), fft_size_delaycor(0), fft_size_correlation(0),
+    integration_nr(-1), slice_nr(-1), slice_offset(-1), sample_rate(0),
+    channel_freq(0), bandwidth(0), sideband('n'), frequency_nr(-1),
+    polarisation('n'), multi_phase_center(false), pulsar_binning(false),
+    window(SFXC_WINDOW_RECT) {}
 
   bool operator==(const Correlation_parameters& other) const;
 
@@ -176,6 +177,7 @@ public:
   int window;                   // Windowing function to be used
   char source[11];              // name of the source under observation
   int32_t n_phase_centers;   // The number of phase centers in the current scan
+  int32_t multi_phase_center;
   int32_t pulsar_binning;
   Pulsar_parameters *pulsar_parameters;
   Mask_parameters *mask_parameters;

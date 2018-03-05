@@ -139,7 +139,8 @@ void Correlation_core_pulsar::do_task() {
     find_invalid();
     for(int bin = 0; bin < nbins; bin++) {
       integration_normalize(accumulation_buffers[bin]);
-      integration_write(accumulation_buffers[bin], 0, bin);
+      int source = sources[delay_tables[first_stream].get_source(0)];
+      integration_write(accumulation_buffers[bin], 0, source, bin);
     }
     tsys_write();
     current_integration++;
