@@ -5,7 +5,7 @@
 #include <set>
 
 Correlation_core::Correlation_core()
-    : current_fft(0), total_ffts(0), split_output(false){
+  : current_fft(0), total_ffts(0) {
 }
 
 Correlation_core::~Correlation_core() {
@@ -53,16 +53,8 @@ void Correlation_core::do_task() {
     find_invalid();
     for(int i = 0 ; i < phase_centers.size(); i++){
       integration_normalize(phase_centers[i]);
-      int source_nr;
-      if(split_output){
-        source_nr = sources[delay_tables[first_stream].get_source(i)]; // FIXME restore
-      }
-      else if(correlation_parameters.pulsar_binning){
-        source_nr = 1; // Source 0 is reserved for of-pulse data
-      }else{
-        source_nr = 0;
-      }
-      integration_write(phase_centers[i], i, source_nr);
+      int source = sources[delay_tables[first_stream].get_source(i)];
+      integration_write(phase_centers[i], i, source, 1);
     }
     tsys_write();
     current_integration++;
@@ -316,7 +308,7 @@ void Correlation_core::integration_normalize(std::vector<Complex_buffer> &integr
   }
 }
 
-void Correlation_core::integration_write(std::vector<Complex_buffer> &integration_buffer, int phase_center, int sourcenr) {
+void Correlation_core::integration_write(std::vector<Complex_buffer> &integration_buffer, int phase_center, int source, int bin) {
 
   // Make sure that the input buffers are released
   // This is done by reference counting
@@ -325,10 +317,12 @@ void Correlation_core::integration_write(std::vector<Complex_buffer> &integratio
   SFXC_ASSERT(integration_buffer.size() == baselines.size());
 
   // Write the output file index
-  {
-    size_t nWrite = sizeof(sourcenr);
-    writer->put_bytes(nWrite, (char *)&sourcenr);
-  }
+  uint32_t index = 0;
+  if (correlation_parameters.multi_phase_center)
+    index = source;
+  else if (correlation_parameters.pulsar_binning)
+    index = bin;
+  writer->put_bytes(sizeof(index), (char *)&index);
 
   int nstreams = number_input_streams();
   std::set<int> stations_set;
@@ -359,6 +353,7 @@ void Correlation_core::integration_write(std::vector<Complex_buffer> &integratio
       if (stations_set.count(station) == 0) {
 	stations_set.insert(station);
 	uvw[j].station_nr = station;
+	uvw[j].source_nr = source;
 	uvw[j].u = uvw_table[stream][phase_center * 3];
 	uvw[j].v = uvw_table[stream][phase_center * 3 + 1];
 	uvw[j].w = uvw_table[stream][phase_center * 3 + 2];
@@ -596,7 +591,6 @@ Correlation_core::uvshift(const Complex_buffer &input_buffer, Complex_buffer &ou
 
 void Correlation_core::add_source_list(const std::map<std::string, int> &sources_){
   sources = sources_;
-  split_output = true;
 }
 
 void Correlation_core::find_invalid() {

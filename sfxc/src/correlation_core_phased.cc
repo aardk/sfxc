@@ -27,6 +27,7 @@ Correlation_core_phased::do_task() {
     int stream = station_stream(i);
     input_elements[i] = &input_buffers[stream]->front()->data[0];
   }
+  const int first_stream = station_stream(0);
   const int stride = input_buffers[0]->front()->stride;
   const int nbuffer = input_buffers[0]->front()->data.size() / stride;
   for (size_t buf_idx = 0; buf_idx < nbuffer * stride ; buf_idx += stride){
@@ -44,7 +45,8 @@ Correlation_core_phased::do_task() {
     PROGRESS_MSG("node " << node_nr_ << ", "
                  << current_fft << " of " << number_ffts_in_integration);
 
-    integration_write(accumulation_buffers, 0, 0);
+    int source = sources[delay_tables[first_stream].get_source(0)];
+    integration_write(accumulation_buffers, 0, source, 1);
     current_integration++;
   }
 }

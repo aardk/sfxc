@@ -31,41 +31,46 @@ Output_node_controller::process_event(MPI_Status &status) {
   case MPI_TAG_OUTPUT_NODE_GLOBAL_HEADER: {
       int size;
       MPI_Get_elements(&status, MPI_CHAR, &size);
-      SFXC_ASSERT(size == sizeof(Output_header_global));
-      struct Output_header_global global_header;
-      MPI_Recv((char *)&global_header, size, MPI_CHAR, status.MPI_SOURCE,
+      SFXC_ASSERT(size >= sizeof(Output_header_global));
+      Output_header_global *global_header;
+      global_header = (Output_header_global *)malloc(size);
+      SFXC_ASSERT(global_header != NULL);
+      MPI_Recv((char *)global_header, size, MPI_CHAR, status.MPI_SOURCE,
                status.MPI_TAG, MPI_COMM_WORLD, &status2);
-      node.write_global_header(global_header);
+      SFXC_ASSERT(global_header->header_size == size);
+      node.write_global_header(*global_header);
 
       struct Output_header_phasecal phasecal_header;
       phasecal_header.header_size = sizeof(phasecal_header);
-      memcpy(&phasecal_header.experiment, global_header.experiment,
+      memcpy(&phasecal_header.experiment, global_header->experiment,
 	     sizeof(phasecal_header.experiment));
       phasecal_header.output_format_version =
-	global_header.output_format_version;
-      phasecal_header.correlator_version = global_header.correlator_version;
+	global_header->output_format_version;
+      phasecal_header.correlator_version = global_header->correlator_version;
       memcpy(&phasecal_header.correlator_branch,
-	     global_header.correlator_branch,
+	     global_header->correlator_branch,
 	     sizeof(phasecal_header.correlator_branch));
-      phasecal_header.job_nr = global_header.job_nr;
-      phasecal_header.subjob_nr = global_header.subjob_nr;
+      phasecal_header.job_nr = global_header->job_nr;
+      phasecal_header.subjob_nr = global_header->subjob_nr;
       phasecal_file.write((char *)&phasecal_header, sizeof(phasecal_header));
 
       if (tsys_file.is_open()) {
 	struct Output_header_tsys tsys_header;
 	tsys_header.header_size = sizeof(tsys_header);
-	memcpy(&tsys_header.experiment, global_header.experiment,
+	memcpy(&tsys_header.experiment, global_header->experiment,
 	       sizeof(tsys_header.experiment));
 	tsys_header.output_format_version =
-	  global_header.output_format_version;
-	tsys_header.correlator_version = global_header.correlator_version;
+	  global_header->output_format_version;
+	tsys_header.correlator_version = global_header->correlator_version;
 	memcpy(&tsys_header.correlator_branch,
-	       global_header.correlator_branch,
+	       global_header->correlator_branch,
 	       sizeof(tsys_header.correlator_branch));
-	tsys_header.job_nr = global_header.job_nr;
-	tsys_header.subjob_nr = global_header.subjob_nr;
+	tsys_header.job_nr = global_header->job_nr;
+	tsys_header.subjob_nr = global_header->subjob_nr;
 	tsys_file.write((char *)&tsys_header, sizeof(tsys_header));
       }
+
+      free(global_header);
 
       return PROCESS_EVENT_STATUS_SUCCEEDED;
     }

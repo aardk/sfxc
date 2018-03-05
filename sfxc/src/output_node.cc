@@ -151,7 +151,7 @@ void Output_node::start() {
 void
 Output_node::
 write_global_header(const Output_header_global &global_header) {
-  int nbytes = sizeof(Output_header_global);
+  int nbytes = global_header.header_size;
   for(int i=0;i<n_data_writers;i++)
     data_writer_ctrl.get_data_writer(i)->put_bytes(nbytes, (char *)&global_header);
 }

@@ -108,6 +108,9 @@ private:
   // The current scan number
   size_t current_scan;
 
+  // A set of all sources.
+  std::set<std::string> sources;
+
   /// the current channel to correlate by a free correlator node
   size_t current_channel;
   size_t current_correlator_node;

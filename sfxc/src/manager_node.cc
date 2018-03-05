@@ -354,6 +354,8 @@ void Manager_node::start_next_timeslice_on_node(int corr_node_nr) {
     correlation_parameters.n_phase_centers = n_sources_in_current_scan;
   else
     correlation_parameters.n_phase_centers = 1;
+  correlation_parameters.multi_phase_center =
+    control_parameters.multi_phase_center();
 
   correlator_node_set(correlation_parameters, corr_node_nr);
 
@@ -426,6 +428,28 @@ Manager_node::initialise() {
   }
   SFXC_ASSERT(current_scan < control_parameters.number_scans());
 
+  // build a list of all source in the current job
+  const Vex vex = control_parameters.get_vex();
+
+  Vex::Date start_time(control_parameters.get_start_time().date_string());
+  Vex::Date stop_time(control_parameters.get_stop_time().date_string());
+  std::string first_scan_name = vex.get_scan_name(start_time);
+  Vex::Node::const_iterator it = vex.get_root_node()["SCHED"][first_scan_name];
+  std::cout << "Getting sources starting scan " << first_scan_name << " ; " << it.key()
+	    << ", stop_time = " << stop_time.to_string()
+	    << ", tstart = " << vex.start_of_scan(it.key()).to_string() << "\n";
+  while(it != vex.get_root_node()["SCHED"]->end() && vex.start_of_scan(it.key()) < stop_time){
+    Vex::Node::const_iterator sources_it = it->begin("source");
+    while(sources_it != it->end("source")){
+      std::string source_name = vex.get_root_node()["SOURCE"][sources_it->to_string()]["source_name"]->to_string();
+      sources.insert(source_name);
+      std::cout << "found source " << source_name << " in scan " << it.key() << std::endl;
+      sources_it++;
+    }
+    it++;
+  }
+  correlator_node_set_all(sources);
+
   if (control_parameters.get_mask_parameters(mask_parameters))
     correlator_node_set_all(mask_parameters);
 
@@ -449,27 +473,6 @@ Manager_node::initialise() {
     }
   }else if(control_parameters.multi_phase_center()){
     SFXC_ASSERT(!control_parameters.pulsar_binning());
-    // build a list of all source in the current job
-    const Vex vex = control_parameters.get_vex();
-
-    Vex::Date start_time(control_parameters.get_start_time().date_string());
-    Vex::Date stop_time(control_parameters.get_stop_time().date_string());
-    std::string first_scan_name = vex.get_scan_name(start_time);
-    Vex::Node::const_iterator it = vex.get_root_node()["SCHED"][first_scan_name];
-    std::set<std::string> sources;
-    std::cout << "Getting sources starting scan " << first_scan_name << " ; " << it.key()
-              << ", stop_time = " << stop_time.to_string()
-              << ", tstart = " << vex.start_of_scan(it.key()).to_string() << "\n";
-    while(it != vex.get_root_node()["SCHED"]->end() && vex.start_of_scan(it.key()) < stop_time){
-      Vex::Node::const_iterator sources_it = it->begin("source");
-      while(sources_it != it->end("source")){
-        sources.insert(sources_it->to_string());
-        std::cout << "found source " << sources_it->to_string() << " in scan " << it.key() << "\n";
-        sources_it++;
-      }
-      it++;
-    }
-    correlator_node_set_all(sources);
 
     // open one output file per source
     std::string base_filename = control_parameters.get_output_file();
@@ -680,37 +683,68 @@ std::string Manager_node::get_current_mode() const {
 }
 
 void Manager_node::send_global_header(){ 
-    // Send the global header
-    Output_header_global output_header;
-    memset(&output_header, 0, sizeof(Output_header_global));
-    output_header.header_size = sizeof(Output_header_global);
-    strcpy(output_header.experiment, control_parameters.get_exper_name().c_str());      // Name of the experiment
-    Time start = control_parameters.get_start_time();
-    int start_year, start_day;
-    // Start year and day (day of year) of the experiment
-    start.get_date(start_year, start_day);
-    output_header.start_year = start_year;      // Start year of the experiment
-    output_header.start_day = start_day;        // Start day of the experiment (day of year)
-    output_header.start_time = (int)start.get_time();
-    // Start time of the correlation in seconds since
-    // midnight
-    output_header.number_channels = control_parameters.number_channels();  // Number of frequency channels
-    Time int_time = control_parameters.integration_time();// Integration time: microseconds
-    output_header.integration_time = (int)int_time.get_time_usec();
-    output_header.output_format_version = OUTPUT_FORMAT_VERSION;
-    
-    const char *svn_version = SVN_VERSION;
-    if (strchr(svn_version, ':'))
-      svn_version = strchr(svn_version, ':') + 1;
-    output_header.correlator_version = atoi(svn_version);
+  size_t len = sizeof(Output_header_global);;
+  std::set<std::string>::iterator it;
+  int i;
 
-    output_header.polarisation_type =
-      control_parameters.polarisation_type_for_global_output_header(get_current_mode());
-    strncpy(output_header.correlator_branch, SVN_BRANCH, 15);
-    output_header.correlator_branch[14] = 0;
-    output_header.job_nr = control_parameters.job_nr();
-    output_header.subjob_nr = control_parameters.subjob_nr();
-
-    output_node_set_global_header((char *)&output_header,
-                                  sizeof(Output_header_global));
+  std::set<std::string> stations;
+  const Vex vex = control_parameters.get_vex();
+  for (Vex::Node::const_iterator it = vex.get_root_node()["STATION"]->begin();
+       it != vex.get_root_node()["STATION"]->end(); it++) {
+    stations.insert(it.key());
   }
+
+  for (it = stations.begin(); it != stations.end(); it++)
+    len += it->size() + 1;
+  for (it = sources.begin(); it != sources.end(); it++)
+    len += it->size() + 1;
+
+  // Send the global header
+  Output_header_global *output_header;
+  output_header = (Output_header_global *)malloc(len);
+  SFXC_ASSERT(output_header != NULL);
+  memset(output_header, 0, len);
+  output_header->header_size = len;
+  strcpy(output_header->experiment,           // Name of the experiment
+      control_parameters.get_exper_name().c_str());
+  Time start = control_parameters.get_start_time();
+  int start_year, start_day;
+  // Start year and day (day of year) of the experiment
+  start.get_date(start_year, start_day);
+  output_header->start_year = start_year;     // Start year of the experiment
+  output_header->start_day = start_day;       // Start day of the experiment (day of year)
+  // Start time of the correlation in seconds since midnight
+  output_header->start_time = (int)start.get_time();
+  output_header->number_channels = control_parameters.number_channels();  // Number of frequency channels
+  Time int_time = control_parameters.integration_time();// Integration time: microseconds
+  output_header->integration_time = (int)int_time.get_time_usec();
+  output_header->output_format_version = OUTPUT_FORMAT_VERSION;
+    
+  const char *svn_version = SVN_VERSION;
+  if (strchr(svn_version, ':'))
+    svn_version = strchr(svn_version, ':') + 1;
+  output_header->correlator_version = atoi(svn_version);
+
+  output_header->polarisation_type =
+    control_parameters.polarisation_type_for_global_output_header(get_current_mode());
+  strncpy(output_header->correlator_branch, SVN_BRANCH, 15);
+  output_header->correlator_branch[14] = 0;
+  output_header->job_nr = control_parameters.job_nr();
+  output_header->subjob_nr = control_parameters.subjob_nr();
+
+  char *data = (char *)(output_header + 1);
+  output_header->stations_offset = data - (char *)output_header;
+  output_header->number_stations = stations.size();
+  for (it = stations.begin(); it != stations.end(); it++) {
+    strcpy(data, it->c_str());
+    data += it->size() + 1;
+  }
+  output_header->sources_offset = data - (char *)output_header;
+  output_header->number_sources = sources.size();
+  for (it = sources.begin(); it != sources.end(); it++) {
+    strcpy(data, it->c_str());
+    data += it->size() + 1;
+  }
+
+  output_node_set_global_header((char *)output_header, len);
+}
