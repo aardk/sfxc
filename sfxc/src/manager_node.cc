@@ -60,18 +60,9 @@ Manager_node(int rank, int numtasks,
   SFXC_ASSERT(n_stations > 0);
 
   // correlator nodes:
-  if (numtasks-(n_stations+3) - control_parameters.number_correlation_cores_per_timeslice(get_current_mode()) < 0) {
-    std::cout << "#correlator nodes < #freq. channels, use at least "
-    << n_stations+3+control_parameters.number_correlation_cores_per_timeslice(get_current_mode())
-    << " nodes." << std::endl
-    << "Exiting now." << std::endl;
-    get_log_writer()(1)
-    << "#correlator nodes < #freq. channels, use at least "
-    << n_stations+3+control_parameters.number_correlation_cores_per_timeslice(get_current_mode())
-    << " nodes." << std::endl
-    << "Exiting now." << std::endl;
-    exit(1);
-  }
+  int mintasks = 3 + n_stations + control_parameters.number_correlation_cores_per_timeslice(get_current_mode());
+  SFXC_ASSERT (numtasks >= mintasks);
+
   n_corr_nodes = numtasks-(n_stations+3);
   std::vector<MPI_Request> pending_requests;
   int numrequest;

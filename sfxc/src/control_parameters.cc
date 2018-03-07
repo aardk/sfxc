@@ -370,6 +370,21 @@ Control_parameters::check(std::ostream &writer) const {
           }
         }
       }
+
+      #ifdef USE_MPI
+      // Check if there enough mpi nodes for the correlation
+      // NB We assume that all scans in the correlation use the same $MODE
+      int numproc, minproc;
+      MPI_Comm_size(MPI_COMM_WORLD, &numproc);
+      std::string mode = get_vex().get_mode(scan(scan(ctrl["start"].asString())));
+      minproc = 3 + number_stations() + number_correlation_cores_per_timeslice(mode);
+
+      if (numproc < minproc) {
+        writer << "#correlator nodes < #freq. channels, use at least "
+               << minproc << " nodes." << std::endl;
+        ok = false;
+      }
+      #endif
     } else {
       ok = false;
       writer << "Ctrl-file: Stations not found" << std::endl;
