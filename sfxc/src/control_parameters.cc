@@ -2004,7 +2004,7 @@ get_correlation_parameters(const std::string &scan_name,
     }
   }
 
-  if (!cross_polarize())
+  if (!corr_param.cross_polarize)
     return corr_param;
 
   channel_nr = cross_channel(channel_nr, mode_name);
