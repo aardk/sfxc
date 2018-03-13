@@ -325,7 +325,7 @@ public:
                              size_t channel_nr,
                              const std::map<std::string, int> &correlator_node_station_to_input) const;
   std::string rack_type(const std::string &station) const;
-  std::string transport_type(const std::string &station) const;
+  std::string recorder_type(const std::string &station) const;
   std::string data_format(const std::string &station) const;
 
   const Vex &get_vex() const;
@@ -362,6 +362,12 @@ private:
   void get_vdif_tracks(const std::string &mode,
 		       const std::string &station,
 		       Input_node_parameters &input_parameters) const;
+  void get_vdif_datastreams(const std::string &mode,
+			    const std::string &station,
+			    Input_node_parameters &input_parameters) const;
+  void get_vdif_threads(const std::string &mode,
+			const std::string &station,
+			Input_node_parameters &input_parameters) const;
 
   std::string ctrl_filename;
   std::string vex_filename;

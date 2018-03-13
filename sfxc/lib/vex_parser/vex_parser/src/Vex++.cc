@@ -34,6 +34,11 @@ Vex::get_root_node_not_const() {
   return root;
 }
 
+double
+Vex::get_version() const {
+  return root["VEX_rev"]->to_double();
+}
+
 std::string
 Vex::get_mode(const std::string &scan) const {
   return root["SCHED"][scan]["mode"]->to_string();

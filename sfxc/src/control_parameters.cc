@@ -791,6 +791,20 @@ Control_parameters::bits_per_sample(const std::string &mode,
                                     const std::string &station) const
 {
   if (data_format(station) == "VDIF") {
+    const std::string datastreams_name = get_vex().get_section("DATASTREAMS", mode, station);
+    if (get_vex().get_version() > 1.5 && datastreams_name == std::string()) {
+      std::cerr << "Cannot find $DATASTREAMS reference for " << station
+		<< " in mode" << mode << std::endl;
+      sfxc_abort();
+    }
+    if (datastreams_name != std::string()) {
+      Vex::Node::const_iterator datastreams = vex.get_root_node()["DATASTREAMS"][datastreams_name];
+      for (Vex::Node::const_iterator thread_it = datastreams->begin("thread");
+	   thread_it != datastreams->end("thread"); thread_it++) {
+	return thread_it[5]->to_int();
+      }
+    }
+
     const std::string threads_name = get_vex().get_section("THREADS", mode, station);
     Vex::Node::const_iterator thread = vex.get_root_node()["THREADS"][threads_name];
     for (Vex::Node::const_iterator thread_it = thread->begin("thread");
@@ -800,7 +814,12 @@ Control_parameters::bits_per_sample(const std::string &mode,
   }
 
   if (data_format(station) == "Mark5B") {
-    const std::string &bitstreams_name = get_vex().get_bitstreams(mode, station);
+    const std::string bitstreams_name = get_vex().get_section("BITSTREAMS", mode, station);
+    if (get_vex().get_version() > 1.5 && bitstreams_name == std::string()) {
+      std::cerr << "Cannot find $BITSTREAMS reference for " << station
+		<< " in mode" << mode << std::endl;
+      sfxc_abort();
+    }
     if (bitstreams_name != std::string()) {
       Vex::Node::const_iterator bitstream = vex.get_root_node()["BITSTREAMS"][bitstreams_name];
       for (Vex::Node::const_iterator fanout_def_it = bitstream->begin("stream_def");
@@ -837,6 +856,52 @@ int
 Control_parameters::sample_rate(const std::string &mode,
 				const std::string &station) const
 {
+  // Use the sample rate specified in the $TRACKS, $BITSTREAMS or
+  // $DATASTREAMS block if specified.  This is mandatory for VEX 2.0.
+  if (data_format(station) == "VDIF") {
+    const std::string datastreams_name = get_vex().get_section("DATASTREAMS", mode, station);
+    if (get_vex().get_version() > 1.5 && datastreams_name == std::string()) {
+      std::cerr << "Cannot find $DATASTREAMS reference for " << station
+		<< " in mode" << mode << std::endl;
+      sfxc_abort();
+    }
+    if (datastreams_name != std::string()) {
+      Vex::Node::const_iterator datastreams = vex.get_root_node()["DATASTREAMS"][datastreams_name];
+      for (Vex::Node::const_iterator thread_it = datastreams->begin("thread");
+	   thread_it != datastreams->end("thread"); thread_it++) {
+	return (int)(thread_it[4]->to_double_amount("Ms/sec") * 1e6);
+      }
+    }
+  }
+
+  if (data_format(station) == "Mark5B") {
+    const std::string bitstreams_name = get_vex().get_section("BITSTREAMS", mode, station);
+    if (get_vex().get_version() > 1.5 && bitstreams_name == std::string()) {
+      std::cerr << "Cannot find $BITSTREAMS reference for " << station
+		<< " in mode" << mode << std::endl;
+      sfxc_abort();
+    }
+    if (bitstreams_name != std::string()) {
+      Vex::Node::const_iterator bitstreams = vex.get_root_node()["BITSTREAMS"][bitstreams_name];
+      if (bitstreams->begin("stream_sample_rate") != bitstreams->end())
+	return (int)(bitstreams["stream_sample_rate"]->to_double_amount("Ms/sec") * 1e6);
+    }
+  }
+
+  if (data_format(station) == "Mark4") {
+    const std::string tracks_name = get_vex().get_section("TRACKS", mode, station);
+    if (get_vex().get_version() > 1.5 && tracks_name == std::string()) {
+      std::cerr << "Cannot find $TRACKS reference for " << station
+		<< " in mode" << mode << std::endl;
+      sfxc_abort();
+    }
+    if (tracks_name != std::string()) {
+      Vex::Node::const_iterator tracks = vex.get_root_node()["TRACKS"][tracks_name];
+      if (tracks->begin("sample_rate") != tracks->end())
+	return (int)(tracks["sample_rate"]->to_double_amount("Ms/sec") * 1e6);
+    }
+  }
+
   const std::string &freq_name = get_vex().get_frequency(mode, station);
   Vex::Node::const_iterator freq = vex.get_root_node()["FREQ"][freq_name];
 
@@ -1200,6 +1265,11 @@ get_mark5b_tracks(const std::string &mode,
   const Vex::Node &root=get_vex().get_root_node();
 
   const std::string bitstreams_name = get_vex().get_bitstreams(mode, station);
+  if (get_vex().get_version() > 1.5 && bitstreams_name == std::string()) {
+    std::cerr << "Cannot find $BITSTREAMS reference for " << station
+	      << " in mode" << mode << std::endl;
+    sfxc_abort();
+  }
   if (bitstreams_name != std::string()) {
     input_parameters.n_tracks = n_mark5b_bitstreams(mode, station);
     // Parse the bitstream section
@@ -1306,6 +1376,110 @@ get_vdif_tracks(const std::string &mode,
 		Input_node_parameters &input_parameters) const {
 
   const Vex::Node &root = get_vex().get_root_node();
+  const std::string datastreams_name = get_vex().get_section("DATASTREAMS", mode, station);
+  if (get_vex().get_version() > 1.5 || datastreams_name != std::string())
+    get_vdif_datastreams(mode, station, input_parameters);
+  else
+    get_vdif_threads(mode, station, input_parameters);
+}
+
+void
+Control_parameters::
+get_vdif_datastreams(const std::string &mode,
+		     const std::string &station,
+		     Input_node_parameters &input_parameters) const {
+
+  const Vex::Node &root = get_vex().get_root_node();
+  const std::string datastreams_name = get_vex().get_section("DATASTREAMS", mode, station);
+  if (datastreams_name == std::string()) {
+    std::cerr << "Cannot find $DATASTREAMS reference for " << station
+	      << " in mode" << mode << std::endl;
+    sfxc_abort();
+  }
+
+  Vex::Node::const_iterator datastream = vex.get_root_node()["DATASTREAMS"][datastreams_name];
+  int num_threads = 0;
+  input_parameters.frame_size = 0;
+  for (Vex::Node::const_iterator thread_it = datastream->begin("thread");
+       thread_it != datastream->end("thread"); thread_it++) {
+    if (input_parameters.frame_size == 0)
+      input_parameters.frame_size = thread_it[7]->to_int();
+    num_threads++;
+  }
+  int num_channels = 0;
+  for (Vex::Node::const_iterator channel_it = datastream->begin("channel");
+       channel_it != datastream->end("channel"); channel_it++) {
+    num_channels++;
+  }
+
+  // We can handle multi-thread, single-channel VDIF in a more
+  // efficient way as we don't need to do any unpacking.
+  if (num_threads == num_channels) {
+      input_parameters.n_tracks = 0;
+      for (size_t ch_nr = 0; ch_nr < number_frequency_channels(); ch_nr++) {
+	const std::string &channel_name = frequency_channel(ch_nr, mode, station);
+
+	Input_node_parameters::Channel_parameters channel_param;
+
+	int thread_id = -1;
+	for (Vex::Node::const_iterator channel_it = datastream->begin("channel");
+	     channel_it != datastream->end("channel"); channel_it++) {
+	  if (channel_name == channel_it[2]->to_string())
+	    thread_id = channel_it[3]->to_int();
+	}
+
+	channel_param.bits_per_sample = bits_per_sample(mode, station);
+	channel_param.sideband = sideband(channel(ch_nr), setup_station(), mode);
+	channel_param.polarisation = polarisation(channel(ch_nr), setup_station(), mode);
+	channel_param.frequency_number = frequency_number(ch_nr, mode);
+	channel_param.tracks.push_back(thread_id);
+	channel_param.tracks.push_back(-1); // XXX
+	input_parameters.channels.push_back(channel_param);
+      }
+
+      return;
+  }
+
+  int num_tracks = 0;
+  for (Vex::Node::const_iterator channel_it = datastream->begin("channel");
+       channel_it != datastream->end("channel"); channel_it++) {
+    num_tracks += bits_per_sample(mode, station);
+  }
+
+  input_parameters.n_tracks = num_tracks;
+  for (size_t ch_nr = 0; ch_nr < number_frequency_channels(); ch_nr++) {
+    const std::string &channel_name = frequency_channel(ch_nr, mode, station);
+
+    if (channel_name != std::string()) {
+      Input_node_parameters::Channel_parameters channel_param;
+      channel_param.bits_per_sample = bits_per_sample(mode, station);
+      channel_param.sideband = sideband(channel(ch_nr), setup_station(), mode);
+      channel_param.polarisation = polarisation(channel(ch_nr), setup_station(), mode);
+      channel_param.frequency_number = frequency_number(ch_nr, mode);
+
+      // NB: Number of channels (and therefore num_tracks) is always a power of two
+      const int word_size = (num_tracks <= 32) ? 32 : num_tracks; 
+      for (int i = 0; i < word_size; i += num_tracks) {
+        for (Vex::Node::const_iterator channel_it = datastream->begin("channel");
+             channel_it != datastream->end("channel"); channel_it++) {
+          if (channel_name == channel_it[2]->to_string()) {
+            for (int track = bits_per_sample(mode, station) - 1; track >= 0; track--)
+              channel_param.tracks.push_back(channel_it[3]->to_int() * bits_per_sample(mode, station) + track + i);
+          }
+        }
+      }
+      input_parameters.channels.push_back(channel_param);
+    }
+  }
+}
+
+void
+Control_parameters::
+get_vdif_threads(const std::string &mode,
+		 const std::string &station,
+		 Input_node_parameters &input_parameters) const {
+
+  const Vex::Node &root = get_vex().get_root_node();
   const std::string threads_name = get_vex().get_section("THREADS", mode, station);
   if (threads_name == std::string()) {
     std::cerr << "Cannot find $THREADS reference for " << station
@@ -1382,8 +1556,6 @@ get_vdif_tracks(const std::string &mode,
           if (channel_name == channel_it[0]->to_string()) {
             for (int track = bits_per_sample(mode, station) - 1; track >= 0; track--)
               channel_param.tracks.push_back(channel_it[2]->to_int() * bits_per_sample(mode, station) + track + i);
-            //for (int track = 0 ; track < bits_per_sample(mode, station) ; track++)
-            //  channel_param.tracks.push_back(channel_it[2]->to_int() * bits_per_sample(mode, station) + track + i);
           }
         }
       }
@@ -1573,51 +1745,36 @@ get_input_node_parameters(const std::string &mode_name,
 }
 
 std::string
-Control_parameters::transport_type(const std::string &station) const {
-  const Vex::Node &root = vex.get_root_node();
-  Vex::Node::const_iterator station_block = root["STATION"][station];
-  for (Vex::Node::const_iterator das_it = station_block->begin("DAS");
-       das_it != station_block->end("DAS"); ++das_it) {
-    const std::string das = das_it->to_string();
-    if (root["DAS"][das] == root["DAS"]->end()) {
-      std::cerr << "Cannot find " << das << " in $DAS block" << std::endl;
-      sfxc_abort();
-    }
-    if (root["DAS"][das]["record_transport_type"] != root["DAS"][das]->end())
-      return root["DAS"][das]["record_transport_type"]->to_string();
-  }
-  return std::string();
-}
-
-std::string
 Control_parameters::data_format(const std::string &station) const {
-  if (transport_type(station) == "Mark5A") {
+
+  if (recorder_type(station) == "Mark5A") {
     if (rack_type(station) == "VLBA4")
       return "Mark4";
-    return rack_type(station);
+    else
+      return rack_type(station);
   }
-
-  // Temporary until the various VEX parsers learn about Mark5C
-  // (and Dr. Bob stops needlessly editing VEX files)
-  if (transport_type(station) == "Mark5B") {
+  if (recorder_type(station) == "Mark5B") {
     if (rack_type(station) == "DVP" || rack_type(station) == "RDBE2" ||
 	rack_type(station) == "WIDAR")
       return "VDIF";
+    else
+      return "Mark5B";
   }
-  if (transport_type(station) == "Mark5C") {
+  if (recorder_type(station) == "Mark5C") {
     if (rack_type(station) == "DBBC" || rack_type(station) == "DVP" ||
 	rack_type(station) == "RDBE2" || rack_type(station) == "WIDAR")
       return "VDIF";
   }
-  if (transport_type(station) == "Mark6") {
+  if (recorder_type(station) == "Mark6") {
     return "VDIF";
   }
-  if (transport_type(station) == "None") {
+  if (recorder_type(station) == "None") {
     if (rack_type(station) == "DBBC")
       return "VDIF";
   }
 
-  return transport_type(station);
+  std::cerr << "Cannot determine data format for " << station << std::endl;
+  sfxc_abort();
 }
 
 std::string
@@ -1626,13 +1783,46 @@ Control_parameters::rack_type(const std::string &station) const {
   Vex::Node::const_iterator station_block = root["STATION"][station];
   for (Vex::Node::const_iterator das_it = station_block->begin("DAS");
        das_it != station_block->end("DAS"); ++das_it) {
-    const std::string das = das_it->to_string();
-    if (root["DAS"][das] == root["DAS"]->end()) {
-      std::cerr << "Cannot find " << das << " in $DAS block" << std::endl;
+    const std::string das_name = das_it->to_string();
+    if (root["DAS"][das_name] == root["DAS"]->end()) {
+      std::cerr << "Cannot find " << das_name << " in $DAS block" << std::endl;
       sfxc_abort();
     }
-    if (root["DAS"][das]["electronics_rack_type"] != root["DAS"][das]->end())
-      return root["DAS"][das]["electronics_rack_type"]->to_string();
+    Vex::Node::const_iterator das = root["DAS"][das_name];
+    if (das["equip"] != das->end()) {
+      for (Vex::Node::const_iterator equip_it = das->begin("equip");
+	   equip_it != das->end("equip"); equip_it++) {
+	if (equip_it[0]->to_string() == "rack")
+	  return equip_it[1]->to_string();
+      }
+    }
+    if (vex.get_version() <= 1.5 && das["electronics_rack_type"] != das->end())
+      return das["electronics_rack_type"]->to_string();
+  }
+  return std::string();
+}
+
+std::string
+Control_parameters::recorder_type(const std::string &station) const {
+  const Vex::Node &root = vex.get_root_node();
+  Vex::Node::const_iterator station_block = root["STATION"][station];
+  for (Vex::Node::const_iterator das_it = station_block->begin("DAS");
+       das_it != station_block->end("DAS"); ++das_it) {
+    const std::string das_name = das_it->to_string();
+    if (root["DAS"][das_name] == root["DAS"]->end()) {
+      std::cerr << "Cannot find " << das_name << " in $DAS block" << std::endl;
+      sfxc_abort();
+    }
+    Vex::Node::const_iterator das = root["DAS"][das_name];
+    if (das["equip"] != das->end()) {
+      for (Vex::Node::const_iterator equip_it = das->begin("equip");
+	   equip_it != das->end("equip"); equip_it++) {
+	if (equip_it[0]->to_string() == "recorder")
+	  return equip_it[1]->to_string();
+      }
+    }
+    if (vex.get_version() <= 1.5 && das["record_transport_type"] != das->end())
+      return das["record_transport_type"]->to_string();
   }
   return std::string();
 }

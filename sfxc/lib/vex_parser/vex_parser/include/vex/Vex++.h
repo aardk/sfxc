@@ -23,6 +23,9 @@ public:
   Vex(const char* filename);
   bool open(const char* filename);
 
+  // Return version number
+  double get_version(void) const;
+
   // Returns the names of the scans
   template <class OutputIterator>
   OutputIterator get_scans(OutputIterator it) const;
