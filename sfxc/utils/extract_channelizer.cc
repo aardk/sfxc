@@ -66,7 +66,7 @@ int main(int argc, char** argv)
           for (size_t station=0;station<control_parameters.number_stations(); station++)
             {
               std::string station_name = control_parameters.station(station);
-              std::cout << "TRANSPORT TYPE:" << control_parameters.transport_type(station_name) << std::endl;
+              std::cout << "TRANSPORT TYPE:" << control_parameters.recorder_type(station_name) << std::endl;
 
               Input_node_parameters input_node_param = control_parameters.get_input_node_parameters(mode_name, station_name);
 
