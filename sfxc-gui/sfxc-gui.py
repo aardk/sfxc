@@ -31,8 +31,6 @@ from fringeplot import FringePlotWindow
 from vex import Vex
 from cordata import CorrelatedData
 
-dbhost = 'db0'
-
 def vex2time(str):
     tupletime = time.strptime(str, "%Yy%jd%Hh%Mm%Ss");
     return time.mktime(tupletime)
@@ -492,11 +490,17 @@ parser.add_option("-r", "--reference", dest="reference",
 parser.add_option("-s", "--skip-generate-delays", dest="skip_generate_delays",
                   action="store_true", default=False,
                   help="do not generate delay files")
+parser.add_option("-d", "--database-host", dest="dbhost",
+                  default="db0", type="string",
+                  help="Database host to use, default = db0",
+                  metavar="HOST")
 
 (options, args) = parser.parse_args()
 if len(args) != 4:
     parser.error("incorrect number of arguments")
     pass
+
+dbhost = options.dbhost
 
 os.environ['TZ'] = 'UTC'
 time.tzset()
