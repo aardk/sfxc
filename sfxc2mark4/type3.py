@@ -1,7 +1,9 @@
+import json
 import math
 import struct
 import sys
 import time
+import urlparse
 
 import numpy as np
 import scipy as sp
@@ -12,6 +14,7 @@ from vex import Vex
 class ScanInfo:
     def __init__(self, vex, station, scan):
         self.frequencies = []
+        self.channels = []
         self.max_bandwidth = 0
         self.upper = False
         self.lower = False
@@ -20,6 +23,16 @@ class ScanInfo:
         freqs = vex['MODE'][mode].getall('FREQ')
         for freq in freqs:
             if station in freq[1:]:
+                break
+            continue
+        bbcs = vex['MODE'][mode].getall('BBC')
+        for bbc in bbcs:
+            if station in bbc[1:]:
+                break
+            continue
+        _ifs = vex['MODE'][mode].getall('IF')
+        for _if in _ifs:
+            if station in _if[1:]:
                 break
             continue
         value = vex['FREQ'][freq[0]]['sample_rate'].split()
@@ -62,6 +75,40 @@ class ScanInfo:
                 pass
             continue
         self.frequencies.sort()
+
+        for chan_def in channels:
+            value = chan_def[1].split()
+            frequency = float(value[0])
+            if value[1] == 'GHz':
+                frequency *= 1e9
+            elif value[1] == 'MHz':
+                frequency *= 1e6
+            elif value[1] == 'KHz':
+                frequency *= 1e3
+                pass
+            frequency = self.frequencies.index(frequency)
+            if chan_def[2] == 'U':
+                sideband = 1
+            else:
+                sideband = 0
+                pass
+            bbcs = vex['BBC'][bbc[0]].getall('BBC_assign')
+            for bbc_assign in bbcs:
+                if chan_def[5] == bbc_assign[0]:
+                    break
+                continue
+            ifs = vex['IF'][_if[0]].getall('if_def')
+            for if_def in ifs:
+                if bbc_assign[2] == if_def[0]:
+                    break
+                continue
+            if if_def[2] == 'R':
+                pol = 0
+            else:
+                pol = 1
+                pass
+            self.channels.append((frequency, sideband, 0))
+            continue
 
         stations = []
         for station_def in vex['STATION']:
@@ -106,6 +153,7 @@ ident = "3s2s3x16s32s8x"
 type3 = "3s2s3x"
 type300 = "!c2s32sx12sfH2x"
 type301 = "!H32s6x6d"
+type302 = "!H32s6x6d"
 type309_header = "!IIdd"
 type309_channel = "!8sd128i"
 
@@ -124,12 +172,23 @@ def write_type300(info, start, interval, nsplines, out_fp):
     out_fp.write(buf)
     return
 
-def write_type301(info, out_fp):
+def write_type301(info, frequency, sideband, pol, out_fp):
     # Write Type301 header
     buf = struct.pack(type3, '301', '00')
     out_fp.write(buf)
+    chan_name = info.chan_name(frequency, sideband, pol)
     coefficients = [0.0] * 6
-    buf = struct.pack(type301, 0, info.chan_name(0, 0, 0), *coefficients)
+    buf = struct.pack(type301, 0, chan_name, *coefficients)
+    out_fp.write(buf)
+    return
+
+def write_type302(info, frequency, sideband, pol, out_fp):
+    # Write Type301 header
+    buf = struct.pack(type3, '301', '00')
+    out_fp.write(buf)
+    chan_name = info.chan_name(frequency, sideband, pol)
+    coefficients = [0.0] * 6
+    buf = struct.pack(type302, 0, chan_name, *coefficients)
     out_fp.write(buf)
     return
 
@@ -273,20 +332,31 @@ def write_type309(info, in_file, out_fp):
             out_fp.write(buf)
             tone += 1
             continue
+        out_fp.write('\0' * (64 - tone) * struct.calcsize(type309_channel))
         continue
     return
 
 station = 'Ny'
 scan = '191-0534'
 
+fp = open(sys.argv[2], 'r')
+json_input = json.load(fp)
+fp.close()
+
 vex = Vex(sys.argv[1])
 info = ScanInfo(vex, station, scan)
 
-filename = "test"
+phasecal_uri = json_input['phasecal_file']
+phasecal_file = urlparse.urlparse(phasecal_uri).path
+
+filename = "1234/191-0534/N..mtuwvo"
 fp = open(filename, 'w')
 buf = struct.pack(ident, '000', '01', "2001001-123456", filename)
 fp.write(buf)
 
-write_type300(info, 1404970440, 120, 2, fp)
-write_type301(info, fp)
-write_type309(info, sys.argv[2], fp)
+write_type300(info, 1404970440, 240, 1, fp)
+for channel in info.channels:
+    write_type301(info, channel[0], channel[1], channel[2], fp)
+    write_type302(info, channel[0], channel[1], channel[2], fp)
+    continue
+write_type309(info, phasecal_file, fp)
