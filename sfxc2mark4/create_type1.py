@@ -381,6 +381,7 @@ def write_t120s(data, scan, outfiles, t101_map, n):
   # lagdata     array   variable  Correlation counts
 
   # Type, vesion, corrtype (equal to 5 for SFXC / DiFX), nlags
+  integr_time = data.integration_time.total_seconds()
   hbase = struct.pack("!3s2sbh", "120", "00", 5, data.nchan)
   for bl in data.vis:
     blname = "{}{}".format(STATIONMAP[bl[0]], STATIONMAP[bl[1]])
@@ -394,7 +395,7 @@ def write_t120s(data, scan, outfiles, t101_map, n):
       # Normalize weight
       bw = scan['freq'][(ch.freqnr, ch.sideband, ch.pol1)]['bw']
       v = data.vis[bl][ch]
-      weight = v.weight * 1e-6 / (2 * bw)
+      weight = v.weight * 1e-6 / (2 * bw * integr_time)
       # Weight, Status,  fr_delay, delay_rate 
       f.write(struct.pack('!f3i', weight, 0, 0, 0))
       # The visibility data itself
