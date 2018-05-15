@@ -1,5 +1,7 @@
 import json
 import math
+import os
+import os.path
 import struct
 import sys
 import time
@@ -11,6 +13,11 @@ from scipy import fftpack, signal
 
 from vex import Vex
 
+from stationmap import station_codes
+
+os.environ['TZ'] = 'UTC'
+time.tzset()
+
 class ScanInfo:
     def __init__(self, vex, station, scan):
         self.frequencies = []
@@ -18,6 +25,8 @@ class ScanInfo:
         self.max_bandwidth = 0
         self.upper = False
         self.lower = False
+
+        self.scan = scan
 
         mode = vex['SCHED'][scan]['mode']
         freqs = vex['MODE'][mode].getall('FREQ')
@@ -117,6 +126,34 @@ class ScanInfo:
         stations.sort()
         self.station = stations.index(station)
 
+        source = vex['SCHED'][scan]['source']
+        self.source = vex['SOURCE'][source]['source_name']
+        self.start = vex2time(vex['SCHED'][scan]['start'])
+        self.length = 0
+        for transfer in vex['SCHED'][scan].getall('station'):
+            if transfer[0] == station:
+                self.length = int(transfer[2].split()[0])
+                pass
+            continue
+
+        clock = vex['STATION'][station]['CLOCK']
+        clock_early = vex['CLOCK'][clock]['clock_early']
+        self.clock = np.zeros(2)
+        self.clock_epoch = vex2time(clock_early[2])
+        value = clock_early[1].split()
+        self.clock[0] = float(value[0])
+        if value[1] == 'usec':
+            self.clock[0] *= 1e-6
+            pass
+        value = clock_early[3].split()
+        # If clock rate unit is missing, assume usec/sec.
+        if len(value) == 1:
+            value.append('usec/sec')
+            pass
+        self.clock[1] = float(value[0])
+        if value[1] == 'usec/sec':
+            self.clock[1] *= 1e-6
+            pass
         return
 
     def chan_name(self, frequency, sideband, pol):
@@ -163,32 +200,135 @@ def time2date(secs):
     return struct.pack("!HHHHf", tm.tm_year, tm.tm_yday, tm.tm_hour,
                        tm.tm_min, tm.tm_sec)
 
-def write_type300(info, start, interval, nsplines, out_fp):
+def vex2time(str):
+    tupletime = time.strptime(str, "%Yy%jd%Hh%Mm%Ss");
+    return time.mktime(tupletime)
+
+delay_header_v0 = "=I2sx"
+delay_header_v1 = "=II2sx"
+delay_scan = "=80sx"
+delay_source = "=80sxI"
+delay_entry = "=7d"
+
+def parse_model(info, delay_file):
+    fp = open(delay_file, 'r')
+    buf = fp.read(struct.calcsize(delay_header_v0))
+    hdr = struct.unpack(delay_header_v0, buf)
+    if hdr[0] > 3:
+        fp.seek(0)
+        buf = fp.read(struct.calcsize(delay_header_v1))
+        hdr = struct.unpack(delay_header_v1, buf)
+        version = hdr[1]
+    else:
+        version = 0
+        pass
+
+    scan = info.scan
+
+    if version > 0:
+        buf = fp.read(struct.calcsize(delay_scan))
+        scan = struct.unpack(delay_scan, buf)[0]
+        pass
+    buf = fp.read(struct.calcsize(delay_source))
+    src = struct.unpack(delay_source, buf)
+    source = src[0].strip()
+    mjd = src[1]
+    start = None
+    t = []
+    d = []
+    u = []; v = [];  w = []
+    while fp:
+        buf = fp.read(struct.calcsize(delay_entry))
+        if not buf:
+            break
+        delay = struct.unpack(delay_entry, buf)
+        if delay[0] == 0 and delay[4] == 0:
+            if (source == info.source and
+                scan == info.scan and
+                start >= info.start and
+                start < info.start + info.length):
+                return (t, d, u, v, w)
+            if version > 0:
+                buf = fp.read(struct.calcsize(delay_scan))
+                if not buf:
+                    break
+                scan = struct.unpack(delay_scan, buf)[0]
+                pass
+            buf = fp.read(struct.calcsize(delay_source))
+            if not buf:
+                break
+            src = struct.unpack(delay_source, buf)
+            source = src[0].strip()
+            mjd = src[1]
+            start = None
+            t = []
+            d = []
+            u = []; v = [];  w = []
+            continue
+        if start == None:
+            start = (mjd - 40587) * 86400 + delay[0]
+            pass
+        t.append(delay[0])
+        u.append(delay[1])
+        v.append(delay[2])
+        w.append(delay[3])
+        d.append(delay[4])
+        continue
+    return
+
+def create_splines(interval, x, y):
+    splines = []
+    diff_max = 0.0
+    x = np.array(x)
+    y = np.array(y)
+    akima = sp.interpolate.Akima1DInterpolator(x, y)
+    while len(x) > 1:
+        points = min(interval + 1, len(x))
+        u = np.linspace(0, points - 1, 7)
+        v = np.array(map(lambda x: akima(x), x[0] + u))
+        z = np.polyfit(u, v, 5)
+        splines.append(np.flip(z, 0))
+        poly = np.poly1d(z)
+        a = np.arange(0, points - 1, 0.125)
+        b = np.array(map(lambda x: poly(x), a))
+        q = np.arange(x[0], x[0] + points - 1, 0.125)
+        r = np.array(map(lambda x: akima(x), q))
+	diff = np.max(np.absolute(r - b))
+        if diff > diff_max:
+            diff_max = diff
+            pass
+        x = x[points - 1:]
+        y = y[points - 1:]
+        continue
+    return (splines, diff_max)
+
+def write_type300(info, interval, out_fp):
     # Write Type300 header
     buf = struct.pack(type3, '300', '00')
     out_fp.write(buf)
-    buf = struct.pack(type300, 'N', 'Ny', 'NY', time2date(start), interval,
-                      nsplines)
+    nsplines = (info.length + interval -1) // interval
+    buf = struct.pack(type300, 'N', 'Ny', 'NY', time2date(info.start),
+                      interval, nsplines)
     out_fp.write(buf)
     return
 
-def write_type301(info, frequency, sideband, pol, out_fp):
+def write_type301(info, index, frequency, sideband, pol, spline, out_fp):
     # Write Type301 header
     buf = struct.pack(type3, '301', '00')
     out_fp.write(buf)
     chan_name = info.chan_name(frequency, sideband, pol)
-    coefficients = [0.0] * 6
-    buf = struct.pack(type301, 0, chan_name, *coefficients)
+    coefficients = spline
+    buf = struct.pack(type301, index, chan_name, *coefficients)
     out_fp.write(buf)
     return
 
-def write_type302(info, frequency, sideband, pol, out_fp):
+def write_type302(info, index, frequency, sideband, pol, spline, out_fp):
     # Write Type301 header
-    buf = struct.pack(type3, '301', '00')
+    buf = struct.pack(type3, '302', '00')
     out_fp.write(buf)
     chan_name = info.chan_name(frequency, sideband, pol)
-    coefficients = [0.0] * 6
-    buf = struct.pack(type302, 0, chan_name, *coefficients)
+    coefficients = spline * info.frequencies[frequency]
+    buf = struct.pack(type302, index, chan_name, *coefficients)
     out_fp.write(buf)
     return
 
@@ -336,27 +476,57 @@ def write_type309(info, in_file, out_fp):
         continue
     return
 
-station = 'Ny'
-scan = '191-0534'
+#station = 'Ny'
+#scan = '191-0534'
+interval = 120
+
+vex = Vex(sys.argv[1])
 
 fp = open(sys.argv[2], 'r')
 json_input = json.load(fp)
 fp.close()
 
-vex = Vex(sys.argv[1])
-info = ScanInfo(vex, station, scan)
+exper_name = json_input['exper_name']
 
 phasecal_uri = json_input['phasecal_file']
 phasecal_file = urlparse.urlparse(phasecal_uri).path
 
-filename = "1234/191-0534/N..mtuwvo"
-fp = open(filename, 'w')
-buf = struct.pack(ident, '000', '01', "2001001-123456", filename)
-fp.write(buf)
+delay_uri = json_input['delay_directory']
+delay_directory = urlparse.urlparse(delay_uri).path
 
-write_type300(info, 1404970440, 240, 1, fp)
-for channel in info.channels:
-    write_type301(info, channel[0], channel[1], channel[2], fp)
-    write_type302(info, channel[0], channel[1], channel[2], fp)
+scan = json_input['scans'][0]
+
+for station in json_input['stations']:
+    if not station in station_codes:
+        continue
+
+    info = ScanInfo(vex, station, scan)
+
+    delay_file = exper_name + '_' + station + '.del'
+    delay_file = os.path.join(delay_directory, delay_file)
+    (t, d, u, v, w) = parse_model(info, delay_file)
+    (splines, diff_max) = create_splines(interval, t, d)
+
+    filename = "1234/" + scan + "/" + station_codes[station] + "..mtuwvo"
+    fp = open(filename, 'w')
+    buf = struct.pack(ident, '000', '01', "2001001-123456", str(filename))
+    fp.write(buf)
+
+    index = 0
+    start = info.start
+    write_type300(info, interval, fp)
+    for spline in splines:
+        # Apply clock
+        spline[0] += info.clock[0] + (start - info.clock_epoch) * info.clock[1]
+        spline[1] += info.clock[1]
+        for channel in info.channels:
+            write_type301(info, index, channel[0], channel[1], channel[2],
+                          spline, fp)
+            write_type302(info, index, channel[0], channel[1], channel[2],
+                          spline, fp)
+            continue
+        index += 1
+        start += interval
+        continue
+    write_type309(info, phasecal_file, fp)
     continue
-write_type309(info, phasecal_file, fp)
