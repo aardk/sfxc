@@ -26,7 +26,15 @@ class ScanInfo:
         self.upper = False
         self.lower = False
 
+        self.station_id = str(station)
+        self.station_name = str(station.upper())
         self.scan = scan
+        
+        if station in station_codes:
+            self.station_code = station_codes[station]
+        else:
+            self.station_code = 'X'
+            pass
 
         mode = vex['SCHED'][scan]['mode']
         freqs = vex['MODE'][mode].getall('FREQ')
@@ -307,7 +315,8 @@ def write_type300(info, interval, out_fp):
     buf = struct.pack(type3, '300', '00')
     out_fp.write(buf)
     nsplines = (info.length + interval -1) // interval
-    buf = struct.pack(type300, 'N', 'Ny', 'NY', time2date(info.start),
+    buf = struct.pack(type300, info.station_code, info.station_id,
+                      info.station_name, time2date(info.start),
                       interval, nsplines)
     out_fp.write(buf)
     return
@@ -497,8 +506,6 @@ delay_directory = urlparse.urlparse(delay_uri).path
 scan = json_input['scans'][0]
 
 for station in json_input['stations']:
-    if not station in station_codes:
-        continue
 
     info = ScanInfo(vex, station, scan)
 
@@ -507,7 +514,7 @@ for station in json_input['stations']:
     (t, d, u, v, w) = parse_model(info, delay_file)
     (splines, diff_max) = create_splines(interval, t, d)
 
-    filename = "1234/" + scan + "/" + station_codes[station] + "..mtuwvo"
+    filename = "1234/" + scan + "/" + info.station_code + "..mtuwvo"
     fp = open(filename, 'w')
     buf = struct.pack(ident, '000', '01', "2001001-123456", str(filename))
     fp.write(buf)
