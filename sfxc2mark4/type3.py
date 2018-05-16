@@ -199,6 +199,7 @@ type3 = "3s2s3x"
 type300 = "!c2s32sx12sfH2x"
 type301 = "!H32s6x6d"
 type302 = "!H32s6x6d"
+type303 = "!H32s6x144x18d"
 type309_header = "!IIdd"
 type309_channel = "!8sd128i"
 
@@ -332,12 +333,22 @@ def write_type301(info, index, frequency, sideband, pol, spline, out_fp):
     return
 
 def write_type302(info, index, frequency, sideband, pol, spline, out_fp):
-    # Write Type301 header
+    # Write Type302 header
     buf = struct.pack(type3, '302', '00')
     out_fp.write(buf)
     chan_name = info.chan_name(frequency, sideband, pol)
     coefficients = spline * info.frequencies[frequency]
     buf = struct.pack(type302, index, chan_name, *coefficients)
+    out_fp.write(buf)
+    return
+
+def write_type303(info, index, frequency, sideband, pol, u, v, w, out_fp):
+    # Write Type303 header
+    buf = struct.pack(type3, '303', '00')
+    out_fp.write(buf)
+    chan_name = info.chan_name(frequency, sideband, pol)
+    coefficients = np.concatenate((u, v, w))
+    buf = struct.pack(type303, index, chan_name, *coefficients)
     out_fp.write(buf)
     return
 
@@ -512,9 +523,13 @@ for station in json_input['stations']:
     delay_file = exper_name + '_' + station + '.del'
     delay_file = os.path.join(delay_directory, delay_file)
     (t, d, u, v, w) = parse_model(info, delay_file)
-    (splines, diff_max) = create_splines(interval, t, d)
+    (d, diff_max) = create_splines(interval, t, d)
+    (u, dummy) = create_splines(interval, t, u)
+    (v, dummy) = create_splines(interval, t, v)
+    (w, dummy) = create_splines(interval, t, w)
+    splines = zip(d, u, v, w)
 
-    filename = "1234/" + scan + "/" + info.station_code + "..mtuwvo"
+    filename = "1234/" + scan + "/" + info.station_code + "..mwllbj"
     fp = open(filename, 'w')
     buf = struct.pack(ident, '000', '01', "2001001-123456", str(filename))
     fp.write(buf)
@@ -523,14 +538,18 @@ for station in json_input['stations']:
     start = info.start
     write_type300(info, interval, fp)
     for spline in splines:
+        d = spline[0]
+        (u, v, w) = spline[1:]
         # Apply clock
-        spline[0] += info.clock[0] + (start - info.clock_epoch) * info.clock[1]
-        spline[1] += info.clock[1]
+        d[0] += info.clock[0] + (start - info.clock_epoch) * info.clock[1]
+        d[1] += info.clock[1]
         for channel in info.channels:
             write_type301(info, index, channel[0], channel[1], channel[2],
-                          spline, fp)
+                          d, fp)
             write_type302(info, index, channel[0], channel[1], channel[2],
-                          spline, fp)
+                          d, fp)
+            write_type303(info, index, channel[0], channel[1], channel[2],
+                          u, v, w, fp)
             continue
         index += 1
         start += interval
