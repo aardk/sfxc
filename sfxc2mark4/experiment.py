@@ -117,7 +117,7 @@ class experiment:
 
   def get_scan(self, vex, ctrl, data):
     if 'scans' in ctrl:
-      scans = ctrl.scans
+      scans = ctrl["scans"]
     else:
       scans = [scan for scan in vex['SCHED']]
 
