@@ -398,7 +398,7 @@ def write_t120s(data, scan, outfiles, t101_map, n):
       weight = v.weight * 1e-6 / (2 * bw * integr_time)
       # Weight, Status,  fr_delay, delay_rate 
       f.write(struct.pack('!f3i', weight, 0, 0, 0))
-      # The visibility data itself
+      # The visibility data itself 
       v.vis[:-1].byteswap().tofile(f)
 
 def create_t1map(scan, data):
@@ -410,7 +410,13 @@ def create_t1map(scan, data):
   t1map = {}
   for ch in crosschans:
     key = (ch.freqnr, ch.sideband)
-    index = channels[key] * 10 + ch.pol1 + 2 * ch.pol1
+    # produce the same mapping as DiFX (LL = 1, RR = 2, LR = 3, RL = 4)
+    index = channels[key]*10 + 2 + ch.pol1 + 2*ch.pol2 - 4*ch.pol1*ch.pol2
+    if channels[key] < 6:
+      idx = channels[key] + 10
+    else:
+      idx = channels[key] - 6
+    index = idx*10 + 2 + ch.pol1 + 2*ch.pol2 - 4*ch.pol1*ch.pol2
     t1map[ch] = {'index': index} 
     t1map[ch]['ref_chan_id'] = scan["freq"][(ch.freqnr, ch.sideband, ch.pol1)]['freq_id']
     t1map[ch]['rem_chan_id'] = scan["freq"][(ch.freqnr, ch.sideband, ch.pol2)]['freq_id']
@@ -418,7 +424,7 @@ def create_t1map(scan, data):
 
 def initialise_next_scan(vex, exper, ctrl, data):
   scan = exper.get_scan(vex, ctrl, data)
-  dirname = BASENAME + '/' + scan['name']
+  dirname = BASENAME + '/' + scan['name'].encode('ascii')
   if not os.path.exists(dirname):
     os.makedirs(dirname)
   rootname = create_root(vex, ctrl, scan, data, dirname)
@@ -453,19 +459,19 @@ def parse_args():
   parser = argparse.ArgumentParser(description='Convert SFXC output to mark4 format')
   parser.add_argument("vexfile", help='vex file')
   parser.add_argument("ctrlfile", help='SFXC control file used in the correlation')
+  parser.add_argument('-r', "--rootid", help='Manually specify rootid', default=create_root_id(CREATIONDATE))
   args = parser.parse_args()
   vex = Vex(args.vexfile)
   ctrl = json.load(open(args.ctrlfile, 'r'))
-  return vex, ctrl
+  return vex, ctrl, args.rootid
 
 #########
 ########################## MAIN #################################3
 ########
 if __name__ == "__main__":
-  vex, ctrl = parse_args()
-  exper = experiment(vex)
   CREATIONDATE = datetime.utcnow()
-  ROOTID = create_root_id(CREATIONDATE)
+  vex, ctrl, ROOTID = parse_args()
+  exper = experiment(vex)
   BASENAME = "1234" # Should make this configurable
   data = SFXCData(urlparse(ctrl['output_file']).path)
   STATIONMAP = create_one_letter_mapping(vex)
@@ -485,8 +491,8 @@ if __name__ == "__main__":
       scan, outfiles, t101_map = initialise_next_scan(vex, exper, ctrl, data)
       n = 0
 
-    write_t120s(data, scan, outfiles, t101_map, n)
     n += 1
+    write_t120s(data, scan, outfiles, t101_map, n)
 
     print data.current_time()
     if not data.next_integration():
