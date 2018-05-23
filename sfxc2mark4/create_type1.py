@@ -412,11 +412,6 @@ def create_t1map(scan, data):
     key = (ch.freqnr, ch.sideband)
     # produce the same mapping as DiFX (LL = 1, RR = 2, LR = 3, RL = 4)
     index = channels[key]*10 + 2 + ch.pol1 + 2*ch.pol2 - 4*ch.pol1*ch.pol2
-    if channels[key] < 6:
-      idx = channels[key] + 10
-    else:
-      idx = channels[key] - 6
-    index = idx*10 + 2 + ch.pol1 + 2*ch.pol2 - 4*ch.pol1*ch.pol2
     t1map[ch] = {'index': index} 
     t1map[ch]['ref_chan_id'] = scan["freq"][(ch.freqnr, ch.sideband, ch.pol1)]['freq_id']
     t1map[ch]['rem_chan_id'] = scan["freq"][(ch.freqnr, ch.sideband, ch.pol2)]['freq_id']
