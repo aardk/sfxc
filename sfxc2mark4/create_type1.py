@@ -362,7 +362,7 @@ def create_t101(f, crosschan):
   # Remaining t101 fields are obsolete, set to zero
   f.write(struct.pack("!4h2i", *(6*[0])))
 
-def write_t120s(data, scan, outfiles, t101_map, n):
+def write_t120s(data, scan, outfiles, t101_map, scalefactors, n):
   # type 120 header format:
   # <field>     <type> <nbytes> <description>
   # Type        ascii     3       120
@@ -384,6 +384,10 @@ def write_t120s(data, scan, outfiles, t101_map, n):
   integr_time = data.integration_time.total_seconds()
   hbase = struct.pack("!3s2sbh", "120", "00", 5, data.nchan)
   for bl in data.vis:
+    if bl[0] == bl[1]:
+      scalefac = 10000.
+    else:
+      scalefac = scalefactors[bl[0]] * scalefactors[bl[1]]
     blname = "{}{}".format(STATIONMAP[bl[0]], STATIONMAP[bl[1]])
     f = outfiles[bl]['file']
     outfiles[bl]['nrec'] += len(data.vis[bl])
@@ -398,8 +402,8 @@ def write_t120s(data, scan, outfiles, t101_map, n):
       weight = v.weight * 1e-6 / (2 * bw * integr_time)
       # Weight, Status,  fr_delay, delay_rate 
       f.write(struct.pack('!f3i', weight, 0, 0, 0))
-      # The visibility data itself 
-      v.vis[:-1].byteswap().tofile(f)
+      # The visibility data itself
+      (v.vis[:-1]*scalefac).byteswap().tofile(f)
 
 def create_t1map(scan, data):
   channels = {j:i for i,j in enumerate(sorted([x[:2] for x in scan["freq"]]))}
@@ -417,12 +421,24 @@ def create_t1map(scan, data):
     t1map[ch]['rem_chan_id'] = scan["freq"][(ch.freqnr, ch.sideband, ch.pol2)]['freq_id']
   return t1map
 
+def create_scaling_factors(vex, scan, data):
+  # sqrt (10000 * Van Vleck correction)
+  factors = [1.25331e2, 1.06448e2]
+  nbits = get_nbits(vex, scan['mode'], data.stations)
+  scalefactors = {}
+  for n in nbits:
+    stations = nbits[n]
+    for station in stations:
+      scalefactors[station] = factors[n-1]
+  return scalefactors 
+
 def initialise_next_scan(vex, exper, ctrl, data):
   scan = exper.get_scan(vex, ctrl, data)
   dirname = BASENAME + '/' + scan['name'].encode('ascii')
   if not os.path.exists(dirname):
     os.makedirs(dirname)
   rootname = create_root(vex, ctrl, scan, data, dirname)
+  scale = create_scaling_factors(vex, scan, data)
   t1map = create_t1map(scan, data)
 
   # create type 1 files
@@ -438,7 +454,7 @@ def initialise_next_scan(vex, exper, ctrl, data):
     channels = sorted(data.vis[bl].keys())
     for ch in channels:
       create_t101(f, t1map[ch])
-  return scan, outfiles, t1map
+  return scan, outfiles, t1map, scale
 
 def finalize_type1(outfiles, data, scan, nap):
  for bl in outfiles:
@@ -483,11 +499,11 @@ if __name__ == "__main__":
     if data.current_time() >= scan["stop"]:
       # write end time and number of records for previous scan
       finalize_type1(outfiles, data, scan, n)
-      scan, outfiles, t101_map = initialise_next_scan(vex, exper, ctrl, data)
+      scan, outfiles, t101_map, scale = initialise_next_scan(vex, exper, ctrl, data)
       n = 0
 
     n += 1
-    write_t120s(data, scan, outfiles, t101_map, n)
+    write_t120s(data, scan, outfiles, t101_map, scale, n)
 
     print data.current_time()
     if not data.next_integration():
