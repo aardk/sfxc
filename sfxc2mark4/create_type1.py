@@ -62,6 +62,17 @@ def create_one_letter_mapping(vex):
     stations[st] = code
   return stations
 
+def scale_string_float(value, scalefactor):
+  # Scale floating point number stored as string without changing the precision
+  n = len(value)
+  v = value.lower().partition('.')
+  expidx1 = v[0].find('e')
+  expidx2 = v[2].find('e')
+  predot = len(v[0][:expidx1])
+  postdot = len(v[2][:expidx2])
+  fmt = "{:%dg}"%(predot + postdot)
+  return fmt.format(float(value) * scalefactor)
+
 def fix_vex_for_hopps(vex):
   # Fix the vex file to comply with HOPPS
   
@@ -82,8 +93,31 @@ def fix_vex_for_hopps(vex):
         vex['ANTENNA'][key]['axis_offset'] = ['el', axis_offset]
     except KeyError:
       # Should we add axis_offset if it is missing?
-      print none
+      print 'No axis_offset for station', key
       pass
+  
+  # Fix the units for the clock offsets
+  for key in vex['CLOCK']:
+    for clock_early in vex['CLOCK'][key].getall('clock_early'):
+      delay = clock_early[1].split()
+      if (len(delay) == 2) and delay[1] == 'sec':
+        delayusec = scale_string_float(delay[0], 1e6)
+        clock_early[1] = "{} usec".format(delayusec)
+      rate = clock_early[3].split()
+      if len(rate) == 1:
+        # SFXC defaults to usec / sec but HOPPS uses sec / sec
+        scale = 1e-6
+      else:
+        # convert units to sec / sec
+        unit = [x.strip() for x in ("".join(rate[1:])).split('/')]
+        if len(unit) != 2:
+          print 'Error, invalid unit for clock rate: "{}"'.format("".join(rate[1:]))
+          exit(1)
+        scale = 1e-6 if unit[0] == 'usec' else 1.
+        if unit[1] == 'usec':
+          scale *= 1e6
+      ratesec = scale_string_float(rate[0], scale) 
+      clock_early[3] = "{}".format(ratesec)
 
 def get_nbits(vex, mode, stations):
   nbits = {}
@@ -203,7 +237,6 @@ def create_root(vex, ctrl, scan, data, dirname):
       f.write('  def {};\n'.format(k))
       for item in items:
         pre = '    ref ' if item[0] == '$' else '    '
-        print 'block = {}, k = {}, item = {}, keys = {}'.format(block, k, item, keys)
         for m in vex[block][k].getall(item.lstrip('$')):
           if item in fmt:
             f.write(fmt[item].format(*ensure_list(m)))
@@ -444,7 +477,6 @@ def initialise_next_scan(vex, exper, ctrl, data):
   # create type 1 files
   outfiles = {}
   for bl in data.vis:
-    print bl, (STATIONMAP[bl[0]], STATIONMAP[bl[1]])
     code = STATIONMAP[bl[0]] + STATIONMAP[bl[1]]
     fname = dirname + '/' + code + '..' + ROOTID
     f = open(fname, 'w')
@@ -458,7 +490,6 @@ def initialise_next_scan(vex, exper, ctrl, data):
 
 def finalize_type1(outfiles, data, scan, nap):
  for bl in outfiles:
-    print outfiles
     f = outfiles[bl]['file']
     nrec = outfiles[bl]['nrec']
     stop = hopsdate(scan['start'] + nap * data.integration_time)
@@ -488,9 +519,6 @@ if __name__ == "__main__":
   STATIONMAP = create_one_letter_mapping(vex)
   fix_vex_for_hopps(vex)
 
-  print data.channels
-  print STATIONMAP
-
   scan = {'stop': datetime(1,1,1)}
   outfiles = {}
   n = 0
@@ -505,7 +533,6 @@ if __name__ == "__main__":
     n += 1
     write_t120s(data, scan, outfiles, t101_map, scale, n)
 
-    print data.current_time()
     if not data.next_integration():
       break
 

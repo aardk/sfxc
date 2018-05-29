@@ -157,8 +157,5 @@ class SFXCData:
     splitted = buf[92:].split('\0')
     self.exp_stations = splitted[:h.n_stations]
     self.exp_sources = splitted[h.n_stations:(h.n_stations + h.n_sources)]
-    print h.n_stations, h.n_sources
-    print self.exp_stations
-    print self.exp_sources
     self.global_header = h
 
