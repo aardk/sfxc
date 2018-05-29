@@ -33,7 +33,7 @@ class ScanInfo:
         if station in station_codes:
             self.station_code = station_codes[station]
         else:
-            self.station_code = 'X'
+            self.station_code = 'x'
             pass
 
         mode = vex['SCHED'][scan]['mode']
@@ -433,7 +433,7 @@ def write_type309(info, in_file, out_fp):
         pp = np.sum(ddc.reshape((100, -1)), axis=0)
 
         spp = sp.fftpack.ifft(pp)
-    
+
         data[secs][station][key] = spp[0:ntones/2]
         continue
 
@@ -496,8 +496,7 @@ def write_type309(info, in_file, out_fp):
         continue
     return
 
-#station = 'Ny'
-#scan = '191-0534'
+rootid = '045OCS'
 interval = 120
 
 vex = Vex(sys.argv[1])
@@ -505,6 +504,10 @@ vex = Vex(sys.argv[1])
 fp = open(sys.argv[2], 'r')
 json_input = json.load(fp)
 fp.close()
+
+if len(sys.argv) > 3:
+    rootid = sys.argv[3]
+    pass
 
 exper_name = json_input['exper_name']
 
@@ -529,7 +532,7 @@ for station in json_input['stations']:
     (w, dummy) = create_splines(interval, t, w)
     splines = zip(d, u, v, w)
 
-    filename = "1234/" + scan + "/" + info.station_code + "..mwllbj"
+    filename = "1234/" + scan + "/" + info.station_code + ".." + rootid
     fp = open(filename, 'w')
     buf = struct.pack(ident, '000', '01', "2001001-123456", str(filename))
     fp.write(buf)
