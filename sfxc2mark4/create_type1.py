@@ -530,8 +530,8 @@ if __name__ == "__main__":
       scan, outfiles, t101_map, scale = initialise_next_scan(vex, exper, ctrl, data)
       n = 0
 
-    n += 1
     write_t120s(data, scan, outfiles, t101_map, scale, n)
+    n += 1
 
     if not data.next_integration():
       break
