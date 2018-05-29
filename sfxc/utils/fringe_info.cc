@@ -420,7 +420,14 @@ Fringe_info_container::print_html(const Vex &vex, char *vex_filename, std::strin
   index_html << "<html><head>"  << std::endl
   << "  <title>SFXC output - "<< global_header.experiment
   << "</title>" << std::endl
-  << "  <style> BODY,TH,TD{font-size: 10pt }</style>" << std::endl
+  << "  <style> BODY,TH,TD{font-size: 10pt } " << std::endl
+  << "#fimage {" << std::endl
+  << "position: fixed;" << std::endl
+  << "top: 50%;" << std::endl
+  << "border: 1px solid black;" << std::endl
+  << "margin-left: 7px;" << std::endl    
+  << "}" << std::endl
+  << "</style>" << std::endl
   << "</head>"
   <<"<body>"
   << std::endl;
@@ -521,8 +528,8 @@ Fringe_info_container::print_html(const Vex &vex, char *vex_filename, std::strin
         char filename[80], filename_large[80], title[80];
         generate_filename(filename, filename_large, title, 80, first_plot,
                           Fringe_info::FREQUENCY, Fringe_info::ABS);
-        index_html << "<td rowspan=99><img src=\""
-        << filename << "\" name=\"plot_image\"></td>" << std::endl;
+        index_html << "<td rowspan=99><div id='fimage'><img src=\""
+	           << filename << "\" name=\"plot_image\"></div></td>" << std::endl; 
         index_html << "</tr>" << std::endl;
       }
       { // Print content of the table
@@ -1096,8 +1103,9 @@ print_diff_html(const Vex &vex,
         generate_filename(filename, filename_large,
                           title, 80, first_plot,
                           Fringe_info::FREQUENCY, Fringe_info::ABS);
-        index_html << "<td rowspan=99><img src=\""
-        << filename << "\" name=\"plot_image\"></td>" << std::endl;
+        index_html << "<td rowspan=99><img src=\""    
+		   << filename << "\" name=\"plot_image\"></td>" << std::endl; 
+
         index_html << "</tr>" << std::endl;
       }
 

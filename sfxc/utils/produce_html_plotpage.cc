@@ -41,9 +41,14 @@ bool copy_file(char *from, char *to) {
   if (!in.is_open()) return false;
   std::ofstream out(to);
   if (!out.is_open()) return false;
+  
+  // can't do it this way as in.good evaluates to false _AFTER_ readin EOL so you write out -1 at eof
+  // while (in.good())
+  //   out << (char) in.get();
 
-  while (in.good())
-    out << (char) in.get();
+  char ch;
+  while (in.get(ch))
+    out << (char) ch;
 
   return true;
 }
