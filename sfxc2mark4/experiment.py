@@ -30,7 +30,6 @@ class experiment:
           modes[mode]['byname'][station][f['name']] = f
           modes[mode]['bykey'][station][f['key']] = f
           f0, bw, sb, pol, freq_nr = (f['freq'], f['bw'], f['sb'], f['pol'], f['freq_nr'])
-          print "modes[{}][{}][({}, {}, {})] = {}".format(mode, station, freq_nr, sb, pol, f)
       self.modes = modes
         
   def _get_IFs(self, vex, mode):
@@ -86,8 +85,6 @@ class experiment:
         FREQ[ch]['bbc'] = line[5]
         FREQ[ch]['name'] = ch
         S = FREQmode[1]
-        print '----------------\n', S
-        print ch, BBCs[S][line[5]], IFs[S][BBCs[S][line[5]]]
         IF = BBCs[S][line[5]]
         FREQ[ch]['pol'] = IFs[S][IF]
       freqs = sorted(freqs)
