@@ -216,6 +216,9 @@ do_task() {
 
   // Check whether we have written all data to the data_writer
   if (data_writer.slice_size <= 0) {
+    if (_slice_start + integration_time >= current_interval_.stop_time_) {
+      write_phasecal(_current_time);
+    }
     write_end_of_stream(data_writer.writer);
     // resync clock to a multiple of the integration time
     _current_time = _slice_start + integration_time;
@@ -247,27 +250,9 @@ Input_node_data_writer::do_phasecal() {
     if (phasecal.size() == 0) {
       phasecal.resize((size_t)(sample_rate / 10e3));
     } else {
-      size_t len = 4 * sizeof(uint8_t) + sizeof(int32_t) + 2 * sizeof(int64_t) + phasecal.size() * sizeof(int32_t);
-      char msg[len];
-      int pos = 0;
-
-      MPI_Pack(&station_number, 1, MPI_UINT8, msg, len, &pos, MPI_COMM_WORLD);
-      MPI_Pack(&frequency_number, 1, MPI_UINT8, msg, len, &pos, MPI_COMM_WORLD);
-      MPI_Pack(&sideband, 1, MPI_UINT8, msg, len, &pos, MPI_COMM_WORLD);
-      MPI_Pack(&polarisation, 1, MPI_UINT8, msg, len, &pos, MPI_COMM_WORLD);
-      uint64_t ticks = phasecal_time.get_clock_ticks();
-      MPI_Pack(&ticks, 1, MPI_INT64, msg, len, &pos, MPI_COMM_WORLD);
-      ticks = input_element.start_time.get_clock_ticks() - phasecal_time.get_clock_ticks();
-      MPI_Pack(&ticks, 1, MPI_INT64, msg, len, &pos, MPI_COMM_WORLD);
-      uint32_t num_samples = phasecal.size();
-      MPI_Pack(&num_samples, 1, MPI_INT32, msg, len, &pos, MPI_COMM_WORLD);
-      MPI_Pack(&phasecal[0], num_samples, MPI_INT32, msg, len, &pos, MPI_COMM_WORLD);
-      
-      MPI_Send(msg, pos, MPI_PACKED, RANK_OUTPUT_NODE, MPI_TAG_OUTPUT_NODE_WRITE_PHASECAL, MPI_COMM_WORLD);
-
-      // Clear accumulation buffer.
-      memset(&phasecal[0], 0, phasecal.size() * sizeof(phasecal[0]));
+      write_phasecal(input_element.start_time);
     }
+
     phasecal_count = 0;
     phasecal_time = input_element.start_time;
     SFXC_ASSERT((phasecal.size() % samples_per_byte) == 0);
@@ -309,6 +294,31 @@ Input_node_data_writer::do_phasecal() {
   }
 
   input_element.processed = true;
+}
+
+void
+Input_node_data_writer::write_phasecal(Time last_time)
+{
+  size_t len = 4 * sizeof(uint8_t) + sizeof(int32_t) + 2 * sizeof(int64_t) + phasecal.size() * sizeof(int32_t);
+  char msg[len];
+  int pos = 0;
+
+  MPI_Pack(&station_number, 1, MPI_UINT8, msg, len, &pos, MPI_COMM_WORLD);
+  MPI_Pack(&frequency_number, 1, MPI_UINT8, msg, len, &pos, MPI_COMM_WORLD);
+  MPI_Pack(&sideband, 1, MPI_UINT8, msg, len, &pos, MPI_COMM_WORLD);
+  MPI_Pack(&polarisation, 1, MPI_UINT8, msg, len, &pos, MPI_COMM_WORLD);
+  uint64_t ticks = phasecal_time.get_clock_ticks();
+  MPI_Pack(&ticks, 1, MPI_INT64, msg, len, &pos, MPI_COMM_WORLD);
+  ticks = last_time.get_clock_ticks() - phasecal_time.get_clock_ticks();
+  MPI_Pack(&ticks, 1, MPI_INT64, msg, len, &pos, MPI_COMM_WORLD);
+  uint32_t num_samples = phasecal.size();
+  MPI_Pack(&num_samples, 1, MPI_INT32, msg, len, &pos, MPI_COMM_WORLD);
+  MPI_Pack(&phasecal[0], num_samples, MPI_INT32, msg, len, &pos, MPI_COMM_WORLD);
+      
+  MPI_Send(msg, pos, MPI_PACKED, RANK_OUTPUT_NODE, MPI_TAG_OUTPUT_NODE_WRITE_PHASECAL, MPI_COMM_WORLD);
+
+  // Clear accumulation buffer.
+  memset(&phasecal[0], 0, phasecal.size() * sizeof(phasecal[0]));
 }
 
 void
