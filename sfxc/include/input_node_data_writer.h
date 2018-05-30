@@ -131,6 +131,7 @@ private:
   int interval;
 
   void do_phasecal(void);
+  void write_phasecal(Time);
   std::vector<int32_t> phasecal;
   Time phasecal_time;
   size_t phasecal_count;
