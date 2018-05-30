@@ -476,7 +476,7 @@ def write_type309(info, in_file, out_fp):
 
             acc = np.zeros((64, 2))
             idx = 0
-            norm = math.sqrt(2) * 128.0
+            norm = 128.0
             for entry in data[secs][station][key]:
                 if sideband == 'U':
                     acc[upper + idx][0] = norm * entry.real
