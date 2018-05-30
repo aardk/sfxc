@@ -15,7 +15,7 @@ VDIF_reader::~VDIF_reader() {}
 
 bool 
 VDIF_reader::open_input_stream(Data_frame &data) {
-  if (!read_new_block(data)){
+  if (!read_new_block(data)) {
     return false;
   }
 
@@ -28,6 +28,12 @@ VDIF_reader::open_input_stream(Data_frame &data) {
   LOG_MSG("Start of VDIF data at jday=" << epoch_jday + start_sec / (24 * 60 * 60)
            << ", seconds in epoch = " << start_sec << ", epoch=" << epoch 
            << ", t=" <<  current_time_);
+  int data_frame_size = first_header.dataframe_length * 8 - 32 + 
+                        16 * first_header.legacy_mode;
+  if (frame_size != data_frame_size) 
+    LOG_MSG("WARNING: Frame size in vexfile is " << frame_size 
+            << ", while frame size according to data is " << data_frame_size
+            << "\n");
   return true;
 }
 
