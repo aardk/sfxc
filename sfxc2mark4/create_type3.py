@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import json
 import math
 import os
@@ -496,66 +498,68 @@ def write_type309(info, in_file, out_fp):
         continue
     return
 
-rootid = '045OCS'
-interval = 120
+def process_job(vex, json_input, rootid, basename="1234", interval=120):
+    exper_name = json_input['exper_name']
 
-vex = Vex(sys.argv[1])
+    phasecal_uri = json_input['phasecal_file']
+    phasecal_file = urlparse.urlparse(phasecal_uri).path
 
-fp = open(sys.argv[2], 'r')
-json_input = json.load(fp)
-fp.close()
+    delay_uri = json_input['delay_directory']
+    delay_directory = urlparse.urlparse(delay_uri).path
 
-if len(sys.argv) > 3:
-    rootid = sys.argv[3]
-    pass
+    scan = json_input['scans'][0]
 
-exper_name = json_input['exper_name']
+    for station in json_input['stations']:
 
-phasecal_uri = json_input['phasecal_file']
-phasecal_file = urlparse.urlparse(phasecal_uri).path
+        info = ScanInfo(vex, station, scan)
 
-delay_uri = json_input['delay_directory']
-delay_directory = urlparse.urlparse(delay_uri).path
+        delay_file = exper_name + '_' + station + '.del'
+        delay_file = os.path.join(delay_directory, delay_file)
+        (t, d, u, v, w) = parse_model(info, delay_file)
+        (d, diff_max) = create_splines(interval, t, d)
+        (u, dummy) = create_splines(interval, t, u)
+        (v, dummy) = create_splines(interval, t, v)
+        (w, dummy) = create_splines(interval, t, w)
+        splines = zip(d, u, v, w)
 
-scan = json_input['scans'][0]
+        filename = basename + "/" + scan + "/" + info.station_code + \
+                   ".." + rootid
+        fp = open(filename, 'w')
+        buf = struct.pack(ident, '000', '01', "2001001-123456", str(filename))
+        fp.write(buf)
 
-for station in json_input['stations']:
-
-    info = ScanInfo(vex, station, scan)
-
-    delay_file = exper_name + '_' + station + '.del'
-    delay_file = os.path.join(delay_directory, delay_file)
-    (t, d, u, v, w) = parse_model(info, delay_file)
-    (d, diff_max) = create_splines(interval, t, d)
-    (u, dummy) = create_splines(interval, t, u)
-    (v, dummy) = create_splines(interval, t, v)
-    (w, dummy) = create_splines(interval, t, w)
-    splines = zip(d, u, v, w)
-
-    filename = "1234/" + scan + "/" + info.station_code + ".." + rootid
-    fp = open(filename, 'w')
-    buf = struct.pack(ident, '000', '01', "2001001-123456", str(filename))
-    fp.write(buf)
-
-    index = 0
-    start = info.start
-    write_type300(info, interval, fp)
-    for spline in splines:
-        d = spline[0]
-        (u, v, w) = spline[1:]
-        # Apply clock
-        d[0] += info.clock[0] + (start - info.clock_epoch) * info.clock[1]
-        d[1] += info.clock[1]
-        for channel in info.channels:
-            write_type301(info, index, channel[0], channel[1], channel[2],
-                          d, fp)
-            write_type302(info, index, channel[0], channel[1], channel[2],
-                          d, fp)
-            write_type303(info, index, channel[0], channel[1], channel[2],
-                          u, v, w, fp)
+        index = 0
+        start = info.start
+        write_type300(info, interval, fp)
+        for spline in splines:
+            d = spline[0]
+            (u, v, w) = spline[1:]
+            # Apply clock
+            d[0] += info.clock[0] + (start - info.clock_epoch) * info.clock[1]
+            d[1] += info.clock[1]
+            for channel in info.channels:
+                write_type301(info, index, channel[0], channel[1], channel[2],
+                              d, fp)
+                write_type302(info, index, channel[0], channel[1], channel[2],
+                              d, fp)
+                write_type303(info, index, channel[0], channel[1], channel[2],
+                              u, v, w, fp)
+                continue
+            index += 1
+            start += interval
             continue
-        index += 1
-        start += interval
+        write_type309(info, phasecal_file, fp)
         continue
-    write_type309(info, phasecal_file, fp)
-    continue
+    return
+
+if __name__ == "__main__":
+    vex = Vex(sys.argv[1])
+
+    fp = open(sys.argv[2], 'r')
+    json_input = json.load(fp)
+    fp.close()
+
+    rootid = sys.argv[3]
+
+    process_job(vex, json_input, rootid)
+    pass
