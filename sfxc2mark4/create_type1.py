@@ -194,7 +194,11 @@ def create_root(vex, ctrl, scan, data, dirname):
   f.write('    target_correlator = difx;\n  enddef;\n')
 
   # $MODE
-  setup_station = ctrl['setup_station']
+  try:
+    setup_station = ctrl['setup_station']
+  except:
+    setup_station = ctrl['stations'][0]
+    pass
   f.write('*\n$MODE;\n  def {};\n'.format(scan['mode']))
   for x in vex['MODE'][scan['mode']].getall('FREQ'):
     stations = set(x) - (set(x) - set(data.stations))
@@ -239,6 +243,12 @@ def create_root(vex, ctrl, scan, data, dirname):
         pre = '    ref ' if item[0] == '$' else '    '
         for m in vex[block][k].getall(item.lstrip('$')):
           if item in fmt:
+            if item == 'if_def' and len(m) < 6:
+              m.append('0 MHz')
+              pass
+            if item == 'if_def' and len(m) < 7:
+              m.append('0 MHz')
+              pass
             f.write(fmt[item].format(*ensure_list(m)))
           else:
             f.write(pre + '{} = {};\n'.format(item, ' : '.join(ensure_list(m))))
