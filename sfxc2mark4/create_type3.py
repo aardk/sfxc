@@ -31,7 +31,7 @@ class ScanInfo:
         self.station_id = str(station)
         self.station_name = str(station.upper())
         self.scan = scan
-        
+
         if station in station_codes:
             self.station_code = station_codes[station]
         else:
@@ -231,14 +231,14 @@ def parse_model(info, delay_file):
         hdr = struct.unpack(delay_header_v1, buf)
         version = hdr[1]
     else:
-        version = 0
+        version = -1
         pass
 
     scan = info.scan
 
-    if version > 0:
+    if version == 0:
         buf = fp.read(struct.calcsize(delay_scan))
-        scan = struct.unpack(delay_scan, buf)[0]
+        scan = struct.unpack(delay_scan, buf)[0].strip('\0')
         pass
     buf = fp.read(struct.calcsize(delay_source))
     src = struct.unpack(delay_source, buf)
@@ -259,11 +259,11 @@ def parse_model(info, delay_file):
                 start >= info.start and
                 start < info.start + info.length):
                 return (t, d, u, v, w)
-            if version > 0:
+            if version == 0:
                 buf = fp.read(struct.calcsize(delay_scan))
                 if not buf:
                     break
-                scan = struct.unpack(delay_scan, buf)[0]
+                scan = struct.unpack(delay_scan, buf)[0].strip('\0')
                 pass
             buf = fp.read(struct.calcsize(delay_source))
             if not buf:
