@@ -501,11 +501,15 @@ def write_type309(info, in_file, out_fp):
 def process_job(vex, json_input, rootid, basename="1234", interval=120):
     exper_name = json_input['exper_name']
 
-    phasecal_uri = json_input['phasecal_file']
-    phasecal_file = urlparse.urlparse(phasecal_uri).path
-
     delay_uri = json_input['delay_directory']
     delay_directory = urlparse.urlparse(delay_uri).path
+
+    try:
+        phasecal_uri = json_input['phasecal_file']
+        phasecal_file = urlparse.urlparse(phasecal_uri).path
+    except:
+        phasecal_file = None
+        pass
 
     scan = json_input['scans'][0]
 
@@ -548,7 +552,9 @@ def process_job(vex, json_input, rootid, basename="1234", interval=120):
             index += 1
             start += interval
             continue
-        write_type309(info, phasecal_file, fp)
+        if phasecal_file:
+            write_type309(info, phasecal_file, fp)
+            pass
         continue
     return
 
