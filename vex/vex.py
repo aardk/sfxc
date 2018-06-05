@@ -185,7 +185,12 @@ def p_value(t):
     elif len(t) == 2:
         t[0] = t[1]
     elif len(t) == 3:
-        t[0] = t[1]
+        try:
+            t[0] = t[1]
+            t[0].append("")
+        except:
+            t[0] = [t[1], ""]
+            pass
     else:
         try:
             t[0] = t[1]
