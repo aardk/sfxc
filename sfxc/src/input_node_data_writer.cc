@@ -303,6 +303,9 @@ Input_node_data_writer::write_phasecal(Time last_time)
   char msg[len];
   int pos = 0;
 
+  if (phasecal_integration_time.get_clock_ticks() == 0)
+    return;
+
   MPI_Pack(&station_number, 1, MPI_UINT8, msg, len, &pos, MPI_COMM_WORLD);
   MPI_Pack(&frequency_number, 1, MPI_UINT8, msg, len, &pos, MPI_COMM_WORLD);
   MPI_Pack(&sideband, 1, MPI_UINT8, msg, len, &pos, MPI_COMM_WORLD);
