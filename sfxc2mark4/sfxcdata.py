@@ -14,7 +14,7 @@ class SFXCData:
   CrossChannel = namedtuple('CrossChannel', 'freqnr, sideband, pol1, pol2')
   Visibility = namedtuple('Visibility', 'vis, weight')
   
-  def __init__(self, corfilename):
+  def __init__(self, corfilename, stations=[], sources=[]):
     try:
       self.inputfile = open(corfilename, 'rb')
     except:
@@ -32,6 +32,8 @@ class SFXCData:
     self.channels = []
     self.current_int = -1
     self.current_slice = -1
+    self.exp_stations = stations
+    self.exp_sources = sources
 
     # Read in the first integration
     self.next_integration()
@@ -142,20 +144,27 @@ class SFXCData:
     self.global_header_size = struct.unpack('i', gheader_size_buf)[0]
     inputfile.seek(0)
     buf = inputfile.read(self.global_header_size)
-    htype = namedtuple('Header', 'size, exper, start_year, start_day, start_time, ' +\
-                                 'nchan, integr_time, output_format_version, ' +\
-                                 'sfxc_version, pol_type, sfxc_branch, jobnr, '+ \
-                                 'subjobnr, n_stations, stations_offset, n_sources, ' + \
-                                 'sources_offset')
-    h = htype._make(struct.unpack('i32s2h5ib15s2i4h', buf[:92]))
+    if self.global_header_size >= 92:
+      htype = namedtuple('Header', 'size, exper, start_year, start_day, ' + \
+                         'start_time, nchan, integr_time, ' + \
+                         'output_format_version,sfxc_version, pol_type, ' + \
+                         'sfxc_branch, jobnr, subjobnr, n_stations, ' \
+                         'stations_offset, n_sources, sources_offset')
+      h = htype._make(struct.unpack('i32s2h5ib15s2i4h', buf[:92]))
+    else:
+      htype = namedtuple('Header', 'size, exper, start_year, start_day, ' + \
+                         'start_time, nchan, integr_time, ' + \
+                         'output_format_version,sfxc_version, pol_type, ' + \
+                         'sfxc_branch, jobnr, subjobnr')
+      h = htype._make(struct.unpack('i32s2h5ib15s2i', buf[:84]))
     self.nchan = h.nchan
 
     self.integration_time = timedelta(0, h.integr_time / 1000000, h.integr_time % 1000000)
     self.start_time = datetime(h.start_year, 1, 1) + timedelta(h.start_day - 1, h.start_time, 0)
     # get stations and sources in a way that won't break when fields get to 
     # the header format
-    splitted = buf[92:].split('\0')
-    self.exp_stations = splitted[:h.n_stations]
-    self.exp_sources = splitted[h.n_stations:(h.n_stations + h.n_sources)]
+    if self.global_header_size >= 92:
+      splitted = buf[92:].split('\0')
+      self.exp_stations = splitted[:h.n_stations]
+      self.exp_sources = splitted[h.n_stations:(h.n_stations + h.n_sources)]
     self.global_header = h
-
