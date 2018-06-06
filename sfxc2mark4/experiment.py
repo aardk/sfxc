@@ -118,6 +118,7 @@ class experiment:
     else:
       scans = [scan for scan in vex['SCHED']]
 
+    datatime = None
     for scan in scans:
       sourcefound = False
       for src in vex['SCHED'][scan].getall('source'):
@@ -150,5 +151,6 @@ class experiment:
           result['freq'] = self.modes[mode]['bykey'][setup_station]
           result['allfreq'] = self.modes[mode]['byname']
           return result
+
     print "Error, coulnd't find find scan for t =", datatime, ', source = ', data.source
     exit(1)
