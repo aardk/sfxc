@@ -509,7 +509,19 @@ if __name__ == "__main__":
   vex, ctrl, ROOTID = parse_args()
   exper = experiment(vex)
   BASENAME = "1234" # Should make this configurable
-  data = SFXCData(urlparse(ctrl['output_file']).path)
+  stations = []
+  for station_def in vex['STATION']:
+    stations.append(station_def)
+    continue
+  stations.sort()
+  sources = []
+  try:
+    scan = ctrl["scans"][0]
+    source = vex['SCHED'][scan]['source']
+    sources.append(vex['SOURCE'][source]['source_name'])
+  except:
+    pass
+  data = SFXCData(urlparse(ctrl['output_file']).path, stations, sources)
   STATIONMAP = create_one_letter_mapping(vex)
   fix_vex_for_hopps(vex)
 
