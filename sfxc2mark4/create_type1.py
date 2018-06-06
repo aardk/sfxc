@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from urlparse import urlparse
 from sfxcdata import SFXCData
 from experiment import experiment
+from stationmap import create_one_letter_mapping
 from vex import Vex 
 
 def ensure_list(x):
@@ -44,23 +45,6 @@ def create_root_id(t):
       result = chr('a' + dt%26) + result
       dt /= 26
   return result
- 
-def create_one_letter_mapping(vex):
-  from stationmap import station_codes, sparecodes
-  # There are 7 unused station codes, if those are used up we use codes from
-  # stations which are not in the current experiment
-  unused = list(set(station_codes.keys()) - set(data.stations))
-  sparecodes = unused + sparecodes
-  stations = {}
-  for key in vex['STATION']:
-    site = vex['STATION'][key]['SITE']
-    st = vex['SITE'][site]['site_ID']
-    try:
-      code = station_codes[st]
-    except KeyError:
-      code = sparecodes.pop()
-    stations[st] = code
-  return stations
 
 def scale_string_float(value, scalefactor):
   # Scale floating point number stored as string without changing the precision

@@ -49,3 +49,24 @@ station_codes["Ur"] = "u"
 station_codes["Pv"] = "v"
 station_codes["Wb"] = "w"
 station_codes["Y"] = "y"
+
+def create_one_letter_mapping(vex):
+  # There are 7 unused station codes, if those are used up we use codes from
+  # stations which are not in the current experiment
+  stations = []
+  for key in vex['STATION']:
+    site = vex['STATION'][key]['SITE']
+    st = vex['SITE'][site]['site_ID']
+    stations.append(st)
+  unused = list(set(station_codes.keys()) - set(stations))
+  spares = unused + sparecodes
+  stations = {}
+  for key in vex['STATION']:
+    site = vex['STATION'][key]['SITE']
+    st = vex['SITE'][site]['site_ID']
+    try:
+      code = station_codes[st]
+    except KeyError:
+      code = spares.pop()
+    stations[st] = code
+  return stations

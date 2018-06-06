@@ -15,7 +15,7 @@ from scipy import fftpack, signal
 
 from vex import Vex
 
-from stationmap import station_codes
+from stationmap import create_one_letter_mapping
 
 os.environ['TZ'] = 'UTC'
 time.tzset()
@@ -32,11 +32,8 @@ class ScanInfo:
         self.station_name = str(station.upper())
         self.scan = scan
 
-        if station in station_codes:
-            self.station_code = station_codes[station]
-        else:
-            self.station_code = 'x'
-            pass
+        station_codes = create_one_letter_mapping(vex)
+        self.station_code = station_codes[station]
 
         mode = vex['SCHED'][scan]['mode']
         freqs = vex['MODE'][mode].getall('FREQ')
