@@ -71,16 +71,15 @@ class parameters:
     ifs = vex['IF'][if_mode].getall('if_def')
     self.sample_rate = float(vex['FREQ'][ch_mode]['sample_rate'].partition('Ms')[0])
 
-    freqs = []
+    freqs = set()
+    for ch in chandefs:
+      freqs.add(float(ch[1].strip('MHz')))
+    freqs = sorted(freqs)
     channels = []
     channel_names = []
     for ch in chandefs:
       f = float(ch[1].strip('MHz'))
-      try:
-        freq = freqs.index(f)
-      except:
-        freq = len(freqs)
-        freqs.append(f)
+      freq = freqs.index(f)
       ifreq = [b for b in bbcs if b[0] == ch[5]][0][2]
       polstring = [i for i in ifs if i[0] == ifreq][0][2]
       pol = 0 if polstring == 'R' else 1
