@@ -47,35 +47,47 @@ Manager_node(int rank, int numtasks,
   start_output_node(RANK_OUTPUT_NODE);
 
   // Input nodes:
-  int n_stations = get_control_parameters().number_stations();
-  for (int input_node=0; input_node<n_stations; input_node++) {
-    SFXC_ASSERT(input_node+3 != RANK_MANAGER_NODE);
-    SFXC_ASSERT(input_node+3 != RANK_LOG_NODE);
-    SFXC_ASSERT(input_node+3 != RANK_OUTPUT_NODE);
-    SFXC_ASSERT(input_node+3 < numtasks);
+  int n_inputs = get_control_parameters().number_inputs();
+  int station_number = 0;
+  int datastream_number = 0;
+  for (int input_node = 0; input_node < n_inputs; input_node++) {
+    int input_rank = input_node + 3;
+    SFXC_ASSERT(input_rank != RANK_MANAGER_NODE);
+    SFXC_ASSERT(input_rank != RANK_LOG_NODE);
+    SFXC_ASSERT(input_rank != RANK_OUTPUT_NODE);
+    SFXC_ASSERT(input_rank < numtasks);
 
-    start_input_node(/*rank_nr*/ input_node+3,
-                                 get_control_parameters().station(input_node));
+    station_map[input_node] = station_number; /* XXX 1:1 for now */
+    const std::string station = get_control_parameters().station(station_number);
+    const std::vector<std::string> datastreams = get_control_parameters().datastreams(station);
+    datastream_map[input_node] = datastreams[datastream_number++];
+
+    start_input_node(input_rank, station, datastream_map[input_node]);
+
+    if (datastream_number >= datastreams.size()) {
+      station_number++;
+      datastream_number = 0;
+    }
   }
-  SFXC_ASSERT(n_stations > 0);
+  SFXC_ASSERT(n_inputs > 0);
 
   // correlator nodes:
-  int mintasks = 3 + n_stations + control_parameters.number_correlation_cores_per_timeslice(get_current_mode());
+  int mintasks = 3 + n_inputs + control_parameters.number_correlation_cores_per_timeslice(get_current_mode());
   SFXC_ASSERT (numtasks >= mintasks);
 
-  n_corr_nodes = numtasks-(n_stations+3);
+  n_corr_nodes = numtasks - (n_inputs + 3);
   std::vector<MPI_Request> pending_requests;
   int numrequest;
 
   if (control_parameters.cross_polarize()) {
-    numrequest = (n_stations*2+1) * n_corr_nodes;
+    numrequest = (n_inputs * 2 + 1) * n_corr_nodes;
   } else {
-    numrequest = (n_stations+1) * n_corr_nodes;
+    numrequest = (n_inputs + 1) * n_corr_nodes;
   }
   pending_requests.resize(numrequest);
   int currreq = 0;
   for (int correlator_nr = 0; correlator_nr < n_corr_nodes; correlator_nr++) {
-    int correlator_rank = correlator_nr + n_stations + 3;
+    int correlator_rank = correlator_nr + n_inputs + 3;
     SFXC_ASSERT(correlator_rank != RANK_MANAGER_NODE);
     SFXC_ASSERT(correlator_rank != RANK_LOG_NODE);
     SFXC_ASSERT(correlator_rank != RANK_OUTPUT_NODE);
@@ -83,21 +95,26 @@ Manager_node(int rank, int numtasks,
     start_correlator_node(correlator_rank);
 
     // Set up the connection to the input nodes:
-    for (int station_nr = 0; station_nr < n_stations; station_nr++) {
-    	connect_to(input_rank(get_control_parameters().station(station_nr)),
-		   correlator_nr,
-		   correlator_rank, station_nr,
-		   input_node_cnx_params_[station_nr], correlator_rank, &pending_requests[currreq++]);
+    for (int input_node = 0; input_node < n_inputs; input_node++) {
+      int input_rank = input_node + 3;
+      int station_nr = station_map[input_node];
+      connect_to(input_rank,
+		 correlator_nr,
+		 correlator_rank, input_node,
+		 input_node_cnx_params_[input_node],
+		 correlator_rank, &pending_requests[currreq++]);
     }
 
     if (control_parameters.cross_polarize()) {
-      // duplicate all stations:
-      for (int station_nr = 0; station_nr < n_stations; station_nr++) {
-        connect_to(input_rank(get_control_parameters().station(station_nr)),
-		   correlator_nr+n_corr_nodes,
+      // duplicate all inputs:
+      for (int input_node = 0; input_node < n_inputs; input_node++) {
+	int input_rank = input_node + 3;
+	int station_nr = station_map[input_node];
+	connect_to(input_rank,
+		   correlator_nr + n_corr_nodes,
 		   correlator_rank,
-		   station_nr + n_stations,
-		   input_node_cnx_params_[station_nr],
+		   input_node + n_inputs,
+		   input_node_cnx_params_[input_node],
 		   correlator_rank, &pending_requests[currreq++]);
       }
     }
@@ -141,20 +158,20 @@ void Manager_node::start() {
         // set track information
         initialise_scan(control_parameters.scan(current_scan));
 
-        std::vector<bool> station_in_scan(control_parameters.number_stations(), false);
-        int nstation_in_scan = 0;
-        for (size_t station=0; station < control_parameters.number_stations();
-             station++) {
+        std::vector<bool> input_in_scan(control_parameters.number_inputs(), false);
+        int ninputs_in_scan = 0;
+        for (size_t input_node = 0; input_node < control_parameters.number_inputs();
+             input_node++) {
           for(int ch=0; ch<ch_number_in_scan.size(); ch++){
-            if (ch_number_in_scan[ch][station] >= 0){
-              station_in_scan[station] = true;
-              nstation_in_scan++;
+            if (ch_number_in_scan[ch][input_node] >= 0){
+	      input_in_scan[input_node] = true;
+              ninputs_in_scan++;
               break;
             }
           }
         }
-        // If no stations participate in the current scan move on to the next
-        if (nstation_in_scan == 0) {
+        // If no inputs participate in the current scan move on to the next
+        if (ninputs_in_scan == 0) {
           Time dt = stop_time_scan - start_time;
           // NB: In GOTO_NEXT_TIMESLICE integration_slice_nr will be increased by one
           integration_slice_nr = (int) (dt / integration_time()) - 1;
@@ -166,11 +183,11 @@ void Manager_node::start() {
         }
 
         // Set the input nodes to the proper start time
-        for (size_t station=0; station < control_parameters.number_stations();
-             station++) {
-          if(station_in_scan[station]){
+        for (size_t input_node = 0; input_node < control_parameters.number_inputs();
+             input_node++) {
+          if (input_in_scan[input_node]) {
             Time station_time =
-              input_node_get_current_time(control_parameters.station(station));
+              input_node_get_current_time(input_node);
             if (station_time >
                 start_time + integration_time() * integration_slice_nr) {
               integration_slice_nr = (int) ((station_time - start_time) / integration_time());
@@ -185,16 +202,16 @@ void Manager_node::start() {
           break;
         }
 
-        for (size_t station=0; station < control_parameters.number_stations();
-             station++) {
-          if (station_in_scan[station]) {
+        for (size_t input_node = 0; input_node < control_parameters.number_inputs();
+             input_node++) {
+          if (input_in_scan[input_node]) {
 	    const std::string& scan_name =
 	      control_parameters.scan(current_scan);
 	    const std::string& station_name =
-	      control_parameters.station(station);
+	      control_parameters.station(station_map[input_node]);
 	    Time stop_time_station =
 	      control_parameters.stop_time(scan_name, station_name);
-            input_node_set_time(station_name,
+            input_node_set_time(input_node,
                                 start_time + integration_time()*integration_slice_nr,
                                 stop_time_scan, stop_time_station);
 	  }
@@ -351,14 +368,13 @@ void Manager_node::start_next_timeslice_on_node(int corr_node_nr) {
   correlator_node_set(correlation_parameters, corr_node_nr);
 
   // set the input streams
-  size_t nStations = control_parameters.number_stations();
-  for (size_t station_nr=0;
-       station_nr< nStations;
-       station_nr++) {
+  for (size_t input_node = 0; input_node < control_parameters.number_inputs();
+       input_node++) {
     int stream = corr_node_nr;
-    if (ch_number_in_scan[current_channel][station_nr] >= 0) {
-      input_node_set_time_slice(control_parameters.station(station_nr),
-                                ch_number_in_scan[current_channel][station_nr],
+    int station_nr = station_map[input_node];
+    if (ch_number_in_scan[current_channel][input_node] >= 0) {
+      input_node_set_time_slice(input_node,
+                                ch_number_in_scan[current_channel][input_node],
 				stream,
                                 correlation_parameters.start_time,
                                 correlation_parameters.stop_time);
@@ -366,9 +382,9 @@ void Manager_node::start_next_timeslice_on_node(int corr_node_nr) {
     }
 
     if (cross_channel != -1 &&
-	ch_number_in_scan[cross_channel][station_nr] >= 0) {
-      input_node_set_time_slice(control_parameters.station(station_nr),
-				ch_number_in_scan[cross_channel][station_nr],
+	ch_number_in_scan[cross_channel][input_node] >= 0) {
+      input_node_set_time_slice(input_node,
+				ch_number_in_scan[cross_channel][input_node],
 				stream,
 				correlation_parameters.start_time,
 				correlation_parameters.stop_time);
@@ -399,12 +415,13 @@ void Manager_node::start_next_timeslice_on_node(int corr_node_nr) {
 void
 Manager_node::initialise() {
   get_log_writer()(1) << "Initialising the Input_nodes" << std::endl;
-  for (size_t station=0;
-       station<control_parameters.number_stations(); station++) {
+  for (size_t input_node = 0; input_node < control_parameters.number_inputs();
+       input_node++) {
     // setting the first data-source of the first station
-    const std::string &station_name = control_parameters.station(station);
-    set_data_reader(input_rank(station_name), 0,
-		    control_parameters.data_sources(station_name));
+    const std::string &station = control_parameters.station(station_map[input_node]);
+    const std::string &datastream = datastream_map[input_node];
+    set_data_reader(input_node + 3, 0,
+		    control_parameters.data_sources(station, datastream));
   }
 
   start_time = control_parameters.get_start_time();
@@ -539,11 +556,11 @@ void Manager_node::initialise_scan(const std::string &scan) {
 
   // Send the delay tables:
   get_log_writer() << "Set delay_table" << std::endl;
-  for (size_t station = 0;
-       station < control_parameters.number_stations();
-       station++) {
-    const std::string &station_name = control_parameters.station(station);
-    if(!control_parameters.station_in_scan(scan, station_name))
+  for (size_t input_node = 0; input_node < control_parameters.number_inputs();
+       input_node++) {
+    int input_rank = input_node + 3;
+    const std::string &station_name = control_parameters.station(station_map[input_node]);
+    if (!control_parameters.station_in_scan(scan, station_name))
       continue;
     Delay_table delay_table;
     const std::string &delay_file =
@@ -607,56 +624,59 @@ void Manager_node::initialise_scan(const std::string &scan) {
     std::cout << "offset = " << offset << ", reader_offset = " << reader_offset << std::endl;
 #endif
     delay_table.set_clock_offset(offset, start, rate, epoch);
-    send(delay_table, /* station_nr */ 0, input_rank(station));
+    send(delay_table, /* station_nr */ 0, input_rank);
     control_parameters.set_reader_offset(station_name, Time(reader_offset*1e6));
-    correlator_node_set_all(delay_table, station_name);
+    correlator_node_set_all(delay_table, input_node);
   }
 
   // Send the UVW tables:
   get_log_writer() << "Set uvw_table" << std::endl;
-  for (size_t station = 0;
-       station < control_parameters.number_stations();
-       station++) {
-    const std::string &station_name = control_parameters.station(station);
-    if(!control_parameters.station_in_scan(scan, station_name))
+  for (size_t input_node = 0; input_node < control_parameters.number_inputs();
+       input_node++) {
+    int input_rank = input_node + 3;
+    const std::string &station_name = control_parameters.station(station_map[input_node]);
+    if (!control_parameters.station_in_scan(scan, station_name))
       continue;
     Uvw_model uvw_table;
     const std::string &delay_file =
       control_parameters.get_delay_table_name(station_name);
     uvw_table.open(delay_file.c_str(), scan_start, stop_time_scan, scan);
 
-    correlator_node_set_all(uvw_table, station_name);
+    correlator_node_set_all(uvw_table, input_node);
   }
 
   get_log_writer() << "Set track parameters" << std::endl;
 
   // Send the track parameters to the input nodes
   const std::string &mode_name = vex.get_mode(scan);
-  for (size_t station=0;
-       station<control_parameters.number_stations(); station++) {
-    const std::string &station_name = control_parameters.station(station);
+  for (size_t input_node = 0; input_node < control_parameters.number_inputs();
+       input_node++) {
+    const std::string &station_name = control_parameters.station(station_map[input_node]);
     if(!control_parameters.station_in_scan(scan, station_name))
       continue;
 
+    const std::string &ds_name = datastream_map[input_node];
     Input_node_parameters input_node_param =
-      control_parameters.get_input_node_parameters(mode_name, station_name);
-    input_node_set(station_name, input_node_param);
+      control_parameters.get_input_node_parameters(mode_name, station_name, ds_name);
+    if (!input_node_param.channels.empty())
+      input_node_set(input_node, input_node_param);
   }
   n_sources_in_current_scan = control_parameters.get_vex().n_sources(scan);
 
   // Determine for each station which channels are to be correlated
-  std::vector<int> last_channel(control_parameters.number_stations(), -1);
+  std::vector<int> last_channel(control_parameters.number_inputs(), -1);
   ch_number_in_scan.resize(control_parameters.number_frequency_channels());
   for(int i = 0; i < ch_number_in_scan.size(); i++){
-    ch_number_in_scan[i].resize(control_parameters.number_stations());
-    for(int s = 0; s < ch_number_in_scan[i].size(); s++){
-      std::string station_name = control_parameters.station(s);
-      ch_number_in_scan[i][s] = -1;
-      if(control_parameters.station_in_scan(scan, station_name)){
+    ch_number_in_scan[i].resize(control_parameters.number_inputs());
+    for(int input_node = 0; input_node < ch_number_in_scan[i].size(); input_node++){
+      std::string station_name = control_parameters.station(station_map[input_node]);
+      ch_number_in_scan[i][input_node] = -1;
+      if (control_parameters.station_in_scan(scan, station_name)){
         std::string channel_name = control_parameters.frequency_channel(i, mode_name, station_name);
-        if (!channel_name.empty()) {
-          ch_number_in_scan[i][s] = last_channel[s] + 1;
-          last_channel[s] += 1;
+	std::string datastream_name = control_parameters.datastream(mode_name, station_name, channel_name);
+        if (!channel_name.empty() && datastream_name == datastream_map[input_node]) {
+          ch_number_in_scan[i][input_node] = last_channel[input_node] + 1;
+          last_channel[input_node] += 1;
         }
       }
     }

@@ -49,14 +49,14 @@ public:
   /*****************************************************************************
   * @desc Retreive the output queue for the specified station.
   * @param int nr_stream The identifier of the stream.
-  * assert( nr_stream < number_stations() )
+  * assert( nr_stream < number_inputs() )
   *****************************************************************************/
   Bit2float_worker::Output_queue_ptr get_output_buffer(int nr_stream);
 
   /*****************************************************************************
   * @desc Retreive the list of invalid samples for the specified station.
   * @param int nr_stream The identifier of the stream.
-  * assert( nr_stream < number_stations() )
+  * assert( nr_stream < number_inputs() )
   *****************************************************************************/
   std::vector<Invalid> *get_invalid(int nr_stream);
 

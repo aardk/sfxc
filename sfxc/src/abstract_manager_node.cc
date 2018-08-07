@@ -30,8 +30,8 @@ Abstract_manager_node::~Abstract_manager_node() {}
 // Start nodes:
 void
 Abstract_manager_node::
-start_input_node(int rank, const std::string &station) {
-  input_node_map[station] = input_node_rank.size();
+start_input_node(int rank, const std::string &station, const std::string &datastream) {
+  input_node_map[stream_key(station, datastream)] = input_node_rank.size();
   input_node_rank.push_back(rank);
 
   // Start the appropriate input reader.
@@ -302,14 +302,15 @@ Abstract_manager_node::connect_writer_to(
 
 void
 Abstract_manager_node::
-input_node_set(const std::string &station, Input_node_parameters &input_node_params) {
-  MPI_Transfer::send(input_node_params, input_rank(station));
+input_node_set(int input_node, Input_node_parameters &input_node_params) {
+  int rank = input_node + 3;
+  MPI_Transfer::send(input_node_params, rank);
 }
 
 Time
 Abstract_manager_node::
-input_node_get_current_time(const std::string &station) {
-  int rank = input_rank(station);
+input_node_get_current_time(int input_node) {
+  int rank = input_node + 3;
   int64_t nticks;
   MPI_Send(&nticks, 1, MPI_INT64,
            rank, MPI_TAG_INPUT_NODE_GET_CURRENT_TIMESTAMP, MPI_COMM_WORLD);
@@ -323,8 +324,9 @@ input_node_get_current_time(const std::string &station) {
 
 void
 Abstract_manager_node::
-input_node_set_time(const std::string &station,
+input_node_set_time(int input_node,
                     Time start_time, Time stop_time, Time leave_time) {
+  int rank = input_node + 3;
   SFXC_ASSERT(start_time < stop_time);
   SFXC_ASSERT(start_time < leave_time);
   int64_t time[3];
@@ -332,21 +334,21 @@ input_node_set_time(const std::string &station,
   time[1] = stop_time.get_clock_ticks();
   time[2] = leave_time.get_clock_ticks();
   MPI_Send(&time[0], 3, MPI_INT64,
-           input_rank(station), MPI_TAG_INPUT_NODE_SET_TIME, MPI_COMM_WORLD);
+           rank, MPI_TAG_INPUT_NODE_SET_TIME, MPI_COMM_WORLD);
 }
 
 void
 Abstract_manager_node::
-input_node_set_time_slice(const std::string &station,
+input_node_set_time_slice(int input_node,
                           int32_t channel, int32_t stream_nr,
                           Time start_time, Time stop_time) {
+  int rank = input_node + 3;
   int64_t message[] = {channel,
                        stream_nr,
                        start_time.get_clock_ticks(),
                        stop_time.get_clock_ticks()};
   MPI_Send(&message, 4, MPI_INT64,
-           input_rank(station),
-           MPI_TAG_INPUT_NODE_ADD_TIME_SLICE, MPI_COMM_WORLD);
+           rank, MPI_TAG_INPUT_NODE_ADD_TIME_SLICE, MPI_COMM_WORLD);
 }
 
 void
@@ -443,25 +445,6 @@ number_correlator_nodes() const {
   return correlator_node_rank.size();
 }
 
-size_t
-Abstract_manager_node::
-input_node(const std::string &station) const {
-  std::map<std::string, int>::const_iterator it = input_node_map.find(station);
-  SFXC_ASSERT(it != input_node_map.end());
-  return it->second;
-}
-size_t
-Abstract_manager_node::
-input_rank(size_t input_node_nr) const {
-  SFXC_ASSERT(input_node_nr < input_node_rank.size());
-  return input_node_rank[input_node_nr];
-}
-size_t
-Abstract_manager_node::
-input_rank(const std::string &station_name) const {
-  return input_rank(input_node(station_name));
-}
-
 void
 Abstract_manager_node::
 correlator_node_set(Correlation_parameters &parameters,
@@ -471,22 +454,18 @@ correlator_node_set(Correlation_parameters &parameters,
 
 void
 Abstract_manager_node::
-correlator_node_set_all(Delay_table &delay_table,
-                        const std::string &station_name) {
-  int sn[2] = {input_node(station_name), -1};
-  if (control_parameters.cross_polarize()){
-    int nStations = control_parameters.number_stations();
-    sn[1] = sn[0] + nStations;
-  }
+correlator_node_set_all(Delay_table &delay_table, int input_node) {
+  int sn[2] = {input_node, -1};
+  if (control_parameters.cross_polarize())
+    sn[1] = sn[0] + control_parameters.number_inputs();
 
   MPI_Transfer::bcast_corr_nodes(delay_table, sn);
 }
 
 void
 Abstract_manager_node::
-correlator_node_set_all(Uvw_model &uvw_table,
-                        const std::string &station_name) {
-  MPI_Transfer::bcast_corr_nodes(uvw_table, input_node(station_name));
+correlator_node_set_all(Uvw_model &uvw_table, int input_node) {
+  MPI_Transfer::bcast_corr_nodes(uvw_table, input_node);
 }
 
 void
@@ -533,7 +512,7 @@ send(Delay_table &delay_table, int station, int to_rank) {
   MPI_Transfer::send(delay_table, station, to_rank);
 
 }
-const std::map<std::string, int> &
+const std::map<stream_key, int> &
 Abstract_manager_node::get_input_node_map() const {
   return input_node_map;
 }

@@ -18,6 +18,8 @@
 #include "delay_table_akima.h"
 #include "uvw_model.h"
 
+typedef std::pair<std::string, std::string> stream_key;
+
 class Connexion_params
 {
 	public:
@@ -38,7 +40,7 @@ public:
                         const Control_parameters &param);
   virtual ~Abstract_manager_node();
 
-  void start_input_node(int rank, const std::string &station);
+  void start_input_node(int rank, const std::string &station, const std::string &datastream);
   void start_output_node(int rank);
   void start_correlator_node(int rank);
   void start_log_node(int rank);
@@ -80,15 +82,15 @@ public:
   /// Interface to Input node
 
   // Sets the track parameters for a station:
-  void input_node_set(const std::string &station,
+  void input_node_set(int input_node,
                       Input_node_parameters &input_node_params);
   /// Returns the time in milliseconds since midnight on the start-day
-  Time input_node_get_current_time(const std::string &station);
-  void input_node_set_time(const std::string &station,
+  Time input_node_get_current_time(int input_node);
+  void input_node_set_time(int input_node,
                            Time start_time, Time stop_time, Time leave_time);
 
   // Send a new time slice, start and stop time are in milliseconds
-  void input_node_set_time_slice(const std::string &station, int32_t channel,
+  void input_node_set_time_slice(int input_node, int32_t channel,
                                  int32_t stream_nr,
                                  Time start_time, Time stop_time);
 
@@ -100,17 +102,11 @@ public:
 
   size_t number_correlator_nodes() const;
 
-  size_t input_node(const std::string &station) const;
-  size_t input_rank(size_t input_node_nr) const;
-  size_t input_rank(const std::string &station_name) const;
-
   int correlator_rank(int correlator);
   void correlator_node_set(Correlation_parameters &parameters,
                            int corr_node_nr);
-  void correlator_node_set_all(Delay_table &delay_table,
-                               const std::string &station_name);
-  void correlator_node_set_all(Uvw_model &uvw_table,
-                               const std::string &station_name);
+  void correlator_node_set_all(Delay_table &delay_table, int input_node);
+  void correlator_node_set_all(Uvw_model &uvw_table, int input_node);
   void correlator_node_set_all(Pulsar_parameters &pulsar);
   void correlator_node_set_all(Mask_parameters &mask);
   void correlator_node_set_all(std::set<std::string> &sources);
@@ -119,7 +115,7 @@ public:
 
   void send(Delay_table &delay_table, int station, int to_rank);
 
-  const std::map<std::string, int> &get_input_node_map() const;
+  const std::map<stream_key, int> &get_input_node_map() const;
 
   Time integration_time() const {
     return integration_time_;
@@ -143,9 +139,12 @@ protected:
   int numtasks;
 
   // Map from a station name to the Input_node number
-  std::map<std::string, int> input_node_map;
+  std::map<stream_key, int> input_node_map;
   // Map from the input node number to the MPI_rank
   std::vector<int> input_node_rank;
+  // Map from input node number to station number
+  std::map<int, int> station_map;
+  std::map<int, std::string> datastream_map;
 
   // stores the connexion parameters to the input nodes
   std::vector<Connexion_params*> input_node_cnx_params_;
