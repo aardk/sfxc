@@ -228,16 +228,68 @@ class AutoPlotWindow(Qt.QWidget):
         self.sample_rate = 1e12
         for scan in vex['SCHED']:
             mode = vex['SCHED'][scan]['mode']
+            for datastreams in vex['MODE'][mode].getall('DATASTREAMS'):
+                if setup_station in datastreams[1:]:
+                    if 'thread' in vex['DATASTREAMS'][datastreams[0]]:
+                        value = vex['DATASTREAMS'][datastreams[0]]['thread']
+                        value = value[4].split()
+                        sample_rate = float(value[0])
+                        if value[1] == 'Gs/sec':
+                            sample_rate *= 1e9
+                        elif value[1] == 'Ms/sec':
+                            sample_rate *= 1e6
+                            pass
+                        if sample_rate < self.sample_rate:
+                            self.sample_rate = sample_rate
+                            pass
+                        pass
+                    break
+                continue
+            for streams in vex['MODE'][mode].getall('BITSTREAMS'):
+                if setup_station in streams[1:]:
+                    if 'stream_sample_rate' in vex['BITSTREAMS'][streams[0]]:
+                        value = vex['BITSTREAMS'][streams[0]]['stream_sample_rate'].split()
+                        sample_rate = float(value[0])
+                        if value[1] == 'Gs/sec':
+                            sample_rate *= 1e9
+                        elif value[1] == 'Ms/sec':
+                            sample_rate *= 1e6
+                            pass
+                        if sample_rate < self.sample_rate:
+                            self.sample_rate = sample_rate
+                            pass
+                        pass
+                    break
+                continue
+            for tracks in vex['MODE'][mode].getall('TRACKS'):
+                if setup_station in tracks[1:]:
+                    if 'sample_rate' in vex['TRACKS'][tracks[0]]:
+                        value = vex['TRACKS'][tracks[0]]['sample_rate'].split()
+                        sample_rate = float(value[0])
+                        if value[1] == 'Gs/sec':
+                            sample_rate *= 1e9
+                        elif value[1] == 'Ms/sec':
+                            sample_rate *= 1e6
+                            pass
+                        if sample_rate < self.sample_rate:
+                            self.sample_rate = sample_rate
+                            pass
+                        pass
+                    break
+                continue
             for freq in vex['MODE'][mode].getall('FREQ'):
                 if setup_station in freq[1:]:
-                    value = vex['FREQ'][freq[0]]['sample_rate'].split()
-                    sample_rate = float(value[0])
-                    if value[1] == 'Gs/sec':
-                        sample_rate *= 1e9
-                    elif value[1] == 'Ms/sec':
-                        sample_rate *= 1e6
-                    if sample_rate < self.sample_rate:
-                        self.sample_rate = sample_rate
+                    if 'sample_rate' in vex['FREQ'][freq[0]]:
+                        value = vex['FREQ'][freq[0]]['sample_rate'].split()
+                        sample_rate = float(value[0])
+                        if value[1] == 'Gs/sec':
+                            sample_rate *= 1e9
+                        elif value[1] == 'Ms/sec':
+                            sample_rate *= 1e6
+                            pass
+                        if sample_rate < self.sample_rate:
+                            self.sample_rate = sample_rate
+                            pass
                         pass
                     channels = vex['FREQ'][freq[0]].getall('chan_def')
                     for chan_def in channels:
