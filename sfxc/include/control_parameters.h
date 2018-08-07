@@ -11,6 +11,7 @@
 #include "utils.h"
 #include "correlator_time.h"
 
+typedef std::pair<std::string, std::string> stream_key;
 
 /** Information about the mark5 tracks needed by the input node. **/
 class Input_node_parameters {
@@ -199,6 +200,7 @@ public:
                   std::ostream& log_writer);
 
   bool check(std::ostream &log_writer) const;
+
   bool get_pulsar_parameters(Pulsar_parameters &pars) const;
   bool get_mask_parameters(Mask_parameters &pars) const;
 
@@ -208,6 +210,8 @@ public:
   Time get_start_time() const;
   Time get_stop_time() const;
   std::vector<std::string> data_sources(const std::string &station) const;
+  std::vector<std::string> data_sources(const std::string &station,
+					const std::string &datastream) const;
   std::string get_output_file() const;
   std::string get_phasecal_file() const;
   std::string get_tsys_file() const;
@@ -215,6 +219,7 @@ public:
   std::string station(int i) const;
   size_t number_stations() const;
   int station_number(const std::string &station_name) const;
+  size_t number_inputs() const;
 
   Time integration_time() const; // Integration time in microseconds
   Time sub_integration_time() const;
@@ -258,6 +263,8 @@ public:
   int sample_rate(const std::string& mode, const std::string& station) const;
   int bandwidth(const std::string& mode, const std::string& station, const std::string& channel) const;
   int64_t channel_freq(const std::string& mode, const std::string& station, const std::string& channel) const;
+  std::string datastream(const std::string& mode, const std::string& station, const std::string& channel) const;
+  std::vector<std::string> datastreams(const std::string& station) const;
 
   std::string scan(int i) const;
   int scan(const Time &time) const;
@@ -317,13 +324,14 @@ public:
   // Return the track parameters needed by the input node
   Input_node_parameters
   get_input_node_parameters(const std::string &mode_name,
-                            const std::string &station_name) const;
+                            const std::string &station_name,
+			    const std::string &datastream_name) const;
 
   // Return the correlation parameters needed by a correlator node
   Correlation_parameters
   get_correlation_parameters(const std::string &scan_name,
                              size_t channel_nr,
-                             const std::map<std::string, int> &correlator_node_station_to_input) const;
+                             const std::map<stream_key, int> &correlator_node_station_to_input) const;
   std::string rack_type(const std::string &station) const;
   std::string recorder_type(const std::string &station) const;
   std::string data_format(const std::string &station) const;
@@ -361,9 +369,11 @@ private:
   // Output is in input_parameters
   void get_vdif_tracks(const std::string &mode,
 		       const std::string &station,
+		       const std::string &datastream,
 		       Input_node_parameters &input_parameters) const;
   void get_vdif_datastreams(const std::string &mode,
 			    const std::string &station,
+			    const std::string &datastream,
 			    Input_node_parameters &input_parameters) const;
   void get_vdif_threads(const std::string &mode,
 			const std::string &station,
@@ -378,6 +388,8 @@ private:
   bool        initialised; // The control parameters are initialised
 
   mutable std::map<std::string, int> station_map;
+
+  bool check_data_source(std::ostream &log_writer, const Json::Value &) const;
 };
 
 #endif /*CONTROL_PARAMETERS_H_*/

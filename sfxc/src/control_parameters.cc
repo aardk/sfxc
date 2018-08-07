@@ -241,6 +241,27 @@ Control_parameters::reference_station_number() const {
 }
 
 bool
+Control_parameters::check_data_source(std::ostream &writer,
+				      const Json::Value& value) const
+{
+  bool ok = true;
+
+  for (Json::Value::const_iterator source_it = value.begin();
+       source_it != value.end(); source_it++) {
+    std::string filename = create_path((*source_it).asString());
+
+    if (filename.find("file://")  != 0 &&
+	filename.find("mk5://") != 0) {
+      ok = false;
+      writer << "Ctrl-file: invalid data source '" << filename << "'"
+	     << std::endl;
+    }
+  }
+
+  return ok;
+}
+
+bool
 Control_parameters::check(std::ostream &writer) const {
   typedef Json::Value::const_iterator                    Value_it;
   bool ok = true;
@@ -353,22 +374,16 @@ Control_parameters::check(std::ostream &writer) const {
           << ctrl["data_sources"][station_name]
           << std::endl;
         } else {
-          const Json::Value data_source_it =
+          const Json::Value sources =
             ctrl["data_sources"][station_name];
-          for (Json::Value::const_iterator source_it =
-                 data_source_it.begin();
-               source_it != data_source_it.end(); ++source_it) {
-            std::string filename = create_path((*source_it).asString());
-
-            if (filename.find("file://")  != 0 &&
-                filename.find("mk5://") != 0) {
-              ok = false;
-              writer
-              << "Ctrl-file: invalid data source '" << filename << "'"
-              << std::endl;
-            }
-          }
-        }
+	  if (sources.isObject()) {
+	    for (Json::Value::const_iterator source_it = sources.begin();
+		 source_it != sources.end(); source_it++)
+	      check_data_source(writer, *source_it);
+	  } else {
+	    check_data_source(writer, sources);
+	  }
+	}
       }
 
       #ifdef USE_MPI
@@ -555,13 +570,28 @@ Control_parameters::set_reader_offset(const std::string &station, const Time t){
 std::vector<std::string>
 Control_parameters::data_sources(const std::string &station) const {
   std::vector<std::string> result;
-  Json::Value data_sources = ctrl["data_sources"][station];
-  SFXC_ASSERT(data_sources != Json::Value());
-  for (size_t index = 0;
-       index < ctrl["data_sources"][station].size(); ++index ) {
-    result.push_back(create_path(ctrl["data_sources"][station][index].asString()));
+  const Json::Value sources = ctrl["data_sources"][station];
+  SFXC_ASSERT(sources != Json::Value());
+  if (sources.isArray()) {
+    for (size_t i = 0; i < sources.size(); i++)
+      result.push_back(create_path(sources[i].asString()));
   }
   return result;
+}
+
+std::vector<std::string>
+Control_parameters::data_sources(const std::string &station,
+				 const std::string &datastream) const {
+  std::vector<std::string> result;
+  Json::Value sources = ctrl["data_sources"][station];
+  SFXC_ASSERT(sources != Json::Value());
+  if (sources.isObject()) {
+    sources = sources[datastream];
+    for (size_t i = 0;  i < sources.size(); i++)
+      result.push_back(create_path(sources[i].asString()));
+    return result;
+  }
+  return data_sources(station);
 }
 
 std::string
@@ -587,6 +617,20 @@ Control_parameters::station(int i) const {
 size_t
 Control_parameters::number_stations() const {
   return ctrl["stations"].size();
+}
+
+size_t
+Control_parameters::number_inputs() const {
+  size_t count = 0;
+  for (int i = 0; i < number_stations(); i++) {
+    Json::Value sources = ctrl["data_sources"][station(i)];
+    if (sources.isObject())
+      count += sources.size();
+    else
+      count++;
+  }
+  //  SFXC_ASSERT(count == number_stations());
+  return count;
 }
 
 std::string
@@ -938,6 +982,47 @@ Control_parameters::channel_freq(const std::string &mode,
   }
 
   SFXC_ASSERT(false);
+}
+
+std::string
+Control_parameters::datastream(const std::string &mode,
+			       const std::string &station,
+			       const std::string &channel) const
+{
+  if (data_format(station) == "VDIF") {
+    const std::string datastreams_name = get_vex().get_section("DATASTREAMS", mode, station);
+    if (get_vex().get_version() > 1.5 && datastreams_name == std::string()) {
+      std::cerr << "Cannot find $DATASTREAMS reference for " << station
+		<< " in mode" << mode << std::endl;
+      sfxc_abort();
+    }
+    if (datastreams_name != std::string()) {
+      Vex::Node::const_iterator datastreams = vex.get_root_node()["DATASTREAMS"][datastreams_name];
+      for (Vex::Node::const_iterator chan = datastreams->begin("channel");
+	   chan != datastreams->end("channel"); chan++) {
+	if (chan[2]->to_string() == channel)
+	  return chan[0]->to_string();
+      }
+    }
+  }
+
+  return std::string();
+}
+
+std::vector<std::string>
+Control_parameters::datastreams(const std::string &station) const
+{
+  std::vector<std::string> result;
+  const Json::Value sources = ctrl["data_sources"][station];
+  if (sources.isObject()) {
+    for (Json::Value::const_iterator source = sources.begin();
+	 source != sources.end(); source++)
+      result.push_back(source.key().asString());
+  } else {
+    result.push_back(std::string());
+  }
+    
+  return result;
 }
 
 std::string
@@ -1373,12 +1458,13 @@ void
 Control_parameters::
 get_vdif_tracks(const std::string &mode,
 		const std::string &station,
+		const std::string &ds_name,
 		Input_node_parameters &input_parameters) const {
 
   const Vex::Node &root = get_vex().get_root_node();
   const std::string datastreams_name = get_vex().get_section("DATASTREAMS", mode, station);
   if (get_vex().get_version() > 1.5 || datastreams_name != std::string())
-    get_vdif_datastreams(mode, station, input_parameters);
+    get_vdif_datastreams(mode, station, ds_name, input_parameters);
   else
     get_vdif_threads(mode, station, input_parameters);
 }
@@ -1387,6 +1473,7 @@ void
 Control_parameters::
 get_vdif_datastreams(const std::string &mode,
 		     const std::string &station,
+		     const std::string &ds_name,
 		     Input_node_parameters &input_parameters) const {
 
   const Vex::Node &root = get_vex().get_root_node();
@@ -1402,6 +1489,8 @@ get_vdif_datastreams(const std::string &mode,
   input_parameters.frame_size = 0;
   for (Vex::Node::const_iterator thread_it = datastream->begin("thread");
        thread_it != datastream->end("thread"); thread_it++) {
+    if (ds_name != thread_it[0]->to_string())
+      continue;
     if (input_parameters.frame_size == 0)
       input_parameters.frame_size = thread_it[7]->to_int();
     num_threads++;
@@ -1409,6 +1498,8 @@ get_vdif_datastreams(const std::string &mode,
   int num_channels = 0;
   for (Vex::Node::const_iterator channel_it = datastream->begin("channel");
        channel_it != datastream->end("channel"); channel_it++) {
+    if (ds_name != channel_it[0]->to_string())
+      continue;
     num_channels++;
   }
 
@@ -1421,12 +1512,26 @@ get_vdif_datastreams(const std::string &mode,
 
 	Input_node_parameters::Channel_parameters channel_param;
 
-	int thread_id = -1;
+	std::string thread_name;
 	for (Vex::Node::const_iterator channel_it = datastream->begin("channel");
 	     channel_it != datastream->end("channel"); channel_it++) {
-	  if (channel_name == channel_it[2]->to_string())
-	    thread_id = channel_it[3]->to_int();
+	  if (channel_name == channel_it[2]->to_string() &&
+	      ds_name == channel_it[0]->to_string())
+	    thread_name = channel_it[3]->to_string();
 	}
+	if (thread_name == std::string())
+	  continue;
+
+	int thread_id = -1;
+	for (Vex::Node::const_iterator thread_it = datastream->begin("thread");
+	     thread_it != datastream->end("thread"); thread_it++) {
+	  if (ds_name != thread_it[0]->to_string())
+	    continue;
+	  if (thread_name == thread_it[1]->to_string())
+	    thread_id = thread_it[2]->to_int();
+	}
+	if (thread_id == -1)
+	  continue;
 
 	channel_param.bits_per_sample = bits_per_sample(mode, station);
 	channel_param.sideband = sideband(channel(ch_nr), setup_station(), mode);
@@ -1441,9 +1546,11 @@ get_vdif_datastreams(const std::string &mode,
   }
 
   int num_tracks = 0;
-  for (Vex::Node::const_iterator channel_it = datastream->begin("channel");
-       channel_it != datastream->end("channel"); channel_it++) {
-    num_tracks += bits_per_sample(mode, station);
+  for (Vex::Node::const_iterator thread_it = datastream->begin("thread");
+       thread_it != datastream->end("thread"); thread_it++) {
+    if (ds_name != thread_it[0]->to_string())
+      continue;
+    num_tracks += thread_it[3]->to_int() * thread_it[5]->to_int();
   }
 
   input_parameters.n_tracks = num_tracks;
@@ -1462,13 +1569,16 @@ get_vdif_datastreams(const std::string &mode,
       for (int i = 0; i < word_size; i += num_tracks) {
         for (Vex::Node::const_iterator channel_it = datastream->begin("channel");
              channel_it != datastream->end("channel"); channel_it++) {
+	  if (ds_name != channel_it[0]->to_string())
+	    continue;
           if (channel_name == channel_it[2]->to_string()) {
             for (int track = bits_per_sample(mode, station) - 1; track >= 0; track--)
               channel_param.tracks.push_back(channel_it[3]->to_int() * bits_per_sample(mode, station) + track + i);
           }
         }
       }
-      input_parameters.channels.push_back(channel_param);
+      if (channel_param.tracks.size() > 0)
+	input_parameters.channels.push_back(channel_param);
     }
   }
 }
@@ -1673,7 +1783,8 @@ get_mark5b_standard_mapping(const std::string &mode,
 Input_node_parameters
 Control_parameters::
 get_input_node_parameters(const std::string &mode_name,
-                          const std::string &station_name) const {
+                          const std::string &station_name,
+			  const std::string &ds_name) const {
   Input_node_parameters result;
   result.track_bit_rate = -1;
   result.frame_size = -1;
@@ -1730,7 +1841,7 @@ get_input_node_parameters(const std::string &mode_name,
   result.track_bit_rate = sample_rate(mode_name, station_name);
 
   if (data_format(station_name) == "VDIF") {
-    get_vdif_tracks(mode_name, station_name, result);
+    get_vdif_tracks(mode_name, station_name, ds_name, result);
   } else if (data_format(station_name) == "Mark4" ||
 	     data_format(station_name) == "VLBA")  {
     get_mark5a_tracks(mode_name, station_name, result);
@@ -1739,8 +1850,10 @@ get_input_node_parameters(const std::string &mode_name,
     get_mark5b_tracks(mode_name, station_name, result);
   }
 
-  SFXC_ASSERT(!result.channels[0].tracks.empty());
-  result.track_bit_rate /= result.channels[0].tracks.size() / result.channels[0].bits_per_sample;
+  if (!result.channels.empty()) {
+    SFXC_ASSERT(!result.channels[0].tracks.empty());
+    result.track_bit_rate /= result.channels[0].tracks.size() / result.channels[0].bits_per_sample;
+  }
   return result;
 }
 
@@ -2078,7 +2191,7 @@ Correlation_parameters
 Control_parameters::
 get_correlation_parameters(const std::string &scan_name,
 			   size_t channel_nr,
-                           const std::map<std::string, int> &correlator_node_station_to_input) const {
+                           const std::map<stream_key, int> &correlator_node_station_to_input) const {
   std::string bbc_nr;
   std::string bbc_mode;
   std::string if_nr;
@@ -2167,12 +2280,14 @@ get_correlation_parameters(const std::string &scan_name,
   std::set<int> stations_set;
   for (Vex::Node::const_iterator station = scan->begin("station");
        station != scan->end("station"); ++station) {
-    std::map<std::string, int>::const_iterator station_nr_it =
-      correlator_node_station_to_input.find(station[0]->to_string());
+    const std::string &channel_name =
+      frequency_channel(channel_nr, mode_name, station[0]->to_string());
+    const std::string ds_name =
+      datastream(mode_name, station[0]->to_string(), channel_name);
+    std::map<stream_key, int>::const_iterator station_nr_it =
+      correlator_node_station_to_input.find(stream_key(station[0]->to_string(), ds_name));
     if (station_nr_it != correlator_node_station_to_input.end()) {
       if (station_nr_it->second >= 0) {
-	const std::string &channel_name =
-	  frequency_channel(channel_nr, mode_name, station[0]->to_string());
         if (channel_name != std::string()) {
           Correlation_parameters::Station_parameters station_param;
           station_param.station_number = station_number(station[0]->to_string());
@@ -2200,8 +2315,8 @@ get_correlation_parameters(const std::string &scan_name,
   channel_nr = cross_channel(channel_nr, mode_name);
   for (Vex::Node::const_iterator station = scan->begin("station");
        station != scan->end("station"); ++station) {
-    std::map<std::string, int>::const_iterator station_nr_it =
-      correlator_node_station_to_input.find(station[0]->to_string());
+    std::map<stream_key, int>::const_iterator station_nr_it =
+      correlator_node_station_to_input.find(stream_key(station[0]->to_string(), ""));
     if (station_nr_it != correlator_node_station_to_input.end()) {
       if (station_nr_it->second >= 0) {
 	const std::string &channel_name =
