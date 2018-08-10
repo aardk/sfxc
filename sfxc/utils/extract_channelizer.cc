@@ -68,7 +68,7 @@ int main(int argc, char** argv)
               std::string station_name = control_parameters.station(station);
               std::cout << "TRANSPORT TYPE:" << control_parameters.recorder_type(station_name) << std::endl;
 
-              Input_node_parameters input_node_param = control_parameters.get_input_node_parameters(mode_name, station_name);
+              Input_node_parameters input_node_param = control_parameters.get_input_node_parameters(mode_name, station_name, "");
 
 
               Mark5a_reader::Data_frame data;
