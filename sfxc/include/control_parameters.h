@@ -40,7 +40,7 @@ public:
 
   int bits_per_sample() const;
   int subsamples_per_sample() const;
-  int sample_rate() const;
+  uint64_t sample_rate() const;
   bool operator==(const Input_node_parameters &other) const;
 
   /// List of the tracks that are combined to frequency channels
@@ -48,7 +48,7 @@ public:
   /// Number of tracks / bitstreams in data file
   int32_t n_tracks;
   // data rate of one subband
-  int32_t track_bit_rate; // in Ms/s
+  uint64_t track_bit_rate; // in Ms/s
   // Frame size
   int32_t frame_size;
   // Number of samples per FFT.
@@ -137,9 +137,9 @@ public:
     int32_t station_stream; // input stream (from multiple_data_readers)
     Time start_time;         // Start and stop time for the station
     Time stop_time;
-    int32_t sample_rate;
+    uint64_t sample_rate;
     int64_t channel_freq;
-    int32_t bandwidth;
+    uint64_t bandwidth;
     char sideband;
     char polarisation;
     int32_t bits_per_sample;
@@ -164,9 +164,9 @@ public:
   int32_t slice_offset;     // Number of output slices in the output file
   // between one integration slice and the next
   // in case of subsecond integrations
-  int32_t sample_rate;      // #Samples per second
+  uint64_t sample_rate;     // #Samples per second
   int64_t channel_freq;     // Center frequency of the band in Hz
-  int32_t bandwidth;        // Bandwidth of the channel in Hz
+  uint64_t bandwidth;       // Bandwidth of the channel in Hz
   char    sideband;         // U or L
   int32_t frequency_nr;     // Canonical frequency number
   char    polarisation;     // L or R
@@ -260,8 +260,8 @@ public:
   /* Get functions from the vex file:                 */
   /****************************************************/
   int bits_per_sample(const std::string& mode, const std::string& station) const;
-  int sample_rate(const std::string& mode, const std::string& station) const;
-  int bandwidth(const std::string& mode, const std::string& station, const std::string& channel) const;
+  uint64_t sample_rate(const std::string& mode, const std::string& station) const;
+  uint64_t bandwidth(const std::string& mode, const std::string& station, const std::string& channel) const;
   int64_t channel_freq(const std::string& mode, const std::string& station, const std::string& channel) const;
   std::string datastream(const std::string& mode, const std::string& station, const std::string& channel) const;
   std::vector<std::string> datastreams(const std::string& station) const;
@@ -307,11 +307,9 @@ public:
    * Returns the number of bytes transferred for one integration slice
    * from the input node to the correlator node.
    **/
-  static int nr_ffts_per_integration_slice
-  (const Time &integration_time,
-   int data_rate,
-   int fft_size) {
-    Time time_one_fft(fft_size / (data_rate / 1000000.));
+  static int nr_ffts_per_integration_slice(const Time &integration_time,
+				           uint64_t sample_rate, int fft_size) {
+    Time time_one_fft(fft_size / (sample_rate / 1000000.));
     return floor(integration_time / time_one_fft);
   }
 

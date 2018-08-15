@@ -121,7 +121,7 @@ void Delay_correction::fractional_bit_shift(FLOAT *input,
   const double dfr  = (double)sample_rate() / fft_size(); // delta frequency
   const double tmp1 = -2.0*M_PI*fractional_delay/sample_rate();
   const double tmp2 = M_PI*(integer_shift & (4*oversamp - 1))/(2*oversamp);
-  const double constant_term = tmp2 -tmp1*0.5*bandwidth();
+  const double constant_term = tmp2 -tmp1 * (bandwidth() / 2);
   const double linear_term = tmp1*dfr;
 
   // 5b)apply phase correction in frequency range
@@ -159,8 +159,8 @@ void Delay_correction::fractional_bit_shift(FLOAT *input,
 }
 
 void Delay_correction::fringe_stopping(FLOAT output[]) {
-  const double mult_factor_phi = -sideband()*2.0*M_PI;
-  const double center_freq = channel_freq() + sideband()*bandwidth()*0.5 + LO_offset;
+  const double mult_factor_phi = -sideband() * 2.0 * M_PI;
+  const double center_freq = channel_freq() + sideband() * (bandwidth() / 2) + LO_offset;
 
   double phi, delta_phi, sin_phi, cos_phi;
   double lo_phase = start_phase + LO_offset*current_time.diff(correlation_parameters.start_time);
@@ -219,7 +219,7 @@ Delay_correction::set_parameters(const Correlation_parameters &parameters, Delay
   delay_table = delays;
   bits_per_sample = parameters.station_streams[stream_idx].bits_per_sample;
   correlation_parameters = parameters;
-  oversamp = (int)round(sample_rate() / (2 * bandwidth()));
+  oversamp = sample_rate() / (2 * bandwidth());
 
   current_time = parameters.start_time;
   current_time.set_sample_rate(sample_rate());
@@ -234,7 +234,7 @@ Delay_correction::set_parameters(const Correlation_parameters &parameters, Delay
   size_t nfft_min = std::max(fft_rot_size() / fft_size(), (size_t)1);
   size_t nfft_max = nfft_min * SFXC_NTAPS +
     (std::max(CORRELATOR_BUFFER_SIZE / fft_size(), nfft_min) *
-     (uint64_t)sample_rate()) / correlation_parameters.sample_rate;
+     sample_rate()) / correlation_parameters.sample_rate;
   time_buffer.resize(nfft_max * fft_size());
 
   exp_array.resize(fft_size());
@@ -279,7 +279,7 @@ Delay_correction::set_parameters(const Correlation_parameters &parameters, Delay
      Control_parameters::nr_ffts_per_integration_slice(
          (int) parameters.integration_time.get_time_usec(),
 	 parameters.sample_rate, parameters.fft_size_correlation) *
-     (uint64_t)parameters.station_streams[stream_idx].sample_rate) / parameters.sample_rate;
+     parameters.station_streams[stream_idx].sample_rate) / parameters.sample_rate;
 
   LO_offset = parameters.station_streams[stream_idx].LO_offset;
   double dt = current_time.diff(parameters.experiment_start);
