@@ -63,8 +63,8 @@ private:
   size_t fft_rot_size();
   size_t fft_cor_size();
   int buffer_size;
-  int sample_rate();
-  int bandwidth();
+  uint64_t sample_rate();
+  uint64_t bandwidth();
   int sideband();
   int64_t channel_freq();
   double get_delay(Time time);
@@ -113,18 +113,18 @@ inline size_t Delay_correction::fft_size() {
 }
 
 inline size_t Delay_correction::fft_rot_size() {
-  return (fft_cor_size() * (uint64_t)sample_rate()) / correlation_parameters.sample_rate;
+  return (fft_cor_size() * sample_rate()) / correlation_parameters.sample_rate;
 }
 
 inline size_t Delay_correction::fft_cor_size() {
   return 2 * correlation_parameters.fft_size_correlation;
 }
 
-inline int Delay_correction::bandwidth() {
+inline uint64_t Delay_correction::bandwidth() {
   return correlation_parameters.station_streams[stream_idx].bandwidth;
 }
 
-inline int Delay_correction::sample_rate() {
+inline uint64_t Delay_correction::sample_rate() {
   return correlation_parameters.station_streams[stream_idx].sample_rate;
 }
 

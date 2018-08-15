@@ -92,7 +92,7 @@ private:
   Delay_table_akima akima_delays;
 
   bool initialized;
-  int sample_rate;
+  uint64_t sample_rate;
   int bits_per_sample;
   int64_t size_slice; // Number of samples for one integration slice
 };

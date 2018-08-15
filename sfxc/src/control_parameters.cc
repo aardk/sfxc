@@ -896,7 +896,7 @@ Control_parameters::bits_per_sample(const std::string &mode,
   sfxc_abort("Unable to determine bits/sample");
 }
 
-int
+uint64_t
 Control_parameters::sample_rate(const std::string &mode,
 				const std::string &station) const
 {
@@ -949,10 +949,10 @@ Control_parameters::sample_rate(const std::string &mode,
   const std::string &freq_name = get_vex().get_frequency(mode, station);
   Vex::Node::const_iterator freq = vex.get_root_node()["FREQ"][freq_name];
 
-  return (int)(freq["sample_rate"]->to_double_amount("Ms/sec") * 1e6);
+  return (uint64_t)(freq["sample_rate"]->to_double_amount("Ms/sec") * 1e6);
 }
 
-int
+uint64_t
 Control_parameters::bandwidth(const std::string &mode,
 			      const std::string &station,
 			      const std::string &channel) const
@@ -962,7 +962,7 @@ Control_parameters::bandwidth(const std::string &mode,
 
   for (Vex::Node::const_iterator chan = freq->begin("chan_def"); chan != freq->end("chan_def"); chan++) {
     if (chan[4]->to_string() == channel)
-      return (int)chan[3]->to_double_amount("Hz");
+      return (uint64_t)chan[3]->to_double_amount("Hz");
   }
 
   SFXC_ASSERT(false);
@@ -1836,7 +1836,7 @@ get_input_node_parameters(const std::string &mode_name,
   // Scale FFT size based on the sample rate.  This is important for
   // "mixed bandwidth" correlation where we need to make sure that we
   // send enough data to the correlator nodes.
-  result.fft_size = (result.fft_size * (uint64_t)sample_rate(mode_name, station_name)) / sample_rate(mode_name, setup_station());
+  result.fft_size = (result.fft_size * sample_rate(mode_name, station_name)) / sample_rate(mode_name, setup_station());
   SFXC_ASSERT(result.fft_size != 0)
   result.track_bit_rate = sample_rate(mode_name, station_name);
 
@@ -2229,7 +2229,7 @@ get_correlation_parameters(const std::string &scan_name,
        ++ch_it) {
     if (ch_it[4]->to_string() == channel_name) {
       corr_param.channel_freq = (int64_t)round(ch_it[1]->to_double_amount("Hz"));
-      corr_param.bandwidth = (int)ch_it[3]->to_double_amount("Hz");
+      corr_param.bandwidth = (uint64_t)ch_it[3]->to_double_amount("Hz");
       corr_param.sideband = ch_it[2]->to_char();
       bbc_nr = ch_it[5]->to_string();
     }
@@ -2470,7 +2470,7 @@ Input_node_parameters::subsamples_per_sample() const {
   return channels.begin()->tracks.size() / channels.begin()->bits_per_sample;
 }
 
-int
+uint64_t
 Input_node_parameters::sample_rate() const {
   return track_bit_rate * subsamples_per_sample();
 }

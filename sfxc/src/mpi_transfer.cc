@@ -701,7 +701,7 @@ MPI_Transfer::receive(MPI_Status &status, std::map<std::string, int> &sources){
 void
 MPI_Transfer::send(Input_node_parameters &input_node_param, int rank) {
   int size = 0;
-  size = 7 * sizeof(int32_t) + 3 * sizeof(int64_t);
+  size = 6 * sizeof(int32_t) + 4 * sizeof(int64_t);
   for (Input_node_parameters::Channel_iterator channel =
          input_node_param.channels.begin();
        channel != input_node_param.channels.end(); channel++) {
@@ -714,7 +714,7 @@ MPI_Transfer::send(Input_node_parameters &input_node_param, int rank) {
 
   MPI_Pack(&input_node_param.n_tracks, 1, MPI_INT32,
            message_buffer, size, &position, MPI_COMM_WORLD);
-  MPI_Pack(&input_node_param.track_bit_rate, 1, MPI_INT32,
+  MPI_Pack(&input_node_param.track_bit_rate, 1, MPI_INT64,
            message_buffer, size, &position, MPI_COMM_WORLD);
   MPI_Pack(&input_node_param.frame_size, 1, MPI_INT32,
            message_buffer, size, &position, MPI_COMM_WORLD);
@@ -782,7 +782,7 @@ MPI_Transfer::receive(MPI_Status &status, Input_node_parameters &input_node_para
              &input_node_param.n_tracks, 1, MPI_INT32,
              MPI_COMM_WORLD);
   MPI_Unpack(buffer, size, &position,
-             &input_node_param.track_bit_rate, 1, MPI_INT32,
+             &input_node_param.track_bit_rate, 1, MPI_INT64,
              MPI_COMM_WORLD);
   MPI_Unpack(buffer, size, &position,
              &input_node_param.frame_size, 1, MPI_INT32,
@@ -851,10 +851,8 @@ MPI_Transfer::receive(MPI_Status &status, Input_node_parameters &input_node_para
 void
 MPI_Transfer::send(Correlation_parameters &corr_param, int rank) {
   int size = 0;
-  size =
-    5*sizeof(int64_t) + 14*sizeof(int32_t) + sizeof(int64_t) +
-    3*sizeof(char) + corr_param.station_streams.size() * (6 * sizeof(int32_t) + 3 * sizeof(int64_t) + 2 * sizeof(char) + sizeof(double)) +
-    11*sizeof(char);
+  size = 8 * sizeof(int64_t) + 12 * sizeof(int32_t) + 14 * sizeof(char) +
+    corr_param.station_streams.size() * (5 * sizeof(int64_t) + 4 * sizeof(int32_t) + 2 * sizeof(char) + sizeof(double));
   int position = 0;
   char message_buffer[size];
 
@@ -888,12 +886,12 @@ MPI_Transfer::send(Correlation_parameters &corr_param, int rank) {
   MPI_Pack(&corr_param.slice_offset, 1, MPI_INT32,
            message_buffer, size, &position, MPI_COMM_WORLD);
 
-  MPI_Pack(&corr_param.sample_rate, 1, MPI_INT32,
+  MPI_Pack(&corr_param.sample_rate, 1, MPI_INT64,
            message_buffer, size, &position, MPI_COMM_WORLD);
 
   MPI_Pack(&corr_param.channel_freq, 1, MPI_INT64,
            message_buffer, size, &position, MPI_COMM_WORLD);
-  MPI_Pack(&corr_param.bandwidth, 1, MPI_INT32,
+  MPI_Pack(&corr_param.bandwidth, 1, MPI_INT64,
            message_buffer, size, &position, MPI_COMM_WORLD);
   MPI_Pack(&corr_param.sideband, 1, MPI_CHAR,
            message_buffer, size, &position, MPI_COMM_WORLD);
@@ -937,11 +935,11 @@ MPI_Transfer::send(Correlation_parameters &corr_param, int rank) {
              message_buffer, size, &position, MPI_COMM_WORLD);
     MPI_Pack(&station->bits_per_sample, 1, MPI_INT32,
              message_buffer, size, &position, MPI_COMM_WORLD);
-    MPI_Pack(&station->sample_rate, 1, MPI_INT32,
+    MPI_Pack(&station->sample_rate, 1, MPI_INT64,
              message_buffer, size, &position, MPI_COMM_WORLD);
     MPI_Pack(&station->channel_freq, 1, MPI_INT64,
 	     message_buffer, size, &position, MPI_COMM_WORLD);
-    MPI_Pack(&station->bandwidth, 1, MPI_INT32,
+    MPI_Pack(&station->bandwidth, 1, MPI_INT64,
              message_buffer, size, &position, MPI_COMM_WORLD);
     MPI_Pack(&station->sideband, 1, MPI_CHAR,
              message_buffer, size, &position, MPI_COMM_WORLD);
@@ -1015,14 +1013,14 @@ MPI_Transfer::receive(MPI_Status &status, Correlation_parameters &corr_param) {
              MPI_COMM_WORLD);
 
   MPI_Unpack(buffer, size, &position,
-             &corr_param.sample_rate, 1, MPI_INT32,
+             &corr_param.sample_rate, 1, MPI_INT64,
              MPI_COMM_WORLD);
 
   MPI_Unpack(buffer, size, &position,
              &corr_param.channel_freq, 1, MPI_INT64,
              MPI_COMM_WORLD);
   MPI_Unpack(buffer, size, &position,
-             &corr_param.bandwidth, 1, MPI_INT32,
+             &corr_param.bandwidth, 1, MPI_INT64,
              MPI_COMM_WORLD);
   MPI_Unpack(buffer, size, &position,
              &corr_param.sideband, 1, MPI_CHAR,
@@ -1078,13 +1076,13 @@ MPI_Transfer::receive(MPI_Status &status, Correlation_parameters &corr_param) {
                &station_param.bits_per_sample, 1, MPI_INT32,
                MPI_COMM_WORLD);
     MPI_Unpack(buffer, size, &position,
-               &station_param.sample_rate, 1, MPI_INT32,
+               &station_param.sample_rate, 1, MPI_INT64,
                MPI_COMM_WORLD);
     MPI_Unpack(buffer, size, &position,
 	       &station_param.channel_freq, 1, MPI_INT64,
 	       MPI_COMM_WORLD);
     MPI_Unpack(buffer, size, &position,
-               &station_param.bandwidth, 1, MPI_INT32,
+               &station_param.bandwidth, 1, MPI_INT64,
                MPI_COMM_WORLD);
     MPI_Unpack(buffer, size, &position,
                &station_param.sideband, 1, MPI_CHAR,

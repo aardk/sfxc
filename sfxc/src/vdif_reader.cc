@@ -207,7 +207,7 @@ int32_t VDIF_reader::Header::jday_epoch() const {
 
 void VDIF_reader::set_parameters(const Input_node_parameters &param) {
   sample_rate = param.sample_rate();
-  SFXC_ASSERT(((int)sample_rate % 1000000) == 0);
+  SFXC_ASSERT(((uint64_t)sample_rate % 1000000) == 0);
   offset = param.offset;
 
   // Create a mapping from thread ID to channel number.

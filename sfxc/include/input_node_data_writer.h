@@ -87,7 +87,7 @@ private:
   Input_buffer_ptr    input_buffer_;
   Data_writer_queue   data_writers_;
   int                 delay_index;
-  int sample_rate;
+  uint64_t sample_rate;
   int bits_per_sample;
   Time integration_time;
   bool sync_stream;
