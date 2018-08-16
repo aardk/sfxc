@@ -216,8 +216,10 @@ void VDIF_reader::set_parameters(const Input_node_parameters &param) {
   thread_map.clear();
   frame_size = param.frame_size;
   if (param.n_tracks == 0) {
-    for (size_t i = 0; i < param.channels.size(); i++)
-      thread_map[param.channels[i].tracks[0]] = i;
+    for (size_t i = 0; i < param.channels.size(); i++) {
+      if (param.channels[i].tracks[0] >= 0)
+	thread_map[param.channels[i].tracks[0]] = i;
+    }
     time_between_headers_ = Time(frame_size * 8.e6 / (sample_rate * param.bits_per_sample()));
     bits_per_complete_sample = param.bits_per_sample();
     vdif_frames_per_block = 1;
