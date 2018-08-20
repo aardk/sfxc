@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 from pylab import *
 import numpy.polynomial as polynomial
 import sys, struct, pdb
