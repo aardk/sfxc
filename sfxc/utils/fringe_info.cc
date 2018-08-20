@@ -182,6 +182,8 @@ Fringe_info_container(FILE *input, bool stop_at_eof) : input(input) {
                       (char *)&global_header, stop_at_eof);
   if (eof()) return;
 
+  fseek(input, global_header.header_size, SEEK_SET);
+
   data_freq.resize(global_header.number_channels+1);
   data_lag.resize(global_header.number_channels);
   fft.resize(global_header.number_channels); // FIXME : THIS SHOULD BE 2*NCHAN
