@@ -1133,10 +1133,10 @@ Control_parameters::frequency_channel(size_t channel_nr, const std::string& mode
   for (Vex::Node::const_iterator chan = freq->begin("chan_def"); chan != freq->end("chan_def"); chan++) {
     if (chan[2]->to_char() == 'L') {
       ch_freq_max = (int64_t)round(chan[1]->to_double_amount("Hz"));
-      ch_freq_min = ch_freq_max - (int)chan[3]->to_double_amount("Hz");
+      ch_freq_min = ch_freq_max - (int64_t)chan[3]->to_double_amount("Hz");
     } else {
       ch_freq_min = (int64_t)round(chan[1]->to_double_amount("Hz"));
-      ch_freq_max = ch_freq_min + (int)chan[3]->to_double_amount("Hz");
+      ch_freq_max = ch_freq_min + (int64_t)chan[3]->to_double_amount("Hz");
     }
 
     // We have a match if the channel corresponding to CHANNEL_NR is
