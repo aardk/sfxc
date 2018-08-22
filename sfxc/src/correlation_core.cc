@@ -292,8 +292,8 @@ void Correlation_core::integration_normalize(std::vector<Complex_buffer> &integr
     std::pair<size_t, size_t> &baseline = baselines[i];
     int stream1 = station_stream(baseline.first);
     int stream2 = station_stream(baseline.second);
-    int32_t *levels1 = statistics[stream1]->get_statistics(); 
-    int32_t *levels2 = statistics[stream2]->get_statistics();
+    int64_t *levels1 = statistics[stream1]->get_statistics(); 
+    int64_t *levels2 = statistics[stream2]->get_statistics();
     // levels[4] contains the number of invalid samples
     int64_t n_valid1 =  total_samples - levels1[4]; 
     int64_t n_valid2 =  total_samples - levels2[4];
@@ -367,7 +367,7 @@ void Correlation_core::integration_write(std::vector<Complex_buffer> &integratio
     for (size_t i = 0; i < nstreams; i++) {
       int stream = station_stream(i);
       int station = station_number(i);
-      int32_t *levels = statistics[stream]->get_statistics();
+      int64_t *levels = statistics[stream]->get_statistics();
       stats[i].station_nr = station;
       stats[i].sideband = (correlation_parameters.sideband == 'L') ? 0 : 1;
       stats[i].polarisation = (correlation_parameters.station_streams[i].polarisation == 'R') ? 0 : 1;
@@ -440,7 +440,7 @@ void Correlation_core::integration_write(std::vector<Complex_buffer> &integratio
     }
 
     const int64_t total_samples = number_ffts_in_integration * fft_size();
-    int32_t *levels = statistics[stream1]->get_statistics(); // We get the number of invalid samples from the bitstatistics
+    int64_t *levels = statistics[stream1]->get_statistics(); // We get the number of invalid samples from the bitstatistics
     if (stream1 == stream2) {
       hbaseline.weight = std::max(total_samples - levels[4], (int64_t) 0);       // The number of good samples
     } else {
@@ -479,7 +479,7 @@ Correlation_core::tsys_write() {
   for (size_t i = 0; i < number_input_streams(); i++) {
     size_t len = 4 * sizeof(uint8_t) + sizeof(uint64_t) + 4 * sizeof(uint64_t);
     int64_t tsys_on_hi, tsys_on_lo, tsys_off_hi, tsys_off_lo;
-    int *tsys;
+    int64_t *tsys;
     char msg[len];
     int pos = 0;
 

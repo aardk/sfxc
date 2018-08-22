@@ -20,17 +20,17 @@ public:
   void reset_statistics(int bits_per_sample_, uint64_t sample_rate_, uint64_t base_sample_rate_);
   void inc_counter(unsigned char word, bool);
   void inc_invalid(int n);
-  int *get_statistics();
-  int *get_tsys();
+  int64_t *get_statistics();
+  int64_t *get_tsys();
   int bits_per_sample;
   uint64_t sample_rate;
   uint64_t base_sample_rate;
 private:
   int nInvalid;
-  std::vector<int> data_counts_on;
-  std::vector<int> data_counts_off;
-  std::vector<int> statistics;
-  std::vector<int> tsys;
+  std::vector<int64_t> data_counts_on;
+  std::vector<int64_t> data_counts_off;
+  std::vector<int64_t> statistics;
+  std::vector<int64_t> tsys;
 };
 
 inline void 
