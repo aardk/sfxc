@@ -30,7 +30,7 @@ bit_statistics::reset_statistics(int bits_per_sample_, uint64_t sample_rate_,
   nInvalid = 0;
 }
 
-int *
+int64_t *
 bit_statistics::get_statistics() {
   SFXC_ASSERT((bits_per_sample >= 1) && (bits_per_sample <= 8));
   statistics.assign(5, 0);
@@ -62,9 +62,9 @@ bit_statistics::get_statistics() {
   return &statistics[0];
 }
 
-int *
+int64_t *
 bit_statistics::get_tsys() {
-  std::vector<int> on, off;
+  std::vector<int64_t> on, off;
 
   on.assign(4, 0);
   off.assign(4, 0);
