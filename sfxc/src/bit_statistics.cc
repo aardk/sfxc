@@ -9,6 +9,18 @@
 #include <string.h>
 #include "bit_statistics.h"
 
+const int64_t gcd(int64_t a, int64_t b)
+{
+  if (a < b)
+    return gcd(b, a);
+
+  int64_t remainder = a % b;
+  if (remainder == 0)
+    return b;
+  else
+    return gcd(a, remainder);
+}
+
 bit_statistics::bit_statistics() : bits_per_sample(-1) {
   data_counts_on.assign(256, 0);
   data_counts_off.assign(256, 0);
@@ -28,6 +40,10 @@ bit_statistics::reset_statistics(int bits_per_sample_, uint64_t sample_rate_,
   data_counts_on.assign(256, 0);
   data_counts_off.assign(256, 0);
   nInvalid = 0;
+
+  int64_t div = gcd(sample_rate, base_sample_rate);
+  sample_rate /= div;
+  base_sample_rate /= div;
 }
 
 int64_t *
