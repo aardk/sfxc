@@ -26,7 +26,7 @@ public:
   uint64_t sample_rate;
   uint64_t base_sample_rate;
 private:
-  int nInvalid;
+  int64_t nInvalid;
   std::vector<int64_t> data_counts_on;
   std::vector<int64_t> data_counts_off;
   std::vector<int64_t> statistics;
