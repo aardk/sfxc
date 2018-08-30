@@ -59,6 +59,7 @@ def create_one_letter_mapping(vex):
     st = vex['SITE'][site]['site_ID']
     stations.append(st)
   unused = list(set(station_codes.keys()) - set(stations))
+  unused = [station_codes[x] for x in unused]
   spares = unused + sparecodes
   stations = {}
   for key in vex['STATION']:
