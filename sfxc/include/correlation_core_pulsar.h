@@ -27,6 +27,7 @@ protected:
   // Offsets [in units of pulsar period] of frequency components relative to the reference frequency
   std::vector<double>                           offsets;
   std::vector<int>                              bins;
+  std::vector<int64_t>                          weights;
   /// The time bins are accumulated here
   std::vector< std::vector<Complex_buffer> >    accumulation_buffers;
 

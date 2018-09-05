@@ -95,8 +95,10 @@ Correlation_core_pulsar::set_parameters(const Correlation_parameters &parameters
   gate.begin = pulsar.interval.start;
   gate.end = pulsar.interval.stop;
 
-  if(accumulation_buffers.size()!=nbins)
+  if(accumulation_buffers.size()!=nbins) {
     accumulation_buffers.resize(nbins);
+    weights.resize(nbins);
+  }
 }
 
 void Correlation_core_pulsar::do_task() {
@@ -137,10 +139,12 @@ void Correlation_core_pulsar::do_task() {
                  << current_fft << " of " << number_ffts_in_integration);
 
     find_invalid();
+    const int64_t total_samples = number_ffts_in_integration * fft_size();
     for(int bin = 0; bin < nbins; bin++) {
       integration_normalize(accumulation_buffers[bin]);
       int source = sources[delay_tables[first_stream].get_source(0)];
-      integration_write(accumulation_buffers[bin], 0, source, bin);
+      double weight = (double)weights[bin] / total_samples;
+      integration_write(accumulation_buffers[bin], 0, source, bin, weight);
     }
     tsys_write();
     current_integration++;
@@ -170,7 +174,7 @@ void Correlation_core_pulsar::integration_initialise() {
       memset(&accumulation_buffers[bin][j][0], 0, size * sizeof(std::complex<FLOAT>));
     }
   }
-
+  memset(&weights[0], 0, nbins * sizeof(int64_t));
   for (int j = 0; j < dedispersion_buffer.size(); j++) {
     SFXC_ASSERT(dedispersion_buffer[j].size() == size);
     memset(&dedispersion_buffer[j][0], 0, size * sizeof(std::complex<FLOAT>));
@@ -211,21 +215,25 @@ void Correlation_core_pulsar::integration_step(std::vector<Complex_buffer> &inte
 
 void Correlation_core_pulsar::dedisperse_buffer() {
   double obs_freq_phase = get_phase();
-  double len=gate.end-gate.begin;
+  double len = gate.end - gate.begin;
   // first compute the phase bins
   SFXC_ASSERT(bins.size() == fft_size() + 1);
   for (int j = 0; j < fft_size() + 1; j++) {
+    int bin;
     double phase = obs_freq_phase - offsets[j];
     phase = phase - floor(phase);
-    if (phase >= gate.begin){
-      if(phase < gate.end)
-        bins[j] = (int)((phase-gate.begin)*(nbins-1)/len) + 1;
+    if (phase >= gate.begin) {
+      if (phase < gate.end)
+        bin = (int)((phase-gate.begin)*(nbins-1)/len) + 1;
       else
-        bins[j] = 0;
-    }else if (phase + 1 < gate.end){
-      bins[j] = (int)((phase + 1 - gate.begin)*(nbins-1)/len) + 1;
-    }else
-      bins[j] = 0;
+        bin = 0;
+    } else if (phase + 1 < gate.end) {
+      bin = (int)((phase + 1 - gate.begin)*(nbins-1)/len) + 1;
+    } else {
+      bin = 0;
+    }
+    bins[j] = bin;
+    weights[bin] += 1;
   }
 
   // TODO check performance agains loop interchange
