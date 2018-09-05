@@ -62,7 +62,7 @@ protected:
   virtual void integration_initialise();
   void integration_step(std::vector<Complex_buffer> &integration_buffer, int nbuffer, int stride);
   void integration_normalize(std::vector<Complex_buffer> &integration_buffer);
-  void integration_write(std::vector<Complex_buffer> &integration_buffer, int phase_center, int source, int bin);
+  void integration_write(std::vector<Complex_buffer> &integration_buffer, int phase_center, int source, int bin, double binweight = 1.);
   void tsys_write();
   void sub_integration();
   void find_invalid();

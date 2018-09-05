@@ -308,7 +308,7 @@ void Correlation_core::integration_normalize(std::vector<Complex_buffer> &integr
   }
 }
 
-void Correlation_core::integration_write(std::vector<Complex_buffer> &integration_buffer, int phase_center, int source, int bin) {
+void Correlation_core::integration_write(std::vector<Complex_buffer> &integration_buffer, int phase_center, int source, int bin, double binweight /* = 1. */) {
 
   // Make sure that the input buffers are released
   // This is done by reference counting
@@ -448,6 +448,7 @@ void Correlation_core::integration_write(std::vector<Complex_buffer> &integratio
       SFXC_ASSERT(n_flagged[i].first >= 0);
       hbaseline.weight = std::max(total_samples - levels[4] - n_flagged[i].first, (int64_t)0);       // The number of good samples
     }
+    hbaseline.weight = round(binweight * hbaseline.weight);
     hbaseline.station_nr1 = station_number(baseline.first);
     hbaseline.station_nr2 = station_number(baseline.second);
 
