@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 import sys
 import struct
 import argparse
@@ -492,6 +493,8 @@ def finalize_type1(outfiles, data, scan, nap):
     f.write(struct.pack('!4hfi', stop[0], stop[1], stop[2], stop[3], stop[4], nrec))
       
 def parse_args():
+  global CREATIONDATE
+  CREATIONDATE = datetime.utcnow()
   parser = argparse.ArgumentParser(description='Convert SFXC output to mark4 format')
   parser.add_argument("vexfile", help='vex file')
   parser.add_argument("ctrlfile", help='SFXC control file used in the correlation')
@@ -501,14 +504,11 @@ def parse_args():
   ctrl = json.load(open(args.ctrlfile, 'r'))
   return vex, ctrl, args.rootid
 
-#########
-########################## MAIN #################################3
-########
-if __name__ == "__main__":
-  CREATIONDATE = datetime.utcnow()
-  vex, ctrl, ROOTID = parse_args()
+def process_job(vex, ctrl, rootid, basename="1234"):
+  global ROOTID, BASENAME, STATIONMAP
   exper = experiment(vex)
-  BASENAME = "1234" # Should make this configurable
+  ROOTID = rootid
+  BASENAME = basename
   stations = []
   for station_def in vex['STATION']:
     stations.append(station_def)
@@ -542,6 +542,9 @@ if __name__ == "__main__":
     if not data.next_integration():
       break
 
- 
-  # write end time and number of records for final scan
-  finalize_type1(outfiles, data, scan, n)
+#########
+########################## MAIN #################################3
+########
+if __name__ == "__main__":
+  vex, ctrl, rootid = parse_args()
+  process_job(vex, ctrl, rootid)
