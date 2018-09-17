@@ -92,6 +92,8 @@ protected:
   // Tracks the number of correlator points where one (but not both) stations on a baseline had invalid data
   std::vector< std::pair<int64_t,int64_t> > n_flagged;
 
+  int sample_shift;
+
   Correlation_parameters                               correlation_parameters;
   Mask_parameters                                      mask_parameters;
 

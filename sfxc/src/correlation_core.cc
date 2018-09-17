@@ -99,6 +99,14 @@ Correlation_core::set_parameters(const Correlation_parameters &parameters,
   delay_tables = delays;
   uvw_table = uvw;
 
+  // Calculate factor by which to divide sample counts such that they
+  // fit into a (signed) 32-bit integer.
+  uint64_t total_samples = parameters.sample_rate * 
+    (parameters.integration_time / Time(1000000.0));
+  sample_shift = 0;
+  while (total_samples >= (uint64_t)INT_MAX << sample_shift)
+    sample_shift++;
+
   // If the relevant correlation parameters change, clear the window
   // vector.  It will be recreated when the next integration starts.
   if (parameters.number_channels != correlation_parameters.number_channels ||
@@ -374,17 +382,17 @@ void Correlation_core::integration_write(std::vector<Complex_buffer> &integratio
       stats[i].frequency_nr = (unsigned char)correlation_parameters.frequency_nr;
 #ifndef SFXC_ZERO_STATS
       if (statistics[stream]->bits_per_sample == 2) {
-	stats[i].levels[0] = levels[0];
-	stats[i].levels[1] = levels[1];
-	stats[i].levels[2] = levels[2];
-	stats[i].levels[3] = levels[3];
-	stats[i].n_invalid = levels[4];
+	stats[i].levels[0] = levels[0] >> sample_shift;
+	stats[i].levels[1] = levels[1] >> sample_shift;
+	stats[i].levels[2] = levels[2] >> sample_shift;
+	stats[i].levels[3] = levels[3] >> sample_shift;
+	stats[i].n_invalid = levels[4] >> sample_shift;
       } else {
 	stats[i].levels[0] = 0;
-	stats[i].levels[1] = levels[0];
-	stats[i].levels[2] = levels[1];
+	stats[i].levels[1] = levels[0] >> sample_shift;
+	stats[i].levels[2] = levels[1] >> sample_shift;
 	stats[i].levels[3] = 0;
-	stats[i].n_invalid = levels[4];
+	stats[i].n_invalid = levels[4] >> sample_shift;
       }
 #else
       stats[i].levels[0] = 0;
@@ -439,18 +447,20 @@ void Correlation_core::integration_write(std::vector<Complex_buffer> &integratio
 	integration_buffer_float[j] = integration_buffer[i][j];
     }
 
-    const int64_t total_samples = number_ffts_in_integration * fft_size();
     int64_t *levels = statistics[stream1]->get_statistics(); // We get the number of invalid samples from the bitstatistics
+    const int64_t total_samples = number_ffts_in_integration * fft_size();
+    int64_t valid_samples;
     if (stream1 == stream2) {
-      hbaseline.weight = std::max(total_samples - levels[4], (int64_t) 0);       // The number of good samples
+      valid_samples = std::max(total_samples - levels[4], (int64_t)0);
     } else {
       SFXC_ASSERT(levels[4] >= 0);
       SFXC_ASSERT(n_flagged[i].first >= 0);
-      hbaseline.weight = std::max(total_samples - levels[4] - n_flagged[i].first, (int64_t)0);       // The number of good samples
+      valid_samples = std::max(total_samples - levels[4] - n_flagged[i].first, (int64_t)0);
     }
     hbaseline.weight = round(binweight * hbaseline.weight);
     hbaseline.station_nr1 = station_number(baseline.first);
     hbaseline.station_nr2 = station_number(baseline.second);
+    hbaseline.weight = valid_samples >> sample_shift;
 
     // Polarisation (RCP: 0, LCP: 1)
     hbaseline.polarisation1 = (correlation_parameters.station_streams[baseline.first].polarisation == 'R') ? 0 : 1;
@@ -607,7 +617,7 @@ void Correlation_core::find_invalid() {
     };
     std::vector<Invalid> *invalid[2] = {invalid_elements[stream1], invalid_elements[stream2]};
     int index[2] = {0, 0};
-    int nflagged[2] = {0, 0};
+    int64_t nflagged[2] = {0, 0};
     int invalid_start[2] = {INT_MAX, INT_MAX};
     int invalid_end[2] = {INT_MAX, INT_MAX};
     const int invalid_size[2] = {invalid[0]->size(), invalid[1]->size()};
