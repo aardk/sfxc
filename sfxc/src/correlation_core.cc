@@ -615,8 +615,7 @@ void Correlation_core::find_invalid() {
     for (int i = 0; i < 2; i++) {
       if (invalid_size[i] > 0) {
         invalid_start[i] = (int) floor((*invalid[i])[0].start / scale[i]);
-        invalid_end[i] = invalid_start[i] + 
-                         (int) floor((*invalid[i])[index[i]].n_invalid / scale[i]);
+        invalid_end[i] = (int) floor(((*invalid[i])[0].start + (*invalid[i])[0].n_invalid) / scale[i]);
         index[i]++;
       }
     }
@@ -625,27 +624,26 @@ void Correlation_core::find_invalid() {
     while (invalid_start[i] < INT_MAX) {
       if (invalid_start[0] == invalid_start[1]) {
         if (invalid_end[0] == invalid_end[1]) {
-          invalid_start[0] = invalid_end[0] + 1; // invalidate both
-          invalid_start[1] = invalid_end[1] + 1;
+          invalid_start[0] = invalid_end[0]; // invalidate both
+          invalid_start[1] = invalid_end[1];
         } else {
           int j = invalid_end[0] < invalid_end[1] ? 0 : 1;
           invalid_start[1-j] = invalid_end[j];
-          invalid_start[j] = invalid_end[j] + 1; // invalidate
+          invalid_start[j] = invalid_end[j]; // invalidate
         }
-      } else if (invalid_end[i] <  invalid_start[1-i]) {
+      } else if (invalid_end[i] < invalid_start[1-i]) {
         nflagged[1-i] += invalid_end[i] - invalid_start[i];
-        invalid_start[i] = invalid_end[i] + 1;
+        invalid_start[i] = invalid_end[i];
       } else {
         nflagged[1-i] += invalid_start[1-i] - invalid_start[i];
         invalid_start[i] = invalid_start[1-i];
       }
       // update indexes
       for (int j = 0; j < 2; j++) {
-        if (invalid_start[j] > invalid_end[j]) {
+        if (invalid_start[j] >= invalid_end[j]) {
           if (index[j] < invalid_size[j]) {
             invalid_start[j] = (int) floor((*invalid[j])[index[j]].start / scale[j]);
-            invalid_end[j] = invalid_start[j] + 
-                             (int) floor((*invalid[j])[index[j]].n_invalid / scale[j]);
+            invalid_end[j] = (int) floor(((*invalid[j])[index[j]].start + (*invalid[j])[index[j]].n_invalid) / scale[j]);
             index[j]++;
 	  } else {
 	    invalid_start[j] = INT_MAX;
