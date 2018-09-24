@@ -97,10 +97,21 @@ class progressDialog(QtGui.QDialog):
         if self.subjob == -1:
             return
 
+        bins = []
         sources = []
         try:
             if self.json_input['pulsar_binning']:
-                return
+                bins = [1]
+                scans = self.json_input['scans']
+                pulsars = self.json_input['pulsars']
+                for scan in scans:
+                    for source in self.vex['SCHED'][scan].getall('source'):
+                        if source in pulsars:
+                            bins = range(pulsars[source]['nbins'] + 1)
+                            break
+                        continue
+                    continue
+                pass
         except:
             pass
         try:
@@ -110,6 +121,7 @@ class progressDialog(QtGui.QDialog):
                     for source in self.vex['SCHED'][scan].getall('source'):
                         source_name = self.vex['SOURCE'][source]['source_name']
                         sources.append(source_name)
+                        continue
                     continue
                 pass
         except:
@@ -121,7 +133,18 @@ class progressDialog(QtGui.QDialog):
 
         cursor = conn.cursor()
         output_file = self.json_input['output_file']
-        if sources:
+        if bins:
+            for bin in bins:
+                output_uri = "%s.bin%d" % (output_file, bin)
+                path = urlparse.urlparse(output_uri).path
+                if os.path.exists(path):
+                    cursor.execute("INSERT INTO data_output" \
+                                   + " (subjob_id, output_uri, pulsar_bin)" \
+                                   + " VALUES (%d, '%s', %d)" \
+                                   % (self.subjob, output_uri, bin))
+                    pass
+                continue
+        elif sources:
             for source in sources:
                 output_uri = "%s_%s" % (output_file, source)
                 path = urlparse.urlparse(output_uri).path
