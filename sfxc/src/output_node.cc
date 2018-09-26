@@ -158,21 +158,19 @@ write_global_header(const Output_header_global &global_header) {
 
 void
 Output_node::
-set_weight_of_input_stream(int stream, int64_t weight, size_t size, int nbins) {
+set_order_of_input_stream(int stream, int order, size_t size, int nbins) {
   SFXC_ASSERT(stream >= 0);
 
   SFXC_ASSERT(stream < (int)input_streams.size());
   // Check that the weight does not exist yet:
-  SFXC_ASSERT(input_streams_order.find(weight) == input_streams_order.end());
+  SFXC_ASSERT(input_streams_order.find(order) == input_streams_order.end());
   // Check that the ordering is right (not before the current element):
   if (!input_streams_order.empty()) {
-    SFXC_ASSERT(weight >= curr_slice);
+    SFXC_ASSERT(order >= curr_slice);
   }
 
-  // Add the weight to the priority queue:
-  input_streams_order.insert(Input_stream_priority_map_value(weight,stream));
-
-  // Add the weight to the priority queue:
+  // Add the stream to the queue:
+  input_streams_order.insert(Input_stream_order_map_value(order, stream));
   input_streams[stream]->set_length_time_slice(size, nbins);
 
   SFXC_ASSERT(status != END_NODE);

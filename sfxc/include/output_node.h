@@ -26,9 +26,6 @@ class Output_node;
 /// Controller for output node specific commands
 class Output_node_controller : public Controller {
 public:
-  typedef std::map<uint32_t, int>                 Input_stream_priority_map;
-  typedef Input_stream_priority_map::value_type Input_stream_priority_map_value;
-
   Output_node_controller(Output_node &node);
 
   Process_event_status process_event(MPI_Status &status);
@@ -54,8 +51,8 @@ class Output_node : public Node {
 public:
   // Input types
   typedef Multiple_data_readers_controller::value_type input_value_type;
-  typedef std::map<int32_t, int>                    Input_stream_priority_map;
-  typedef Input_stream_priority_map::value_type     Input_stream_priority_map_value;
+  typedef std::map<int, int>                    Input_stream_order_map;
+  typedef Input_stream_order_map::value_type     Input_stream_order_map_value;
 
   /**
    * Manages the input from one correlator node. The input stream is
@@ -122,16 +119,8 @@ public:
   /**
    * Notifies the output node that there is a block of data arriving
    * from a correlator node.
-   *
-   * \param num The number of the input stream that will send the data
-   *
-   * \param weight The weight of an input stream is the sequence
-   * number in the output file. The correlator node gets this number
-   * from the manager node.
-   *
-   * \param size The size of the data block in bytes
    **/
-  void set_weight_of_input_stream(int num, int64_t weight, size_t size, int nbins);
+  void set_order_of_input_stream(int stream, int order, size_t size, int nbins);
 
   /**
    * This function sets the total number of time slices so that the
@@ -164,9 +153,9 @@ private:
   Multiple_data_writers_controller    data_writer_ctrl;
 
   STATUS                              status;
-  // Priority map of the input streams, based on the weight (sequence
+  // Ordered map of the input streams, based on the order (sequence
   // number of the data blocks)
-  Input_stream_priority_map           input_streams_order;
+  Input_stream_order_map           input_streams_order;
   // One input stream for every correlate node
   std::vector<Input_stream *>         input_streams;
 
