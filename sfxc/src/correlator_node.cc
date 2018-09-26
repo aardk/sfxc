@@ -413,7 +413,7 @@ output_node_set_timeslice(int slice_nr, int slice_offset, int n_slices,
   for (int i=0; i<n_slices; i++) {
     MPI_Send(&msg_output_node, 4, MPI_INT32,
              RANK_OUTPUT_NODE,
-             MPI_TAG_OUTPUT_STREAM_SLICE_SET_PRIORITY,
+             MPI_TAG_OUTPUT_STREAM_SLICE_SET_ORDER,
              MPI_COMM_WORLD);
     msg_output_node[1] += slice_offset;
   }

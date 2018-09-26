@@ -229,12 +229,13 @@ enum MPI_TAG {
   // Output node specific commands
   //-------------------------------------------------------------------------//
 
-  /** Set the priority of the output stream
-   * - int64_t: StreamNr
-   * - int64_t: Priority
-   * - int64_t: Size in bytes of the stream
+  /** Set the order of the output stream
+   * - int32_t: StreamNr
+   * - int32_t: Order
+   * - int32_t: Size in bytes of the stream
+   * - int32_t: Number of bins
    **/
-  MPI_TAG_OUTPUT_STREAM_SLICE_SET_PRIORITY,
+  MPI_TAG_OUTPUT_STREAM_SLICE_SET_ORDER,
 
   // Correlate node specific commands
   //-------------------------------------------------------------------------//
@@ -433,8 +434,8 @@ inline const char * const do_print_MPI_TAG(MPI_TAG tag) {
   case MPI_TAG_INPUT_NODE_ADD_TIME_SLICE: {
       return "MPI_TAG_INPUT_NODE_ADD_TIME_SLICE";
     }
-  case MPI_TAG_OUTPUT_STREAM_SLICE_SET_PRIORITY: {
-      return "MPI_TAG_OUTPUT_STREAM_SLICE_SET_PRIORITY";
+  case MPI_TAG_OUTPUT_STREAM_SLICE_SET_ORDER: {
+      return "MPI_TAG_OUTPUT_STREAM_SLICE_SET_ORDER";
     }
   case MPI_TAG_TRACK_PARAMETERS: {
       return "MPI_TAG_TRACK_PARAMETERS";
