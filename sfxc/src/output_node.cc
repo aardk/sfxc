@@ -93,8 +93,8 @@ void Output_node::start() {
         input_streams_order.erase(input_streams_order.begin());
         input_streams[curr_stream]->goto_next_slice(curr_slice_size, number_of_bins);
         total_bytes_written = 0;
-        if(input_buffer.size()<curr_slice_size)
-          input_buffer.resize(curr_slice_size);
+        if (input_buffer.size() < (number_of_bins * curr_slice_size))
+          input_buffer.resize(number_of_bins * curr_slice_size);
         status = WRITE_OUTPUT;
         break;
       }
@@ -183,7 +183,7 @@ bool Output_node::write_output(int nBytes) {
   SFXC_ASSERT(curr_stream >= 0);
   SFXC_ASSERT(input_streams[curr_stream] != NULL);
 
-  int nbytes_per_file = curr_slice_size/number_of_bins; 
+  int nbytes_per_file = curr_slice_size;
   int bytes_written=0;
   int index_in_file = total_bytes_written%nbytes_per_file;
   while(bytes_written<nBytes){
@@ -271,7 +271,7 @@ Output_node::Input_stream::goto_next_slice(int &new_slice_size, int &new_nbins) 
   SFXC_ASSERT(reader->end_of_dataslice());
   new_slice_size = slice_size.front().nBytes;
   new_nbins = slice_size.front().nBins;
-  reader->set_size_dataslice(new_slice_size);
+  reader->set_size_dataslice(new_nbins * new_slice_size);
 
   SFXC_ASSERT(reader->get_size_dataslice() > 0);
   slice_size.pop();
