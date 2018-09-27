@@ -388,8 +388,8 @@ Correlator_node::set_parameters() {
   int size_stats = nstreams * sizeof(Output_header_bitstatistics);
 
   int slice_size;
-  slice_size = nBins * ( sizeof(int32_t) + sizeof(Output_header_timeslice) + size_uvw + size_stats +
-               nBaselines * ( size_of_one_baseline + sizeof(Output_header_baseline)));
+  slice_size = sizeof(int32_t) + sizeof(Output_header_timeslice) + size_uvw + size_stats +
+               nBaselines * ( size_of_one_baseline + sizeof(Output_header_baseline));
   SFXC_ASSERT(nBins >= 1);
   output_node_set_timeslice(parameters.slice_nr,
                             parameters.slice_offset,
@@ -401,7 +401,7 @@ void
 Correlator_node::
 output_node_set_timeslice(int slice_nr, int slice_offset,
                           int stream_nr, int bytes, int bins) {
-  correlation_core->data_writer()->set_size_dataslice(bytes);
+  correlation_core->data_writer()->set_size_dataslice(bins * bytes);
   int32_t msg_output_node[] = {stream_nr, slice_nr, bytes, bins};
   MPI_Send(&msg_output_node, 4, MPI_INT32,
 	   RANK_OUTPUT_NODE,
