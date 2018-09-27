@@ -169,14 +169,10 @@ void Correlator_node::main_loop() {
           has_requested = true;
         }
         if (correlation_core->finished()) {
-          ///DEBUG_MSG("CORRELATION CORE FINISHED !" << n_integration_slice_in_time_slice);
-          n_integration_slice_in_time_slice--;
-          if (n_integration_slice_in_time_slice==0) {
-            // Notify manager node:
-            status = STOPPED;
-            // Try initialising a new integration slice
-            set_parameters();
-          }
+	  // Notify manager node:
+	  status = STOPPED;
+	  // Try initialising a new integration slice
+	  set_parameters();
         }
         break;
       }
@@ -376,8 +372,6 @@ Correlator_node::set_parameters() {
   has_requested=false;
   status = CORRELATING;
 
-  n_integration_slice_in_time_slice =
-    (parameters.stop_time-parameters.start_time) / parameters.integration_time;
   // set the output stream
   int nstreams = parameters.station_streams.size();
   std::set<int> stations_set;
@@ -399,22 +393,18 @@ Correlator_node::set_parameters() {
   SFXC_ASSERT(nBins >= 1);
   output_node_set_timeslice(parameters.slice_nr,
                             parameters.slice_offset,
-                            n_integration_slice_in_time_slice,
                             get_correlate_node_number(),slice_size, nBins);
   integration_slices_queue.pop();
 }
 
 void
 Correlator_node::
-output_node_set_timeslice(int slice_nr, int slice_offset, int n_slices,
+output_node_set_timeslice(int slice_nr, int slice_offset,
                           int stream_nr, int bytes, int bins) {
-  correlation_core->data_writer()->set_size_dataslice(bytes*n_slices);
+  correlation_core->data_writer()->set_size_dataslice(bytes);
   int32_t msg_output_node[] = {stream_nr, slice_nr, bytes, bins};
-  for (int i=0; i<n_slices; i++) {
-    MPI_Send(&msg_output_node, 4, MPI_INT32,
-             RANK_OUTPUT_NODE,
-             MPI_TAG_OUTPUT_STREAM_SLICE_SET_ORDER,
-             MPI_COMM_WORLD);
-    msg_output_node[1] += slice_offset;
-  }
+  MPI_Send(&msg_output_node, 4, MPI_INT32,
+	   RANK_OUTPUT_NODE,
+	   MPI_TAG_OUTPUT_STREAM_SLICE_SET_ORDER,
+	   MPI_COMM_WORLD);
 }

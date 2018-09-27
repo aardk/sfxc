@@ -92,7 +92,7 @@ public:
   void add_delay_table(Delay_table &table, int sn1, int sn2);
   void add_uvw_table(Uvw_model &table, int sn1);
 
-  void output_node_set_timeslice(int slice_nr, int slice_offset, int n_slices,
+  void output_node_set_timeslice(int slice_nr, int slice_offset,
                                  int stream_nr, int bytes, int nbins);
 
   void receive_parameters(const Correlation_parameters &parameters);
@@ -260,8 +260,6 @@ private:
   std::vector< Delay_correction_ptr >         delay_modules;
   Correlation_core                            *correlation_core, *correlation_core_normal;
   Correlation_core_pulsar                     *correlation_core_pulsar;
-
-  int n_integration_slice_in_time_slice;
 
   std::queue<Correlation_parameters>          integration_slices_queue;
   std::vector<int>                            delay_index;
