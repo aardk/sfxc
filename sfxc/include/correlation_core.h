@@ -37,8 +37,9 @@ public:
   bool finished();
   bool almost_finished();
 
-  void connect_to(size_t stream, bit_statistics_ptr statistics_, Input_buffer_ptr buffer);
-  void connect_to(size_t stream, std::vector<Invalid> *invalid_);
+  void connect_to(size_t stream, Input_buffer_ptr buffer);
+  void connect_to(size_t stream, bit_statistics_ptr statistics_,
+                  std::vector<Invalid> *invalid_);
 
   virtual void set_parameters(const Correlation_parameters &parameters,
                               std::vector<Delay_table_akima> &delays,

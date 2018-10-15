@@ -87,11 +87,16 @@ private:
   Input_buffer_ptr    input_buffer_;
   Data_writer_queue   data_writers_;
   int                 delay_index;
+  int                 input_index;
   uint64_t sample_rate;
   int bits_per_sample;
   Time integration_time;
+  Time channel_offset;
+  Time overlap_time;
+  int frames_to_buffer;
   bool sync_stream;
   int stream_nr;
+  int intnr;
   uint8_t station_number;
   uint8_t frequency_number;
   uint8_t sideband;
@@ -121,7 +126,6 @@ private:
   Time_interval current_interval_;
 
   Time _current_time;
-  Time _slice_start;
   Time byte_length;
 
   double last_duration_;

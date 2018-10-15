@@ -2,7 +2,7 @@
 #include "output_header.h"
 #include <utils.h>
 
-Correlation_core_pulsar::Correlation_core_pulsar(): nbins(0), polyco(NULL){
+Correlation_core_pulsar::Correlation_core_pulsar(): nbins(0), polyco(NULL) {
  us_per_day=(int64_t)24*60*60*1000000;
 }
 
@@ -43,7 +43,9 @@ Correlation_core_pulsar::set_parameters(const Correlation_parameters &parameters
   }
   n_flagged.resize(baselines.size());
 
-  double start_mjd = parameters.start_time.get_mjd();
+  double start_mjd = (parameters.integration_start - 
+                      Time(parameters.channel_offset)).get_mjd();
+  //double start_mjd = parameters.integration_start.get_mjd();
   fft_duration = ((double)fft_size() * 1000000) / parameters.sample_rate;
   if (offsets.size() != fft_size() + 1)
     offsets.resize(fft_size() + 1);
@@ -62,6 +64,7 @@ Correlation_core_pulsar::set_parameters(const Correlation_parameters &parameters
     }
   }
   polyco = &pulsar.polyco_params[closest];
+  coherent_dedispersion = pulsar.coherent_dedispersion;
 
   // Compute the phase at the start of the period
   double DT;
@@ -89,8 +92,16 @@ Correlation_core_pulsar::set_parameters(const Correlation_parameters &parameters
   freq = (freq + polyco->coef[1]) / 60 + polyco->ref_freq;
 
   SFXC_ASSERT(offsets.size() == fft_size() + 1);
-  for(int i = 0; i < fft_size() + 1 ;i++) {
-    offsets[i] = 4148.808 * polyco->DM * (1 / pow(base_freq + i * dfreq, 2) - inv_freq_obs2) * freq;
+  // TODO When doing coherent dedispersion, pulsar binning can be done more efficient
+  if (coherent_dedispersion) {
+    double f = parameters.dedispersion_ref_frequency;
+    for (int i = 0; i < fft_size() + 1; i++)
+      offsets[i] = polyco->DM * (1 / (f*f) - inv_freq_obs2) * freq / 2.41e-4;
+  } else {
+    for(int i = 0; i < fft_size() + 1; i++) {
+      double f = base_freq + i * dfreq;
+      offsets[i] = polyco->DM * (1 / (f*f) - inv_freq_obs2) * freq / 2.41e-4;
+    }
   }
   gate.begin = pulsar.interval.start;
   gate.end = pulsar.interval.stop;
@@ -103,13 +114,13 @@ Correlation_core_pulsar::set_parameters(const Correlation_parameters &parameters
 
 void Correlation_core_pulsar::do_task() {
   SFXC_ASSERT(has_work());
-
   if (current_fft % 1000 == 0) {
     PROGRESS_MSG("node " << node_nr_ << ", "
-                 << current_fft << " of " << number_ffts_in_integration);
+                         << current_fft << " of " 
+                         << number_ffts_in_integration);
   }
 
-  if (current_fft % number_ffts_in_integration == 0) {
+  if (current_fft == 0) {
     integration_initialise();
   }
 
@@ -122,6 +133,7 @@ void Correlation_core_pulsar::do_task() {
   const int first_stream = station_stream(0);
   const int stride = input_buffers[first_stream]->front()->stride;
   const int nbuffer = input_buffers[first_stream]->front()->data.size() / stride;
+ 
   for (size_t buf_idx = 0; buf_idx < nbuffer * stride; buf_idx += stride) {
     // Process the data of the current fft
     integration_step(dedispersion_buffer, buf_idx);
@@ -133,7 +145,8 @@ void Correlation_core_pulsar::do_task() {
     int stream = station_stream(i);
     input_buffers[stream]->pop();
   }
-
+  //if (RANK_OF_NODE == 10)
+  //  LOG_MSG("current_fft = " << current_fft << " / " << number_ffts_in_integration);
   if (current_fft == number_ffts_in_integration) {
     PROGRESS_MSG("node " << node_nr_ << ", "
                  << current_fft << " of " << number_ffts_in_integration);
@@ -235,7 +248,6 @@ void Correlation_core_pulsar::dedisperse_buffer() {
     bins[j] = bin;
     weights[bin] += 1;
   }
-
   // TODO check performance agains loop interchange
   for (int i = 0; i < baselines.size(); i++) {
     SFXC_ASSERT(dedispersion_buffer[i].size() == fft_size() + 1);

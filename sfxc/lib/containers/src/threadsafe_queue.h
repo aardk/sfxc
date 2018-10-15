@@ -16,7 +16,7 @@
 
 #include <iostream>
 #include <vector>
-#include <queue>
+#include <deque>
 
 #include "mutex.h"
 #include "raiimutex.h"
@@ -63,7 +63,7 @@ public:
 		if( isclose_ )throw QueueClosedException();
 
     RAIIMutex rc(m_queuecond);
-    m_queue.push(element);
+    m_queue.push_back(element);
     if( m_queue.size() != 0 ) m_queuecond.signal();
   }
 
@@ -87,6 +87,16 @@ public:
     return m_queue.back();
   }
 
+  Type& operator[](size_t i) {
+    RAIIMutex rc(m_queuecond);
+    while ( m_queue.size() <= i ){
+        if( isclose_ )throw QueueClosedException();
+	    m_queuecond.wait();
+        if( isclose_ )throw QueueClosedException();
+    }
+    return m_queue[i];
+  }
+
   void pop() {
     RAIIMutex rc(m_queuecond);
     while ( m_queue.size() == 0 ){
@@ -94,7 +104,7 @@ public:
     	 m_queuecond.wait();
 			 if( isclose_ )throw QueueClosedException();
     }
-    m_queue.pop();
+    m_queue.pop_front();
   }
 
   Type front_and_pop() {
@@ -105,7 +115,7 @@ public:
 			 if( isclose_ )throw QueueClosedException();
     }
     Type element = m_queue.front();
-    m_queue.pop();
+    m_queue.pop_front();
     return element;
   }
 
@@ -116,7 +126,7 @@ public:
     	 MTHROW("Trying to pop from an empty queue.");
     }
     Type element = m_queue.front();
-    m_queue.pop();
+    m_queue.pop_front();
     return element;
   }
 
@@ -151,7 +161,7 @@ class Test : public Test_aclass<Threadsafe_queue> {
 #endif // ENABLE_TEST_UNIT
 
 private:
-  std::queue<Type> m_queue;
+  std::deque<Type> m_queue;
   Condition m_queuecond;
 
   bool isclose_;

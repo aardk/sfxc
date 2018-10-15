@@ -27,6 +27,7 @@
 
 #include "generate_delay_model.h"
 #include "vex/Vex++.h"
+#include "correlator_time.h"
 
 #define PI (3.14159265358979323846) //copied from prep_job/calc_model.h
 #define SPEED_OF_LIGHT (299792458.0)
@@ -38,6 +39,8 @@ extern "C" void generate_delay_tables(FILE *output, char *stationname,
 
 // Time between sample points
 const double delta_time = 1; // in seconds
+// The number of additional seconds before and after each scan should be computed
+const int n_padding_seconds = 1;
 
 // Data needed to generate the delay table
 struct Station_data station_data;
@@ -94,8 +97,8 @@ main(int argc, char *argv[])
   }
 
   if (argc == 5) {
-    start = vex2time(argv[3]);
-    stop = vex2time(argv[4]);
+    start = vex2time(argv[3]) - n_padding_seconds;
+    stop = vex2time(argv[4]) + n_padding_seconds;
   } else {
     start = scan_data[0].scan_start;
     stop = scan_data[n_scans - 1].scan_stop;
@@ -446,7 +449,7 @@ int initialise_data(const char *vex_filename,
     }
   }
 
-  std::string startTime;
+  Time startTime;
   scan_data = new struct Scan_data[n_scans];
   int scan_nr=0;
   for (Vex::Node::const_iterator scan_block = vex.get_root_node()["SCHED"]->begin();
@@ -459,6 +462,8 @@ int initialise_data(const char *vex_filename,
       if (station_duration > duration)
         duration = station_duration;
     }
+    // account for extra data points before and after scan
+    duration += 2 * n_padding_seconds; 
     for (Vex::Node::const_iterator scan_it = scan_block->begin("station");
          scan_it != scan_block->end("station"); ++scan_it) {
       if (scan_it[0]->to_string() == station_name) {
@@ -468,13 +473,13 @@ int initialise_data(const char *vex_filename,
 	memset(scan.scan_name, 0, sizeof(scan.scan_name));
 	strncpy(scan.scan_name, scan_block.key().c_str(), 80);
         startTime = scan_block["start"]->to_string();
-        scan.year = str_to_long(startTime,0,4);  //pos=0, length=4
-        int doy = str_to_long(startTime,5,3);
+        startTime -= 1000000. * n_padding_seconds;
+        int doy, sec, ms;
+        startTime.get_date(scan.year, doy);
         // convert day of year to (month,day)
         yd2md(scan.year,doy,scan.month,scan.day);
-        scan.hour  = str_to_long(startTime,9,2);
-        scan.min = str_to_long(startTime,12,2);
-        scan.sec = str_to_long(startTime,15,2);
+        startTime.get_time(scan.hour, scan.min, sec, ms);
+        scan.sec = sec;
         // delay table for sfxc needs this one
         scan.sec_of_day = scan.hour*3600. + scan.min*60. + scan.sec;
         scan.scan_start =
@@ -517,3 +522,14 @@ int initialise_data(const char *vex_filename,
   }
   return 0;
 }
+
+int mjd(int day, int month, int year)
+// Calculate the modified julian day, formula taken from the all knowing wikipedia
+{
+  int a = (14-month)/12;
+  int y = year + 4800 - a;
+  int m = month + 12*a - 3;
+  int jdn = day + ((153*m+2)/5) + 365*y + (y/4) - (y/100) + (y/400) - 32045;
+  return jdn - 2400000.5;
+}
+

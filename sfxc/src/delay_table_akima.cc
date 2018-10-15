@@ -355,7 +355,7 @@ void Delay_table::open(const char *delayTableName, const Time tstart, const Time
       // Read the data
       do {
         if (line[0] == 0 && line[4] == 0) {
-          if (times.size() == 1) {
+          if (times.size() <= 3) {
             // Instead of the first point of the desired scan, we got the
             // last point of the previous scan.  Get rid of it.
             scans.resize(0);

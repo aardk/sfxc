@@ -17,7 +17,7 @@ typedef std::pair<std::string, std::string> stream_key;
 class Input_node_parameters {
 public:
   Input_node_parameters()
-      : track_bit_rate(0), fft_size(-1), data_modulation(0) {}
+      : track_bit_rate(0), slice_size(-1), data_modulation(0) {}
 
   class Channel_parameters {
   public:
@@ -32,6 +32,8 @@ public:
     char sideband;
     char polarisation;
     int32_t frequency_number;
+    // Dispersive delay of the centre frequency of the band relative to the highest sub-band
+    double channel_offset; // in microseconds
   };
 
   typedef std::vector<Channel_parameters>           Channel_list;
@@ -51,8 +53,8 @@ public:
   uint64_t track_bit_rate; // in Ms/s
   // Frame size
   int32_t frame_size;
-  // Number of samples per FFT.
-  int32_t fft_size;
+  // Size of slice in number_of_samples
+  int32_t slice_size;
   /// The integration time
   Time integr_time;
   /// Time offset for the data reader, used e.g. to compensate for formatter errors
@@ -61,6 +63,8 @@ public:
   int32_t data_modulation;
   // Phasecal integration time
   Time phasecal_integr_time;
+  // Because of dispersion, consecutive time slices overlap
+  Time overlap_time;
   // Abort the correlation if the input stream contains no valid data
   bool exit_on_empty_datastream;
 };
@@ -93,6 +97,7 @@ public:
   struct Pulsar{
     char name[11];
     int32_t nbins;
+    bool coherent_dedispersion;
     struct Interval{double start; double stop;} interval;
     std::vector<Polyco_params> polyco_params;
   };
@@ -119,9 +124,10 @@ class Correlation_parameters {
 public:
   Correlation_parameters()
     : number_channels(0), fft_size_delaycor(0), fft_size_correlation(0),
-    integration_nr(-1), slice_nr(-1), slice_offset(-1), sample_rate(0),
-    channel_freq(0), bandwidth(0), sideband('n'), frequency_nr(-1),
-    polarisation('n'), multi_phase_center(false), pulsar_binning(false),
+    fft_size_dedispersion(0), integration_nr(-1), slice_nr(-1), 
+    slice_offset(-1), sample_rate(0), channel_freq(0), bandwidth(0), 
+    sideband('n'), frequency_nr(-1), polarisation('n'), 
+    multi_phase_center(false), pulsar_binning(false),
     window(SFXC_WINDOW_RECT) {}
 
   bool operator==(const Correlation_parameters& other) const;
@@ -152,12 +158,15 @@ public:
 
   // Data members
   Time experiment_start;    // Start time of the experiment
-  Time start_time;          // Start of the slice in microseconds
-  Time stop_time;           // End of the slice in microseconds
-  Time integration_time;
+  Time stream_start;        // Start of the slice
+  int64_t slice_size;       // Number of samples in slice
+  Time integration_start;   // The time at which to start the integration
+  Time integration_time;    // The length of one integration
   Time sub_integration_time;// The length of one sub integration
+  double channel_offset;    // The dispersive delay relative to the reference frequency
   int32_t number_channels;  // number of frequency channels
   int32_t fft_size_delaycor;    // Number of samples per FFT in the delay correction
+  int32_t fft_size_dedispersion; // Number of samples per FFT in the coherent dedispersion
   int32_t fft_size_correlation; // Number of samples per FFT in the (cross-)correlation
   int32_t integration_nr;   // number of the integration
   int32_t slice_nr;         // Number of the output slice
@@ -175,12 +184,12 @@ public:
   int32_t reference_station;// use a reference station
 
   Station_list station_streams; // input streams used
-  int window;                   // Windowing function to be used
+  int32_t window;               // Windowing function to be used
   char source[11];              // name of the source under observation
   int32_t n_phase_centers;   // The number of phase centers in the current scan
   int32_t multi_phase_center;
   int32_t pulsar_binning;
-  Pulsar_parameters *pulsar_parameters;
+  double dedispersion_ref_frequency; // The reference frequency for coherent dedispersion
   Mask_parameters *mask_parameters;
 };
 
@@ -201,7 +210,9 @@ public:
 
   bool check(std::ostream &log_writer) const;
 
-  bool get_pulsar_parameters(Pulsar_parameters &pars) const;
+  Pulsar_parameters &get_pulsar_parameters() {
+    return pulsar_parameters;
+  }
   bool get_mask_parameters(Mask_parameters &pars) const;
 
   /****************************************************/
@@ -227,6 +238,8 @@ public:
   int number_channels() const;
   int fft_size_delaycor() const;
   int fft_size_correlation() const;
+  int fft_size_dedispersion(const std::string &scan_name) const;
+  double dispersive_delay(double freq_low, double freq_high, double DM) const;
   int window_function() const;
   int job_nr() const;
   int subjob_nr() const;
@@ -305,12 +318,35 @@ public:
 
   /**
    * Returns the number of bytes transferred for one integration slice
-   * from the input node to the correlator node.
+   * from the correlator node to the output node
    **/
   static int nr_ffts_per_integration_slice(const Time &integration_time,
 				           uint64_t sample_rate, int fft_size) {
     Time time_one_fft(fft_size / (sample_rate / 1000000.));
     return floor(integration_time / time_one_fft);
+  } 
+
+  // Number of samples to be transferred between input and correlator node
+  static int nr_samples_per_slice_dedisp(const Time &integration_time, 
+                                         int sample_rate, 
+                                         int fft_size_dedispersion,
+                                         int fft_size_correlation) {
+    Time time_correlation(fft_size_correlation / (sample_rate / 1000000.));
+    Time time_dedispersion(fft_size_dedispersion / (sample_rate / 1000000.));
+    int nr_corr_fft = nr_ffts_per_integration_slice(integration_time, 
+                        sample_rate, fft_size_correlation);
+    int nr_fft = ceil((time_correlation*nr_corr_fft + time_dedispersion) / 
+                      time_dedispersion);
+    return nr_fft * fft_size_dedispersion;
+  }
+
+  static int nr_samples_per_slice(const Time &integration_time, 
+                                  int sample_rate, 
+                                  int fft_size_correlation) {
+    Time time_correlation(fft_size_correlation / (sample_rate / 1000000.));
+    int nr_corr_fft = nr_ffts_per_integration_slice(integration_time, 
+                        sample_rate, fft_size_correlation);
+    return nr_corr_fft * fft_size_correlation;
   }
 
   int polarisation_type_for_global_output_header(const std::string &mode) const;
@@ -321,13 +357,14 @@ public:
 
   // Return the track parameters needed by the input node
   Input_node_parameters
-  get_input_node_parameters(const std::string &mode_name,
+  get_input_node_parameters(const std::string &scan_name,
                             const std::string &station_name,
 			    const std::string &datastream_name) const;
 
   // Return the correlation parameters needed by a correlator node
   Correlation_parameters
   get_correlation_parameters(const std::string &scan_name,
+                             const Time start_time,
                              size_t channel_nr,
                              const std::map<stream_key, int> &correlator_node_station_to_input) const;
   std::string rack_type(const std::string &station) const;
@@ -376,6 +413,18 @@ private:
   void get_vdif_threads(const std::string &mode,
 			const std::string &station,
 			Input_node_parameters &input_parameters) const;
+  // Get the pulsar parameters
+  bool read_pulsar_parameters();
+  Pulsar_parameters pulsar_parameters;
+  // Channel offsets and bufferring periods for the coherent dedispersion
+  mutable struct Dedispersion_parameters{
+    std::string scan;  // The scan name for which the parameters were computed
+    bool coherent_dedispersion;
+    int fft_size_dedispersion;
+    double ref_frequency;  // In MHz
+    std::map<std::pair<int, char>, float>  channel_offset;
+  } dedispersion_parameters;
+  void get_dedispersion_parameters(const std::string &scan) const;
 
   std::string ctrl_filename;
   std::string vex_filename;
