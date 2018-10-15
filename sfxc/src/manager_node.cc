@@ -348,12 +348,9 @@ void Manager_node::start_next_timeslice_on_node(int corr_node_nr) {
   correlation_parameters =
     control_parameters.
     get_correlation_parameters(scan_name,
+                               start_time + integration_time() * integration_slice_nr,
                                current_channel,
                                get_input_node_map());
-  correlation_parameters.start_time =
-    start_time + integration_time() * integration_slice_nr;
-  correlation_parameters.stop_time  =
-    start_time + integration_time() * (integration_slice_nr+1);
   correlation_parameters.integration_nr = integration_slice_nr;
   correlation_parameters.slice_nr = output_slice_nr;
   strncpy(correlation_parameters.source, control_parameters.scan_source(scan_name).c_str(), 11);
@@ -376,8 +373,8 @@ void Manager_node::start_next_timeslice_on_node(int corr_node_nr) {
       input_node_set_time_slice(input_node,
                                 ch_number_in_scan[current_channel][input_node],
 				stream,
-                                correlation_parameters.start_time,
-                                correlation_parameters.stop_time);
+                                correlation_parameters.integration_start,
+                                correlation_parameters.integration_time);
       stream += n_corr_nodes;
     }
 
@@ -386,8 +383,8 @@ void Manager_node::start_next_timeslice_on_node(int corr_node_nr) {
       input_node_set_time_slice(input_node,
 				ch_number_in_scan[cross_channel][input_node],
 				stream,
-				correlation_parameters.start_time,
-				correlation_parameters.stop_time);
+				correlation_parameters.integration_start,
+				correlation_parameters.integration_time);
     }
   }
 
@@ -463,8 +460,8 @@ Manager_node::initialise() {
 
   if(control_parameters.pulsar_binning()){
     // If pulsar binning is enabled : get all pulsar parameters (polyco files, etc.)
-    if (!control_parameters.get_pulsar_parameters(pulsar_parameters))
-      sfxc_abort("Error parsing pulsar information from control file\n");
+    Pulsar_parameters &pulsar_parameters = control_parameters.get_pulsar_parameters();
+
     correlator_node_set_all(pulsar_parameters);
     // Set the output files (minimum of two bins for off-pulse data)
     int max_nbins=2;
@@ -565,7 +562,9 @@ void Manager_node::initialise_scan(const std::string &scan) {
     Delay_table delay_table;
     const std::string &delay_file =
       control_parameters.get_delay_table_name(station_name); // also generates delay file if it doesn't exist
-    delay_table.open(delay_file.c_str(), scan_start, stop_time_scan, scan);
+    Time onesec = 1000000.;
+    delay_table.open(delay_file.c_str(), scan_start - onesec, 
+                     stop_time_scan + onesec, scan);
     SFXC_ASSERT(delay_table.initialised());
 
     // Get clock offset
@@ -640,7 +639,9 @@ void Manager_node::initialise_scan(const std::string &scan) {
     Uvw_model uvw_table;
     const std::string &delay_file =
       control_parameters.get_delay_table_name(station_name);
-    uvw_table.open(delay_file.c_str(), scan_start, stop_time_scan, scan);
+    Time onesec = 1000000.;
+    uvw_table.open(delay_file.c_str(), scan_start - onesec, 
+                   stop_time_scan + onesec, scan);
 
     correlator_node_set_all(uvw_table, input_node);
   }
@@ -648,7 +649,6 @@ void Manager_node::initialise_scan(const std::string &scan) {
   get_log_writer() << "Set track parameters" << std::endl;
 
   // Send the track parameters to the input nodes
-  const std::string &mode_name = vex.get_mode(scan);
   for (size_t input_node = 0; input_node < control_parameters.number_inputs();
        input_node++) {
     const std::string &station_name = control_parameters.station(station_map[input_node]);
@@ -657,13 +657,14 @@ void Manager_node::initialise_scan(const std::string &scan) {
 
     const std::string &ds_name = datastream_map[input_node];
     Input_node_parameters input_node_param =
-      control_parameters.get_input_node_parameters(mode_name, station_name, ds_name);
+      control_parameters.get_input_node_parameters(scan, station_name, ds_name);
     if (!input_node_param.channels.empty())
       input_node_set(input_node, input_node_param);
   }
   n_sources_in_current_scan = control_parameters.get_vex().n_sources(scan);
 
   // Determine for each station which channels are to be correlated
+  const std::string &mode_name = vex.get_mode(scan);
   std::vector<int> last_channel(control_parameters.number_inputs(), -1);
   ch_number_in_scan.resize(control_parameters.number_frequency_channels());
   for(int i = 0; i < ch_number_in_scan.size(); i++){

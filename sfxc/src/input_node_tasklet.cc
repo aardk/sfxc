@@ -101,6 +101,9 @@ Input_node_tasklet(Input_reader_ptr_ reader_ptr, Data_memory_pool_ptr memory_poo
 void
 Input_node_tasklet::
 add_time_interval(Time &start_time, Time &stop_time, Time &leave_time) {
+ // Maandag : start en stop aanpassen aan overlap_time en max_channel_offset
+ //           voor zowel akima spline as data readers maar niet de data_writers
+ //           In de input_node_data_writer moet has work checken op stop_time + overlaptime + max_channel_offset
   akima_delays = delay_table.create_akima_spline(start_time, stop_time - start_time);
   /// Create a list of integer delay changes for the data writers
   Delay_memory_pool_element delay_list = delay_pool.allocate();
@@ -117,8 +120,8 @@ add_time_interval(Time &start_time, Time &stop_time, Time &leave_time) {
   // A new interval is added to the mark5 reader-tasklet 
   // We adjust the start and stop times to take into account the integer delay
   Time tbh = reader_.get_data_reader()->time_between_headers();
-  Time delay_start(akima_delays.delay(start_time)*1e6);
-  Time delay_stop(akima_delays.delay(stop_time)*1e6);
+  Time delay_start = Time(akima_delays.delay(start_time)*1e6) - overlap_time;
+  Time delay_stop = Time(akima_delays.delay(stop_time)*1e6) + max_channel_offset + overlap_time * 3;
   int32_t start_frames = (int32_t) std::floor(delay_start/tbh);
   int32_t stop_frames = (int32_t) std::ceil(delay_stop/tbh);
   Time start_time_reader = start_time + tbh * start_frames;
@@ -192,7 +195,8 @@ set_parameters(const Input_node_parameters &input_node_param,
 
   sample_rate=input_node_param.sample_rate();
   bits_per_sample=input_node_param.bits_per_sample();
-  int nr_output_bytes = (input_node_param.fft_size * bits_per_sample) / 8;
+  slice_size = input_node_param.slice_size;
+  int nr_output_bytes = (slice_size * bits_per_sample) / 8;
   SFXC_ASSERT(((nr_output_bytes*(8/bits_per_sample))*1000000LL) % sample_rate== 0);
 
   for (size_t i=0; i < number_frequency_channels; i++)
@@ -202,11 +206,15 @@ set_parameters(const Input_node_parameters &input_node_param,
     data_writer_.connect_to(i, channel_extractor_->get_output_buffer(i) );
     data_writer_.set_parameters(i, input_node_param, station_number);
   }
-  // Number of samples for one integration slice
-  int nr_ffts = Control_parameters::
-                nr_ffts_per_integration_slice((int)input_node_param.integr_time.get_time_usec(),
-                                              sample_rate, input_node_param.fft_size);
-  size_slice = (int64_t)nr_ffts * input_node_param.fft_size;
+  // Get dedispersion related parameters
+  double max_offset = 0;
+  for (size_t i=0; i < input_node_param.channels.size(); i++){
+    double offset = input_node_param.channels[i].channel_offset;
+    if (offset > max_offset)
+      max_offset = offset;
+  }
+  max_channel_offset = round(max_offset * (sample_rate/1e6)) / (sample_rate/1e6);
+  overlap_time = input_node_param.overlap_time;
 }
 
 
@@ -228,7 +236,7 @@ void
 Input_node_tasklet::add_data_writer(size_t i, Data_writer_sptr data_writer) {
   /// Add a new timeslice to stream to the given data_writer into the
   /// data_writer queue.
-  data_writer_.add_timeslice_to_stream(i, data_writer, size_slice);
+  data_writer_.add_timeslice_to_stream(i, data_writer, slice_size);
 }
 
 void

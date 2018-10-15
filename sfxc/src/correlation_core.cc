@@ -19,7 +19,6 @@ Correlation_core::~Correlation_core() {
 
 void Correlation_core::do_task() {
   SFXC_ASSERT(has_work());
-
   if (current_fft % 1000 == 0) {
     PROGRESS_MSG("node " << node_nr_ << ", "
                  << current_fft << " of " << number_ffts_in_integration);
@@ -37,6 +36,7 @@ void Correlation_core::do_task() {
   const int first_stream = station_stream(0);
   const int stride = input_buffers[first_stream]->front()->stride;
   const int nbuffer = input_buffers[first_stream]->front()->data.size() / stride;
+
   // Process the data of the current fft buffer
   integration_step(accumulation_buffers, nbuffer, stride);
   current_fft += nbuffer;
@@ -58,7 +58,7 @@ void Correlation_core::do_task() {
     }
     tsys_write();
     current_integration++;
-  } else if(current_fft >= next_sub_integration * number_ffts_in_sub_integration){
+  } else if(current_fft >= next_sub_integration * number_ffts_in_sub_integration) {
     sub_integration();
     next_sub_integration++;
   }
@@ -72,20 +72,21 @@ bool Correlation_core::finished() {
   return current_fft == number_ffts_in_integration;
 }
 
-void Correlation_core::connect_to(size_t stream, std::vector<Invalid> *invalid_) {
+void Correlation_core::connect_to(size_t stream, bit_statistics_ptr statistics_, 
+                                  std::vector<Invalid> *invalid_) {
   if (stream >= invalid_elements.size()) {
     invalid_elements.resize(stream + 1);
-  }
-  invalid_elements[stream] = invalid_;
-}
-
-void Correlation_core::connect_to(size_t stream, bit_statistics_ptr statistics_, Input_buffer_ptr buffer) {
-  if (stream >= input_buffers.size()) {
-    input_buffers.resize(stream + 1);
     statistics.resize(stream + 1);
   }
-  input_buffers[stream] = buffer;
+  invalid_elements[stream] = invalid_;
   statistics[stream] = statistics_;
+}
+
+void Correlation_core::connect_to(size_t stream, Input_buffer_ptr buffer) {
+  if (stream >= input_buffers.size()) {
+    input_buffers.resize(stream + 1);
+  }
+  input_buffers[stream] = buffer;
 }
 
 void
@@ -309,6 +310,7 @@ void Correlation_core::integration_normalize(std::vector<Complex_buffer> &integr
     double N2 = n_valid2 > 0? 1 - n_flagged[i].second * 1. / n_valid2 : 1;
     double N = N1 * N2;
     if (N < 0.01) N = 1;
+    N = 1; // FIXME remove debug
     FLOAT norm = sqrt(N * norms[baseline.first] * norms[baseline.second]);
     for (size_t j = 0 ; j < fft_size() + 1; j++) {
       integration_buffer[i][j] /= norm;
@@ -457,10 +459,11 @@ void Correlation_core::integration_write(std::vector<Complex_buffer> &integratio
       SFXC_ASSERT(n_flagged[i].first >= 0);
       valid_samples = std::max(total_samples - levels[4] - n_flagged[i].first, (int64_t)0);
     }
-    hbaseline.weight = round(binweight * hbaseline.weight);
     hbaseline.station_nr1 = station_number(baseline.first);
     hbaseline.station_nr2 = station_number(baseline.second);
     hbaseline.weight = valid_samples >> sample_shift;
+    hbaseline.weight = round(binweight * hbaseline.weight);
+    hbaseline.weight = total_samples; // FIXME remove this debug!!!!
 
     // Polarisation (RCP: 0, LCP: 1)
     hbaseline.polarisation1 = (correlation_parameters.station_streams[baseline.first].polarisation == 'R') ? 0 : 1;
@@ -510,7 +513,7 @@ Correlation_core::tsys_write() {
     MPI_Pack(&frequency_number, 1, MPI_UINT8, msg, len, &pos, MPI_COMM_WORLD);
     MPI_Pack(&sideband, 1, MPI_UINT8, msg, len, &pos, MPI_COMM_WORLD);
     MPI_Pack(&polarisation, 1, MPI_UINT8, msg, len, &pos, MPI_COMM_WORLD);
-    uint64_t ticks = correlation_parameters.start_time.get_clock_ticks();
+    uint64_t ticks = correlation_parameters.integration_start.get_clock_ticks();
     MPI_Pack(&ticks, 1, MPI_INT64, msg, len, &pos, MPI_COMM_WORLD);
     MPI_Pack(&tsys_on_lo, 1, MPI_INT64, msg, len, &pos, MPI_COMM_WORLD);
     MPI_Pack(&tsys_on_hi, 1, MPI_INT64, msg, len, &pos, MPI_COMM_WORLD);
@@ -526,7 +529,7 @@ Correlation_core::sub_integration(){
   const int current_sub_int = (int) round((double)current_fft / number_ffts_in_sub_integration);
   Time tfft(0., correlation_parameters.sample_rate); 
   tfft.inc_samples(fft_size());
-  const Time tmid = correlation_parameters.start_time + tfft*(previous_fft+(current_fft-previous_fft)/2.); 
+  const Time tmid = correlation_parameters.integration_start + tfft*(previous_fft+(current_fft-previous_fft)/2.); 
 
   // Start with the auto correlations
   const int n_fft = fft_size() + 1;

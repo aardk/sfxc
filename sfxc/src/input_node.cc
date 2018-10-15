@@ -128,13 +128,11 @@ void Input_node::add_time_interval(Time start_time, Time stop_time,
   input_node_tasklet->add_time_interval(start_time, stop_time, leave_time);
 }
 
-void Input_node::add_time_slice_to_stream(int channel, int stream, Time starttime_slice,
-                                          Time stoptime_slice) {
+void Input_node::add_time_slice_to_stream(int channel, int stream) {
   SFXC_ASSERT(data_writers_ctrl.get_data_writer(stream) !=
               Multiple_data_writers_controller::Data_writer_ptr());
 
   SFXC_ASSERT(input_node_tasklet != NULL);
-  SFXC_ASSERT(stoptime_slice > starttime_slice);
 
   input_node_tasklet->add_data_writer(channel,
                                       data_writers_ctrl.get_data_writer(stream));
