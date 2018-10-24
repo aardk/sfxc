@@ -159,11 +159,9 @@ void pause_sfxc_for_gdb(void);
     #define SFXC_MUL_FC_I           sfxc_mul_c_I
     #define SFXC_MUL_F_FC_I         sfxc_mul_f_c_I
     #define SFXC_CONJ_FC            sfxc_conj_c
-    #define SFXC_ADD_F              sfxc_add
     #define SFXC_ADD_FC             sfxc_add_c
     #define SFXC_ADD_PRODUCT_FC     sfxc_add_product_c 
     #define SFXC_MUL_F              sfxc_mul
-    #define SFXC_MUL_FC             sfxc_mul_fc
   #else // !USE_DOUBLE
     #define FLOAT                   float
     #define SFXC_ZERO_F             sfxc_zero_f
@@ -172,11 +170,9 @@ void pause_sfxc_for_gdb(void);
     #define SFXC_MUL_FC_I           sfxc_mul_fc_I
     #define SFXC_MUL_F_FC_I         sfxc_mul_f_fc_I
     #define SFXC_CONJ_FC            sfxc_conj_fc
-    #define SFXC_ADD_F              sfxc_add_f
     #define SFXC_ADD_FC             sfxc_add_fc
     #define SFXC_ADD_PRODUCT_FC     sfxc_add_product_fc 
     #define SFXC_MUL_F              sfxc_mul_f
-    #define SFXC_MUL_FC             sfxc_mul_fc
   #endif
   #define SFXC_FFT_FLOAT          sfxc_fft_ipp_float
 #else
@@ -190,11 +186,9 @@ void pause_sfxc_for_gdb(void);
     #define SFXC_MUL_FC_I           sfxc_mul_c_I
     #define SFXC_MUL_F_FC_I         sfxc_mul_f_c_I
     #define SFXC_CONJ_FC            sfxc_conj_c
-    #define SFXC_ADD_F              sfxc_add
     #define SFXC_ADD_FC             sfxc_add_c
     #define SFXC_ADD_PRODUCT_FC     sfxc_add_product_c 
     #define SFXC_MUL_F              sfxc_mul
-    #define SFXC_MUL_FC             sfxc_mul_c
   #else // !USE_DOUBLE
     #define FLOAT                   float
     #define FFTW_COMPLEX            fftwf_complex
@@ -204,11 +198,9 @@ void pause_sfxc_for_gdb(void);
     #define SFXC_MUL_FC_I           sfxc_mul_fc_I
     #define SFXC_MUL_F_FC_I         sfxc_mul_f_fc_I
     #define SFXC_CONJ_FC            sfxc_conj_fc
-    #define SFXC_ADD_F              sfxc_add_f
     #define SFXC_ADD_FC             sfxc_add_fc
     #define SFXC_ADD_PRODUCT_FC     sfxc_add_product_fc 
     #define SFXC_MUL_F              sfxc_mul_f
-    #define SFXC_MUL_FC             sfxc_mul_fc
   #endif
   #define SFXC_FFT_FLOAT          sfxc_fft_fftw_float
 #endif

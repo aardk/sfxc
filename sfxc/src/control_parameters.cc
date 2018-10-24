@@ -15,12 +15,12 @@
 
 
 Control_parameters::Control_parameters()
-    : initialised(false), pulsar_parameters(std::cout) {}
+    : initialised(false) {}
 
 Control_parameters::Control_parameters(const char *ctrl_file,
                                        const char *vex_file,
                                        std::ostream& log_writer)
-    : initialised(false), pulsar_parameters(log_writer) {
+    : initialised(false) {
   if(!initialise(ctrl_file, vex_file, log_writer))
     sfxc_abort();
 }
@@ -89,7 +89,7 @@ initialise(const char *ctrl_file, const char *vex_file,
   // set the scans
   if (ctrl["scans"] == Json::Value()) {
     for (Vex::Node::const_iterator scan = vex.get_root_node()["SCHED"]->begin();
-      scan != vex.get_root_node()["SCHED"]->end(); scan++) {
+	 scan != vex.get_root_node()["SCHED"]->end(); scan++) {
       ctrl["scans"].append(scan.key());
     } 
   }
@@ -221,16 +221,6 @@ initialise(const char *ctrl_file, const char *vex_file,
 
   if (ctrl["stop"].asString().compare("end") == 0)
     ctrl["stop"] = vex.get_stop_time_of_experiment();
-
- // Read pulsar parameters
-  bool result = read_pulsar_parameters();
-  if (ctrl["pulsar_binning"].asBool() && (pulsar_parameters.pulsars.size() == 0)){
-    log_writer << "Error : No pulsar parameters specified in pulsar binning mode" << std::endl;
-    return false;
-  }else if (!result){
-    log_writer << "Error parsing pulsar parameters" << std::endl;
-    return false;
-  }
 
   // Get start date
   start_time = Time(vex.get_start_time_of_experiment());
@@ -386,14 +376,14 @@ Control_parameters::check(std::ostream &writer) const {
         } else {
           const Json::Value sources =
             ctrl["data_sources"][station_name];
-            if (sources.isObject()) {
-              for (Json::Value::const_iterator source_it = sources.begin();
-                   source_it != sources.end(); source_it++)
-                check_data_source(writer, *source_it);
-          } else {
-            check_data_source(writer, sources);
-          }
-        }
+	  if (sources.isObject()) {
+	    for (Json::Value::const_iterator source_it = sources.begin();
+		 source_it != sources.end(); source_it++)
+	      check_data_source(writer, *source_it);
+	  } else {
+	    check_data_source(writer, sources);
+	  }
+	}
       }
 
       #ifdef USE_MPI
@@ -687,18 +677,6 @@ int
 Control_parameters::fft_size_correlation() const {
   return ctrl["fft_size_correlation"].asInt();
 }
-double
-Control_parameters::dispersive_delay(double freq_low, double freq_high, double DM) const{
-  // Compute the dispersive delay in microseconds for a given channel
-  // The frequencies are in MHz.
-  return 4149377593.3609958 * DM * (1. / (freq_low*freq_low) - 1. / (freq_high*freq_high));
-}
-
-int
-Control_parameters::fft_size_dedispersion(const std::string &scan_name) const {
-  get_dedispersion_parameters(scan_name);
-  return dedispersion_parameters.fft_size_dedispersion;
-}
 
 double
 Control_parameters::LO_offset(const std::string &station) const {
@@ -799,30 +777,23 @@ bool Control_parameters::multi_phase_center() const{
 }
 
 bool
-Control_parameters::read_pulsar_parameters() {
-  if (ctrl["pulsars"] == Json::Value())
-    return true;
-
-  for(Json::Value::iterator it = ctrl["pulsars"].begin();
-      it!=ctrl["pulsars"].end(); it++) {
+Control_parameters::get_pulsar_parameters(Pulsar_parameters &pars) const{
+  if(!pulsar_binning())
+    return false;
+  for(Json::Value::const_iterator it = ctrl["pulsars"].begin();
+      it!=ctrl["pulsars"].end(); it++){
     std::string name= it.key().asString();
     Pulsar_parameters::Pulsar newPulsar;
     if(name.size() > 10)
       name.resize(10);
     strcpy(&newPulsar.name[0], name.c_str());
     newPulsar.nbins = (*it)["nbins"].asInt();
-    // If coherent dedispersion is not requested, default to incoherent dedispersion
-    if ((*it)["coherent_dedispersion"] == Json::Value())
-      newPulsar.coherent_dedispersion = false;
-    else
-      newPulsar.coherent_dedispersion = (*it)["coherent_dedispersion"].asBool();
     unsigned int zero=0, one=1; //needed to prevent compiler error
     newPulsar.interval.start = (*it)["interval"][zero].asDouble();
     newPulsar.interval.stop  = (*it)["interval"][one].asDouble();
-    if(!pulsar_parameters.parse_polyco(newPulsar.polyco_params,(*it)["polyco_file"].asString().substr(7))){
+    if(!pars.parse_polyco(newPulsar.polyco_params,(*it)["polyco_file"].asString().substr(7)))
       return false;
-    }
-    pulsar_parameters.pulsars.insert(std::pair<std::string,Pulsar_parameters::Pulsar>(name,newPulsar));
+    pars.pulsars.insert(std::pair<std::string,Pulsar_parameters::Pulsar>(name,newPulsar));
   }
   return true;
 }
@@ -890,16 +861,16 @@ Control_parameters::bits_per_sample(const std::string &mode,
     const std::string bitstreams_name = get_vex().get_section("BITSTREAMS", mode, station);
     if (get_vex().get_version() > 1.5 && bitstreams_name == std::string()) {
       std::cerr << "Cannot find $BITSTREAMS reference for " << station
-                << " in mode" << mode << std::endl;
+		<< " in mode" << mode << std::endl;
       sfxc_abort();
     }
     if (bitstreams_name != std::string()) {
       Vex::Node::const_iterator bitstream = vex.get_root_node()["BITSTREAMS"][bitstreams_name];
       for (Vex::Node::const_iterator fanout_def_it = bitstream->begin("stream_def");
-        fanout_def_it != bitstream->end("stream_def"); ++fanout_def_it) {
-        if (fanout_def_it[1]->to_string() == "mag") {
-          return 2;
-        }
+	   fanout_def_it != bitstream->end("stream_def"); ++fanout_def_it) {
+	if (fanout_def_it[1]->to_string() == "mag") {
+	  return 2;
+	}
       }
 
       return 1;
@@ -1015,22 +986,22 @@ Control_parameters::channel_freq(const std::string &mode,
 
 std::string
 Control_parameters::datastream(const std::string &mode,
-                               const std::string &station,
-                               const std::string &channel) const
+			       const std::string &station,
+			       const std::string &channel) const
 {
   if (data_format(station) == "VDIF") {
     const std::string datastreams_name = get_vex().get_section("DATASTREAMS", mode, station);
     if (get_vex().get_version() > 1.5 && datastreams_name == std::string()) {
       std::cerr << "Cannot find $DATASTREAMS reference for " << station
-                << " in mode" << mode << std::endl;
+		<< " in mode" << mode << std::endl;
       sfxc_abort();
     }
     if (datastreams_name != std::string()) {
       Vex::Node::const_iterator datastreams = vex.get_root_node()["DATASTREAMS"][datastreams_name];
       for (Vex::Node::const_iterator chan = datastreams->begin("channel");
-        chan != datastreams->end("channel"); chan++) {
-        if (chan[2]->to_string() == channel)
-          return chan[0]->to_string();
+	   chan != datastreams->end("channel"); chan++) {
+	if (chan[2]->to_string() == channel)
+	  return chan[0]->to_string();
       }
     }
   }
@@ -1050,7 +1021,7 @@ Control_parameters::datastreams(const std::string &station) const
   } else {
     result.push_back(std::string());
   }
- 
+    
   return result;
 }
 
@@ -1811,19 +1782,19 @@ get_mark5b_standard_mapping(const std::string &mode,
 
 Input_node_parameters
 Control_parameters::
-get_input_node_parameters(const std::string &scan_name,
+get_input_node_parameters(const std::string &mode_name,
                           const std::string &station_name,
 			  const std::string &ds_name) const {
   Input_node_parameters result;
   result.track_bit_rate = -1;
   result.frame_size = -1;
+  result.fft_size = std::max(fft_size_delaycor(), fft_size_correlation());
   result.integr_time = integration_time();
   result.offset = reader_offset(station_name);
   result.phasecal_integr_time = phasecal_integration_time();
   result.exit_on_empty_datastream = exit_on_empty_datastream();
 
   const Vex::Node &root = vex.get_root_node();
-  const std::string &mode_name = root["SCHED"][scan_name]["mode"]->to_string();
   Vex::Node::const_iterator mode = root["MODE"][mode_name];
   if (mode == root["MODE"]->end()) {
     std::cerr << "Cannot find mode " << mode_name << std::endl;
@@ -1862,7 +1833,13 @@ get_input_node_parameters(const std::string &scan_name,
     sfxc_abort();
   }
 
+  // Scale FFT size based on the sample rate.  This is important for
+  // "mixed bandwidth" correlation where we need to make sure that we
+  // send enough data to the correlator nodes.
+  result.fft_size = (result.fft_size * sample_rate(mode_name, station_name)) / sample_rate(mode_name, setup_station());
+  SFXC_ASSERT(result.fft_size != 0)
   result.track_bit_rate = sample_rate(mode_name, station_name);
+
   if (data_format(station_name) == "VDIF") {
     get_vdif_tracks(mode_name, station_name, ds_name, result);
   } else if (data_format(station_name) == "Mark4" ||
@@ -1872,129 +1849,12 @@ get_input_node_parameters(const std::string &scan_name,
     SFXC_ASSERT(data_format(station_name) == "Mark5B");
     get_mark5b_tracks(mode_name, station_name, result);
   }
-  // Set Channel offsets and dispersive delays 
-  get_dedispersion_parameters(scan_name);
-  const int sample_rate_ = sample_rate(mode_name, setup_station());
-  const int nchannel = result.channels.size();
-  for(size_t i = 0; i < nchannel; i++){
-    int ch = result.channels[i].frequency_number;
-    char sb = result.channels[i].sideband;
-    result.channels[i].channel_offset = dedispersion_parameters.channel_offset[std::make_pair(ch, sb)];
-  }
-  if (dedispersion_parameters.coherent_dedispersion) {
-    result.overlap_time =  dedispersion_parameters.fft_size_dedispersion *
-                           (sample_rate(mode_name, station_name) / sample_rate_) /
-                           (2*sample_rate_ / 1000000.);
-
-    result.slice_size = 
-        nr_samples_per_slice_dedisp(integration_time(), sample_rate_,
-                                    fft_size_dedispersion(scan_name), 
-                                    fft_size_correlation());
-  } else {
-    result.overlap_time =  0;
-
-    result.slice_size = nr_samples_per_slice(integration_time(), sample_rate_,
-                                             fft_size_correlation());
-  }
-  // Scale the slice size based on the sample rate.  This is important for
-  // "mixed bandwidth" correlation where we need to make sure that we
-  // send enough data to the correlator nodes.
-  result.slice_size *=  sample_rate(mode_name, station_name) / sample_rate_; 
 
   if (!result.channels.empty()) {
     SFXC_ASSERT(!result.channels[0].tracks.empty());
     result.track_bit_rate /= result.channels[0].tracks.size() / result.channels[0].bits_per_sample;
   }
   return result;
-}
-
-void
-Control_parameters::
-get_dedispersion_parameters(const std::string &scan) const {
-  // Only update dedispersion parameters when we move to a new scan
-  if (scan == dedispersion_parameters.scan) 
-    return;
-
-  int fft_size = ctrl["fft_size_correlation"].asInt();
-
-  const Vex::Node &root = vex.get_root_node();
-  const std::string &mode_name = vex.get_mode(scan);
-  const int nchannel = number_frequency_channels();
-  
-  // Initialize all parameters
-  dedispersion_parameters.scan = scan;
-  {
-  std::string ref = setup_station();
-  for (size_t ch = 0; ch < nchannel; ch++) {
-    int freq = frequency_number(ch, mode_name);
-    char sb  = sideband(channel(ch), ref, mode_name);
-    dedispersion_parameters.channel_offset[std::make_pair(freq, sb)] = 0.;
-  }
-  }
-  dedispersion_parameters.ref_frequency = 0.;
-
-  // check for coherent dedispersion
-  if (pulsar_binning() || phased_array()) {
-    std::string source = scan_source(scan);
-    // See if current source is a pulsar and if coherent dedispersion is requested
-    std::map<std::string, Pulsar_parameters::Pulsar>::const_iterator it = 
-                                       pulsar_parameters.pulsars.find(source);
-    if (it != pulsar_parameters.pulsars.end()) {
-      dedispersion_parameters.coherent_dedispersion = it->second.coherent_dedispersion;
-      if (dedispersion_parameters.coherent_dedispersion) {
-        // Coherent dedisperion is requested, find the mid point of the channel
-        // with the highest frequency. All other channels will be aligned to this
-        std::string ref = setup_station();
-        struct Channel {double freq, bw; int sb, freq_nr;};
-        Channel channels[nchannel];
-        int max_ch = 0;
-        for (size_t ch = 0; ch < nchannel; ch++) {
-          channels[ch].freq_nr = frequency_number(ch, mode_name);
-          channels[ch].freq = channel_freq(mode_name, ref, channel(ch)) / 1000000.;
-          channels[ch].bw = bandwidth(mode_name, ref, channel(ch)) / 1000000.;
-          channels[ch].sb  = sideband(channel(ch), ref, mode_name) == 'L' ? -1 : 1;
-          double freq = channels[ch].freq + channels[ch].sb*channels[ch].bw/2;
-          double max_freq = channels[max_ch].freq + channels[max_ch].sb*channels[max_ch].bw/2;
-          if(freq > max_freq)
-            max_ch = ch;
-        }
-        // Compute the dispersion for each channel
-        const double sample_rate_ = sample_rate(mode_name, ref) / 1000000.;
-        const double DM = it->second.polyco_params[0].DM;
-        const double max_freq = channels[max_ch].freq + channels[max_ch].sb*channels[max_ch].bw/2; 
-        double max_dt = 0;
-        for (size_t ch = 0; ch < nchannel; ch++) {
-          double base_freq = channels[ch].freq;
-          int freq_nr = channels[ch].freq_nr;
-          int sb  = channels[ch].sb;
-          char sb_label  = (channels[ch].sb == -1) ? 'L': 'U';
-          double bw = channels[ch].bw;
-          double band_edge = base_freq + sb * bw;
-          double dt = sb * dispersive_delay(base_freq, band_edge, DM);
-          double offset = dispersive_delay(base_freq + sb*bw/2, max_freq, DM);
-          max_dt = std::max(dt, max_dt);
-          // FIXME Due to bug/limitation in Input_node_data_writer the offset has to be an integer microsecond
-          dedispersion_parameters.channel_offset[std::make_pair(freq_nr, sb_label)] = round(offset);
-          std::cout.precision(16);
-          std::cout << "CH "<<ch << ", dt = " << dt << ", offset = "
-                    << offset << ", dm = " << DM  << ", base " << base_freq 
-                    << ", edge = " << band_edge << ", mid="<< base_freq + sb*bw/2 << ", bw = " << sb*bw 
-                    << ", max = " << max_freq << "\n";
-        } 
-        int cur_fft_size=1;
-        while (cur_fft_size < max_dt * sample_rate_)
-           cur_fft_size <<= 1;
-        // NB: fft_size is misnamed, it contains the number of spectral channels
-        fft_size = std::max(cur_fft_size, fft_size);
-        dedispersion_parameters.ref_frequency = max_freq;
-      }
-    } else {
-      dedispersion_parameters.coherent_dedispersion = false;
-    }
-  } else {
-    dedispersion_parameters.coherent_dedispersion = false;
-  }
-  dedispersion_parameters.fft_size_dedispersion = fft_size;
 }
 
 std::string
@@ -2330,8 +2190,7 @@ Control_parameters::station_number(const std::string &station_name) const
 Correlation_parameters
 Control_parameters::
 get_correlation_parameters(const std::string &scan_name,
-                           const Time start_time,
-                           size_t channel_nr,
+			   size_t channel_nr,
                            const std::map<stream_key, int> &correlator_node_station_to_input) const {
   std::string bbc_nr;
   std::string bbc_mode;
@@ -2350,6 +2209,8 @@ get_correlation_parameters(const std::string &scan_name,
 
   Correlation_parameters corr_param;
   corr_param.experiment_start = vex.get_start_time_of_experiment();
+  corr_param.start_time = vex.start_of_scan(scan_name).to_miliseconds() * 1000;
+  corr_param.stop_time = vex.stop_of_scan(scan_name).to_miliseconds() * 1000;
   corr_param.integration_time = integration_time();
   corr_param.sub_integration_time = sub_integration_time(); 
   corr_param.number_channels = number_channels();
@@ -2447,43 +2308,7 @@ get_correlation_parameters(const std::string &scan_name,
       }
     }
   }
-  // Get source information
-  strncpy(corr_param.source, scan_source(scan_name).c_str(), 11);
 
-  // Compute stream start / stop
-  get_dedispersion_parameters(scan_name);
-  corr_param.dedispersion_ref_frequency = dedispersion_parameters.ref_frequency; 
-  char sb = corr_param.sideband;
-  int freq_nr = corr_param.frequency_nr;
-  corr_param.channel_offset = dedispersion_parameters.channel_offset[std::make_pair(freq_nr, sb)];
-  Time integer_offset = round(corr_param.channel_offset * corr_param.sample_rate/1000000) /
-                        (corr_param.sample_rate/1000000);
-  corr_param.integration_start = start_time + integer_offset;
-  corr_param.fft_size_dedispersion = fft_size_dedispersion(scan_name); 
-
-  if (dedispersion_parameters.coherent_dedispersion) {
-    // The stream starts half a frame early
-    corr_param.stream_start = corr_param.integration_start - 
-                            Time(dedispersion_parameters.fft_size_dedispersion /
-                                 (2*corr_param.sample_rate/1000000.));
-                                             
-    corr_param.slice_size = nr_samples_per_slice_dedisp(integration_time(), 
-                                              corr_param.sample_rate,
-                                              corr_param.fft_size_dedispersion,
-                                              fft_size_correlation());
-  } else {
-  // The stream starts half a frame early
-    corr_param.stream_start = corr_param.integration_start;
-                                             
-    corr_param.slice_size = nr_samples_per_slice(integration_time(), 
-                                              corr_param.sample_rate,
-                                              fft_size_correlation());
-  }
-
-/*  std::cout << corr_param.fft_size_delaycor
-            <<","<<corr_param.fft_size_dedispersion
-            <<","<<corr_param.fft_size_correlation
-            << ", " << corr_param.slice_size << "\n";*/
   if (!corr_param.cross_polarize)
     return corr_param;
 
@@ -2663,9 +2488,9 @@ operator==(const Input_node_parameters::Channel_parameters &other) const {
 
 bool
 Correlation_parameters::operator==(const Correlation_parameters& other) const {
-  if (stream_start != other.stream_start)
+  if (start_time != other.start_time)
     return false;
-  if (slice_size != other.slice_size)
+  if (stop_time != other.stop_time)
     return false;
   if (integration_time != other.integration_time)
     return false;
@@ -2702,8 +2527,8 @@ Correlation_parameters::operator==(const Correlation_parameters& other) const {
 std::ostream &operator<<(std::ostream &out,
                          const Correlation_parameters &param) {
   out << "{ ";
-  out << "\"stream_start\": " << param.stream_start << ", " << std::endl;
-  out << "  \"slice size\": " << param.slice_size << ", " << std::endl;
+  out << "\"start_time\": " << param.start_time << ", " << std::endl;
+  out << "  \"stop_time\": " << param.stop_time << ", " << std::endl;
   out << "  \"integr_time\": " << param.integration_time << ", " << std::endl;
   out << "  \"number_channels\": " << param.number_channels << ", " << std::endl;
   out << "  \"fft_size_delaycor\": " << param.fft_size_delaycor << ", " << std::endl;

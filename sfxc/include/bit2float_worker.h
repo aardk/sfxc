@@ -128,7 +128,7 @@ private:
     int fft_size_delaycor;
     int fft_size_correlation;
     int delay_in_samples;
-    Time stream_start;
+    Time start_time;
   } new_parameters;
   /// List of all invalid samples in the time slice
   std::vector<Invalid> invalid;

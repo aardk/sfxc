@@ -20,7 +20,6 @@
 #include "log_writer_mpi.h"
 #include "correlation_core.h"
 #include "correlation_core_pulsar.h"
-#include "dedispersion_tasklet.h"
 #include "delay_correction.h"
 #include <tasklet/tasklet_manager.h>
 #include "timer.h"
@@ -107,7 +106,7 @@ class Reader_thread : public Thread {
     std::vector< Bit_sample_reader_ptr >        bit_sample_readers_;
 
     struct job {
-//      int number_ffts_in_integration;
+      int number_ffts_in_integration;
       std::vector<int> bits_per_sample;
       std::vector<int> stream_list;
       int station_streams_size;
@@ -210,11 +209,11 @@ class Reader_thread : public Thread {
     /// This function add a new timeslice to read...
     void add_time_slice_to_read(const Correlation_parameters& parameters) {
       struct job jb;
-      /*jb.number_ffts_in_integration =
+      jb.number_ffts_in_integration =
         Control_parameters::nr_ffts_per_integration_slice
         (parameters.integration_time,
          parameters.sample_rate,
-         parameters.fft_size_delaycor);*/
+         parameters.fft_size_delaycor);
       // First create a list of input streams
       jb.stream_list.resize(bit_sample_readers_.size());
       jb.station_streams_size = parameters.station_streams.size();
@@ -242,7 +241,6 @@ private:
   void main_loop();
 
   bool pulsar_binning; // Set to true if pulsar binning is enabled
-  bool coherent_dedispersion; //Set to true if coherent dedispersion is enabled
   bool phased_array; // Set to true if in phased array mode
   Correlator_node_controller       correlator_node_ctrl;
 
@@ -260,7 +258,6 @@ private:
   int n_streams;
 
   std::vector< Delay_correction_ptr >         delay_modules;
-  Dedispersion_tasklet                        dedispersion_tasklet;
   Correlation_core                            *correlation_core, *correlation_core_normal;
   Correlation_core_pulsar                     *correlation_core_pulsar;
 

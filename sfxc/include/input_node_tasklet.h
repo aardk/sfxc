@@ -94,9 +94,7 @@ private:
   bool initialized;
   uint64_t sample_rate;
   int bits_per_sample;
-  int64_t slice_size; // Number of samples for one integration slice
-  Time overlap_time; // Size of buffer additional data needed for dedispersion filter
-  Time max_channel_offset; // The maximum subband delay due to dispersion rounded to the nearest sample
+  int64_t size_slice; // Number of samples for one integration slice
 };
 
 

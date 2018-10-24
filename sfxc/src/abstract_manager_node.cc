@@ -21,7 +21,7 @@ Abstract_manager_node::
 Abstract_manager_node(int rank, int numtasks,
                       Log_writer *writer,
                       const Control_parameters &param)
-    : Node(rank, writer), control_parameters(param), numtasks(numtasks)  {
+    : Node(rank, writer), control_parameters(param), numtasks(numtasks), pulsar_parameters(*writer) {
   integration_time_ = Time(param.integration_time());
   }
 

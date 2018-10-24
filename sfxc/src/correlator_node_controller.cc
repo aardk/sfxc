@@ -55,6 +55,8 @@ Correlator_node_controller::process_event(MPI_Status &status) {
       get_log_writer()(3) << print_MPI_TAG(status.MPI_TAG) << std::endl;
       Correlation_parameters parameters;
       MPI_Transfer::receive(status, parameters);
+      if(parameters.pulsar_binning)
+        parameters.pulsar_parameters = &node.pulsar_parameters;
       parameters.mask_parameters = &node.mask_parameters;
       node.receive_parameters(parameters);
 

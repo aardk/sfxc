@@ -60,7 +60,7 @@ Input_node_controller::process_event(MPI_Status &status) {
                status.MPI_TAG, MPI_COMM_WORLD, &status2);
       slice_start.set_clock_ticks(message[2]);
       slice_stop.set_clock_ticks(message[3]);
-      node.add_time_slice_to_stream(message[0],message[1]);
+      node.add_time_slice_to_stream(message[0],message[1],slice_start,slice_stop);
       return PROCESS_EVENT_STATUS_SUCCEEDED;
     }
   case MPI_TAG_GET_STATUS: {

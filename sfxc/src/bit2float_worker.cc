@@ -8,7 +8,6 @@ const FLOAT sample_value_ms[] = {
 const FLOAT sample_value_m[]  = {
                                   -5, 5
                                 };
-FILE *uit;
 
 Bit2float_worker::Bit2float_worker(int stream_nr_, bit_statistics_ptr statistics_)
   : output_buffer_(new Output_queue()),
@@ -30,9 +29,6 @@ Bit2float_worker::Bit2float_worker(int stream_nr_, bit_statistics_ptr statistics
     lookup_table[i][3] = sample_value_ms[(i>>6) & 3];
     for (int j=0; j<8 ; j++)
       lookup_table_1bit[i][j] = sample_value_m[(i>>j) & 1];
-  }
-  if ((RANK_OF_NODE == -10) && (stream_nr == 0)) {
-    uit = fopen("uit.new.txt", "w");
   }
 }
 
@@ -153,57 +149,50 @@ Bit2float_worker::do_task() {
       samples_written += samp_to_write;
       break;
     }
+    case PURGE_STREAM:
+      size_t bytes_to_advance = std::min((size_t)(write - read), bytes_left);
+      read += bytes_to_advance;
+      bytes_left -= bytes_to_advance;
+      if (bytes_left == 0) {
+        if ((write - read) > 0) {
+          switch(inp_data[read % inp_size]) {
+          case HEADER_ENDSTREAM:
+            read += 1;
+            state = IDLE;
+            break;
+          case HEADER_DELAY:
+            if ((write - read) >= 2)
+              read += 2;
+            break;
+          case HEADER_INVALID:
+            if ((write - read) >= 3)
+              read += 3;
+            break;
+          case HEADER_DATA:
+            if ((write - read) >= 3) {
+              read += 1;
+              bytes_left = inp_data[read++ % inp_size];
+              bytes_left |= (inp_data[read++ % inp_size] << 8);
+              SFXC_ASSERT(bytes_left > 0);
+            }
+            break;
+          }
+        }
+      }
+      break;
     }
     SFXC_ASSERT(read <= write);
     input_buffer_->read = read;
   }
-  if ((out_index == output_buffer_size) && (state != PURGE_STREAM)) {
+  if (out_index == output_buffer_size) {
     output_buffer_->push(out_element);
     current_fft += out_element.data().nfft;
-    if (current_fft == n_ffts_per_integration) {
+    if (current_fft == n_ffts_per_integration)
       state = PURGE_STREAM;
-    } else
+    else
       allocate_element();
   }
- // Purge remainder of stream after the last FFT was pushed into the output queue
-  int minavail = 1;
-  uint64_t read = input_buffer_->read;
-  uint64_t write = input_buffer_->write;
-  while(((write - read)>=minavail) && (state == PURGE_STREAM)){
-    minavail = 3;
-    if (bytes_left >0){
-      size_t bytes_to_advance = std::min((size_t)(write - read), bytes_left);
-      read += bytes_to_advance;
-      bytes_left -= bytes_to_advance;
-    } else {
-      switch(inp_data[read % inp_size]) {
-      case HEADER_ENDSTREAM:
-        read += 1;
-        state = IDLE;
-        break;
-      case HEADER_DELAY:
-        if ((write - read) >= 2) {
-          read += 2;
-        }
-        break;
-      case HEADER_INVALID:
-        if ((write - read) >= 3) {
-          read += 3;
-        }
-        break;
-      case HEADER_DATA:
-        if ((write - read) >= 3) {
-          read += 1;
-          bytes_left = inp_data[read++ % inp_size];
-          bytes_left |= (inp_data[read++ % inp_size] << 8);
-          SFXC_ASSERT(bytes_left > 0);
-        }
-        break;
-      }
-    }
-    input_buffer_->read = read;
-    write = input_buffer_->write;
-  }
+
   return samples_written;
 }
 
@@ -255,7 +244,7 @@ set_new_parameters(const Correlation_parameters &parameters, Delay_table_akima &
     return;
   }
 
-  new_parameters.stream_start = parameters.stream_start;
+  new_parameters.start_time = parameters.start_time;
   new_parameters.bits_per_sample = parameters.station_streams[stream_idx].bits_per_sample;
   new_parameters.sample_rate = parameters.station_streams[stream_idx].sample_rate;
   new_parameters.base_sample_rate = parameters.sample_rate;
@@ -267,11 +256,21 @@ set_new_parameters(const Correlation_parameters &parameters, Delay_table_akima &
     (std::max(CORRELATOR_BUFFER_SIZE / parameters.fft_size_delaycor, nfft_min) *
      parameters.station_streams[stream_idx].sample_rate) / parameters.sample_rate;
   new_parameters.delay_in_samples = 
-    delay_table.delay(parameters.stream_start) * new_parameters.sample_rate;
+    delay_table.delay(parameters.start_time) * new_parameters.sample_rate;
 
-  new_parameters.n_ffts_per_integration =
-    (new_parameters.sample_rate / new_parameters.base_sample_rate) * 
-    parameters.slice_size / parameters.fft_size_delaycor;
+  if(parameters.fft_size_correlation > parameters.fft_size_delaycor) 
+    new_parameters.n_ffts_per_integration =
+      ((parameters.fft_size_correlation / parameters.fft_size_delaycor) *
+       Control_parameters::nr_ffts_per_integration_slice(
+           (int)parameters.integration_time.get_time_usec(),
+	   parameters.sample_rate, parameters.fft_size_correlation) *
+       parameters.station_streams[stream_idx].sample_rate) / parameters.sample_rate;
+  else
+    new_parameters.n_ffts_per_integration =
+      (Control_parameters::nr_ffts_per_integration_slice(
+           (int)parameters.integration_time.get_time_usec(),
+           parameters.sample_rate, parameters.fft_size_delaycor) *
+       parameters.station_streams[stream_idx].sample_rate) / parameters.sample_rate;
 
   have_new_parameters=true;
 }
