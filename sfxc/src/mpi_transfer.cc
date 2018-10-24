@@ -851,7 +851,7 @@ MPI_Transfer::receive(MPI_Status &status, Input_node_parameters &input_node_para
 void
 MPI_Transfer::send(Correlation_parameters &corr_param, int rank) {
   int size = 0;
-  size = 8 * sizeof(int64_t) + 12 * sizeof(int32_t) + 14 * sizeof(char) +
+  size = 8 * sizeof(int64_t) + 11 * sizeof(int32_t) + 14 * sizeof(char) +
     corr_param.station_streams.size() * (5 * sizeof(int64_t) + 4 * sizeof(int32_t) + 2 * sizeof(char) + sizeof(double));
   int position = 0;
   char message_buffer[size];
@@ -882,8 +882,6 @@ MPI_Transfer::send(Correlation_parameters &corr_param, int rank) {
   MPI_Pack(&corr_param.integration_nr, 1, MPI_INT32,
            message_buffer, size, &position, MPI_COMM_WORLD);
   MPI_Pack(&corr_param.slice_nr, 1, MPI_INT32,
-           message_buffer, size, &position, MPI_COMM_WORLD);
-  MPI_Pack(&corr_param.slice_offset, 1, MPI_INT32,
            message_buffer, size, &position, MPI_COMM_WORLD);
 
   MPI_Pack(&corr_param.sample_rate, 1, MPI_INT64,
@@ -1007,9 +1005,6 @@ MPI_Transfer::receive(MPI_Status &status, Correlation_parameters &corr_param) {
              MPI_COMM_WORLD);
   MPI_Unpack(buffer, size, &position,
              &corr_param.slice_nr, 1, MPI_INT32,
-             MPI_COMM_WORLD);
-  MPI_Unpack(buffer, size, &position,
-             &corr_param.slice_offset, 1, MPI_INT32,
              MPI_COMM_WORLD);
 
   MPI_Unpack(buffer, size, &position,

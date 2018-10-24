@@ -92,8 +92,8 @@ public:
   void add_delay_table(Delay_table &table, int sn1, int sn2);
   void add_uvw_table(Uvw_model &table, int sn1);
 
-  void output_node_set_timeslice(int slice_nr, int slice_offset,
-                                 int stream_nr, int bytes, int nbins);
+  void output_node_set_timeslice(int slice_nr, int stream_nr, int bytes,
+				 int nbins);
 
   void receive_parameters(const Correlation_parameters &parameters);
 
