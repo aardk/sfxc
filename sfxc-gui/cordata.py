@@ -176,11 +176,11 @@ class CorrelatedData:
 
 
 if __name__ == '__main__':
-    usage = "usage: %prog [options] vexfile ctrlfile"
+    usage = "usage: %prog [options] vexfile corfile"
     parser = optparse.OptionParser(usage=usage)
 
     (options, args) = parser.parse_args()
-    if len(args) < 2:
+    if len(args) != 2:
         parser.error("incorrect number of arguments")
         pass
 
@@ -188,11 +188,11 @@ if __name__ == '__main__':
     time.tzset()
 
     vex_file = args[0]
-    ctrl_files = args[1:]
+    output_file = args[1]
 
     vex = Vex(vex_file)
 
-    data = CorrelatedData(vex, ctrl_files[0])
+    data = CorrelatedData(vex, output_file)
     data.read()
 
     sys.exit(0)
