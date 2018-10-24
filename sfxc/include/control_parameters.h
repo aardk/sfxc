@@ -119,7 +119,7 @@ class Correlation_parameters {
 public:
   Correlation_parameters()
     : number_channels(0), fft_size_delaycor(0), fft_size_correlation(0),
-    integration_nr(-1), slice_nr(-1), slice_offset(-1), sample_rate(0),
+    integration_nr(-1), slice_nr(-1), sample_rate(0),
     channel_freq(0), bandwidth(0), sideband('n'), frequency_nr(-1),
     polarisation('n'), multi_phase_center(false), pulsar_binning(false),
     window(SFXC_WINDOW_RECT) {}
@@ -161,7 +161,6 @@ public:
   int32_t fft_size_correlation; // Number of samples per FFT in the (cross-)correlation
   int32_t integration_nr;   // number of the integration
   int32_t slice_nr;         // Number of the output slice
-  int32_t slice_offset;     // Number of output slices in the output file
   // between one integration slice and the next
   // in case of subsecond integrations
   uint64_t sample_rate;     // #Samples per second

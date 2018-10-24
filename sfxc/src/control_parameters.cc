@@ -2217,8 +2217,6 @@ get_correlation_parameters(const std::string &scan_name,
   corr_param.fft_size_delaycor = fft_size_delaycor();
   corr_param.fft_size_correlation = fft_size_correlation();
   corr_param.window = window_function();  
-  corr_param.slice_offset =
-    number_correlation_cores_per_timeslice(mode_name);
   corr_param.sample_rate = sample_rate(mode_name, station_name);
 
   corr_param.sideband = ' ';
@@ -2506,8 +2504,6 @@ Correlation_parameters::operator==(const Correlation_parameters& other) const {
     return false;
   if (slice_nr != other.slice_nr)
     return false;
-  if (slice_offset != other.slice_offset)
-    return false;
 
   if (sample_rate != other.sample_rate)
     return false;
@@ -2535,7 +2531,6 @@ std::ostream &operator<<(std::ostream &out,
   out << "  \"fft_size_correlation\": " << param.fft_size_correlation << ", " << std::endl;
   out << "  \"window\": " << param.window << ", " << std::endl;
   out << "  \"slice_nr\": " << param.slice_nr << ", " << std::endl;
-  out << "  \"slice_offset\": " << param.slice_offset << ", " << std::endl;
   out << "  \"sample_rate\": " << param.sample_rate << ", " << std::endl;
   out << "  \"channel_freq\": " << param.channel_freq << ", " << std::endl;
   out << "  \"bandwidth\": " << param.bandwidth<< ", " << std::endl;
