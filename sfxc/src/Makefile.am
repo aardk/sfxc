@@ -42,8 +42,6 @@ OBJ=\
   correlation_core_phased.cc \
   correlation_core_pulsar.cc \
   delay_correction.cc \
-  coherent_dedispersion.cc \
-  dedispersion_tasklet.cc \
   uvw_model.cc \
   channel_extractor_tasklet.cc \
   channel_extractor_tasklet_vdif.cc \
@@ -83,5 +81,5 @@ svn_version.cc: update_svn_version
 
 update_svn_version:
 	echo "const char *SVN_VERSION=\"`svnversion -nc ..`\";" > svn_version.cc
-	echo "const char *SVN_BRANCH=\"TRUNKTST\";" >> svn_version.cc
+	echo "const char *SVN_BRANCH=\"TRUNK\";" >> svn_version.cc
 	$(CXX) $(CXXFLAGS) -c svn_version.cc

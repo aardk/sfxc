@@ -46,7 +46,7 @@ public:
   void connect_to(Input_buffer_ptr new_input_buffer);
 
   void set_parameters(const Correlation_parameters &parameters,
-                      Delay_table_akima &delays, bool coherent_dedispersion);
+                      Delay_table_akima &delays);
   /// Do one delay step
   void do_task();
   bool has_work();
@@ -61,7 +61,7 @@ private:
   // access functions to the correlation parameters
   size_t fft_size();
   size_t fft_rot_size();
-  size_t fft_dedisp_size();
+  size_t fft_cor_size();
   int buffer_size;
   uint64_t sample_rate();
   uint64_t bandwidth();
@@ -113,11 +113,11 @@ inline size_t Delay_correction::fft_size() {
 }
 
 inline size_t Delay_correction::fft_rot_size() {
-  return (fft_dedisp_size() * sample_rate()) / correlation_parameters.sample_rate;
+  return (fft_cor_size() * sample_rate()) / correlation_parameters.sample_rate;
 }
 
-inline size_t Delay_correction::fft_dedisp_size() {
-  return 2 * correlation_parameters.fft_size_dedispersion;
+inline size_t Delay_correction::fft_cor_size() {
+  return 2 * correlation_parameters.fft_size_correlation;
 }
 
 inline uint64_t Delay_correction::bandwidth() {
@@ -131,4 +131,6 @@ inline uint64_t Delay_correction::sample_rate() {
 inline int64_t Delay_correction::channel_freq() {
   return correlation_parameters.station_streams[stream_idx].channel_freq;
 }
+
+
 #endif /*DELAY_CORRECTION_H*/

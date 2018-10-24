@@ -134,6 +134,7 @@ protected:
 
   // Data
   Control_parameters control_parameters;
+  Pulsar_parameters pulsar_parameters;
   Mask_parameters mask_parameters;
   int numtasks;
 

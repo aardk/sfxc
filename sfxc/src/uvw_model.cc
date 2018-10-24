@@ -190,7 +190,7 @@ int Uvw_model::open(const char *delayTableName, Time tstart, Time tstop, const s
       // Read the data
       do {
         if (line[0] == 0 && line[4] == 0) {
-          if(times.size() <= 3){
+          if(times.size() == 1){
             // Instead of the first point of the desired scan, we got the
             // last point of the previous scan.  Get rid of it.
             scans.resize(0);
