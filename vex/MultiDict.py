@@ -49,7 +49,7 @@ class MultiDict(UserDict.DictMixin):
     def extend(self, seq):
         index = 0
         for pair in seq:
-            if len(seq) != 2:
+            if len(pair) != 2:
                 msg = "dictionary update sequence element #%d has" \
                       " length %d; 2 is required" % (index, len(pair))
                 raise ValueError, msg
