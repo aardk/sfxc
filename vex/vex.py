@@ -216,7 +216,7 @@ def p_error(t):
         raise SyntaxError, "at line %d, token %s" % (t.lineno, t.value)
     raise SyntaxError, "unexpected end of file"
 
-parser = yacc.yacc(debug=0)
+parser = yacc.yacc(debug=0, write_tables=0)
 
 def parse(s):
     return parser.parse(s, lexer=lexer)
