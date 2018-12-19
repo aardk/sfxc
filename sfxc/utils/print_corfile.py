@@ -11,12 +11,22 @@ max_stations = 32
 fringe_guard = 0.05  # Used to compute the SNR, this is the percentage that is ignored around the maximum
 
 def parse_global_header(infile, doprint):
+  stations = None
+  sources = None
   infile.seek(0)
   gheader_buf = infile.read(global_header_size)
   if global_header_size == 64:
     global_header = struct.unpack('i32s2h5ib3c',gheader_buf[:64])
+  elif global_header_size == 84:
+    global_header = struct.unpack('i32s2h5ib15s2i',gheader_buf[:84])
   else:
-    global_header = struct.unpack('i32s2h5ib15s',gheader_buf[:76])
+    global_header = struct.unpack('i32s2h5ib15s2i4h',gheader_buf[:92])
+    splitted = gheader_buf[92:].split('\0')
+    nstations = global_header[13]
+    nsources = global_header[15]
+    stations = splitted[:nstations]
+    sources = splitted[nstations:(nstations+nsources)]
+
   hour = global_header[4] / (60*60)
   minute = (global_header[4]%(60*60))/60
   second = global_header[4]%60
@@ -27,15 +37,19 @@ def parse_global_header(infile, doprint):
     if global_header_size == 64:
       print "SFXC version = %s"%(global_header[8])
     else:
-      n = global_header[-1].index('\0')
-      print "SFXC version = %s, branch = %s"%(global_header[8], global_header[-1][:n])
+      n = global_header[10].index('\0')
+      print "SFXC version = %s, branch = %s, jobnr = %d, subjobnr = %d"%(global_header[8], global_header[10][:n], global_header[11], global_header[12])
 
     pol = ['LL', 'RR', 'LL+RR', 'LL+RR+LR+RL'][global_header[9]]
     n = global_header[1].index('\0')
     print "Experiment %s, date = %dy%03dd%02dh%02dm%02ds, int_time = %d, nchan = %d, polarization = %s"%(global_header[1][:n], global_header[2], global_header[3], hour, minute, second, inttime, nchan, pol)
 
+    if global_header_size >= 92:
+        print 'Stations =', ", ".join(stations)
+        print 'Sources =', ", ".join(sources)
+
   start_date = (global_header[2], global_header[3], 60 * (hour*60 + minute) + second)
-  return start_date, nchan, inttime
+  return start_date, nchan, inttime, stations, sources
 
 def make_time_string(start_date, inttime, slicenr):
     newsec = start_date[2] + slicenr * (inttime / 1000000.)
@@ -51,14 +65,17 @@ def make_time_string(start_date, inttime, slicenr):
     second = newsec - minutes * 60
     return "%dy%03dd%02dh%02dm%09.6fs"%(newyear, newday, hours, minutes, second)
 
-def print_uvw(uvws, stations=None):
+def print_uvw(uvws, stations=None, sources=None):
   for uvw in uvws.iteritems():
     if stations == None:
       print "Station", uvw[0]
     else:
       print "Station", stations[uvw[0]]
-    for nstr in uvw[1]:
-      print nstr
+    for src, nstr in uvw[1]:
+      if sources != None:
+        print "Source {}: {}".format(sources[src], nstr)
+      else:
+        print nstr
 
 def print_stats(stats, stations=None):
   for stat in stats.iteritems():
@@ -111,12 +128,14 @@ def read_uvw(infile, uvw, nuvw):
     header = struct.unpack('2i3d', uvw_buffer[index:index + uvw_header_size])
     index += uvw_header_size
     station_nr = header[0]
+    # NB this is only valid in SFXC versions newer than stable 3.5
+    source_nr = header[1] 
     (u,v,w) = header[2:]
     nstr = 'u = %.15g, v = %.15g, w = %.15g'%(u,v,w)
     try:
-      uvw[station_nr].append(nstr)
+      uvw[station_nr].append((source_nr, nstr))
     except KeyError:
-      uvw[station_nr] = [nstr]
+      uvw[station_nr] = [(source_nr, nstr)]
 
 def read_statistics(infile, stats, nstatistics):
   stat_buffer = infile.read(stat_header_size * nstatistics)
@@ -266,12 +285,14 @@ except:
   print "Could not open file : " + filename
   sys.exit()
 
-# Get list of station names
-stations = get_stations(vex_file) if vex_file != None else None
-
 # Read global header
 global_header_size = struct.unpack('i', infile.read(4))[0]
-start_date, nchan, inttime = parse_global_header(infile, not noheader)
+start_date, nchan, inttime, stations, sources = parse_global_header(infile, not noheader)
+
+# Get list of station names from vex file (older SFXC versions didn't store
+# this information in the global headers)
+if vex_file != None:
+    stations = get_stations(vex_file)
 
 infile.seek(0)
 gheader_buf = infile.read(global_header_size)
@@ -294,7 +315,7 @@ while True:
     print_stats(stats, stations)
 
   if printuvw:
-    print_uvw(uvw, stations)
+    print_uvw(uvw, stations, sources)
 
   if printvis:
     print_baselines(data, stations)
