@@ -521,7 +521,9 @@ def process_job(vex, ctrl, rootid, basename="1234"):
     sources.append(vex['SOURCE'][source]['source_name'])
   except:
     pass
-  data = SFXCData(urlparse(ctrl['output_file']).path, stations, sources)
+  out_tuple = urlparse(ctrl['output_file'])
+  output_file = out_tuple.netloc if out_tuple.path == '' else out_tuple.path
+  data = SFXCData(output_file, stations, sources)
   STATIONMAP = create_one_letter_mapping(vex)
   fix_vex_for_hopps(vex)
 
