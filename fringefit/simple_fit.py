@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from pylab import *
+from scipy.optimize import minimize
 import numpy.polynomial as polynomial
 import sys, struct, pdb
 from datetime import datetime, timedelta
@@ -46,12 +47,12 @@ def read_integrations(inputfile, data, int_read, param, scan_param, n_integratio
   uvw_header_size = parameters.uvw_header_size
   stat_header_size = parameters.stat_header_size
   baseline_header_size = parameters.baseline_header_size
-   
+
   stations_in_job = scan_param['stations']
-  n_stations = len(stations_in_job)  
+  n_stations = len(stations_in_job)
   channels = scan_param['channels']
   n_channels = len(channels)
-  nsubint = scan_param['nsubint'] 
+  nsubint = scan_param['nsubint']
   nchan = param.nchan
 
   n_baseline = n_stations*(n_stations-1)/2
@@ -67,9 +68,9 @@ def read_integrations(inputfile, data, int_read, param, scan_param, n_integratio
       nuvw = timeslice_header[2]
       nstatistics = timeslice_header[3]
       inputfile.seek(uvw_header_size * nuvw + stat_header_size * nstatistics, 1)
-      
+
       baseline_data_size = (nchan + 1) * 8 # data is complex floats
-      baseline_buffer = read_data(inputfile, nbaseline * (baseline_header_size + baseline_data_size), timeout) 
+      baseline_buffer = read_data(inputfile, nbaseline * (baseline_header_size + baseline_data_size), timeout)
       index = 0
       baselines = []
       for b in range(nbaseline):
@@ -95,12 +96,12 @@ def read_integrations(inputfile, data, int_read, param, scan_param, n_integratio
           # Flip phase if needed
           if station1 == ref_station:
             data[chan, station, i, :] =  values[0:2*nchan+2:2] + complex64(1j) * values[1:2*nchan+2:2]
-          else: 
+          else:
             data[chan, station, i, :] =  values[0:2*nchan+2:2] - complex64(1j) * values[1:2*nchan+2:2]
         index += baseline_data_size
     int_read[0] += 1
 
-def lag_offsets(data, n_station, offsets, rates, snr):
+def lag_offsets(data, n_station, delays, rates):
   #pdb.set_trace()
   for chan in range(data.shape[0]):
     for station in range(n_station):
@@ -112,109 +113,83 @@ def lag_offsets(data, n_station, offsets, rates, snr):
       idy = max_idx / rl.shape[1]
       x = idx if idx < rl.shape[1]/2 else idx - rl.shape[1]
       y = idy if idy < rl.shape[0]/2 else idy - rl.shape[0]
-      N = rl.shape[1]/2
-      # Estimate SNR from phase noise
-      factor = max(1, N/32)
-      vis = rfft(lag[idy])*exp(2j*pi*(arange(0, N+1) * idx/(2.*N)))
-      vis2 = array([sum(vis[i:i+factor]) for i in range(0,N-factor,factor)])
-      phase = unwrap(arctan2(imag(vis2), real(vis2)))
-      M = N / factor
-      fx = arange(M/10,M+1-M/10)*pi/M # Only use the inner 80% of the band
-      offsets[chan,station] = x
-      rates[chan,station] = y * 2 * pi / data.shape[3]
-      if rl.sum() > 1e-6:
-        snr[chan, station] = phase_snr(fx, phase[M/10:M+1-M/10])
-      else:
-        snr[chan, station] = 0
-      if (chan == 3) and (station==-3):
-        pdb.set_trace()
+      delays[chan,station] = x
+      rates[chan,station] = y
 
 def apply_model(data, station1, station2, delays, rates, param, scan_param):
   channels = scan_param['channels']
   vex_freqs = param.freqs
   n_station = len(scan_param['stations'])
   n_baseline = n_station * (n_station-1) / 2
-  
-  N = data.shape[2]-1
+
+  N = data.shape[2] - 1
   T = data.shape[1]
-  f=arange(0, N+1) /(2.*N)
-  t=arange(0,T) - T/2
+  f = arange(0, N+1) /(2.*N)
+  t = arange(0, T) / float(T)
   bldata = zeros(data.shape, dtype='c8')
   for ch in range(len(channels)):
-    rate1 = rates[ch,station1]
-    rate2 = rates[ch,station2]
-    delay1 = delays[ch,station1] 
-    delay2 = delays[ch,station2]
+    rate1 = rates[ch, station1]
+    rate2 = rates[ch, station2]
+    delay1 = delays[ch, station1]
+    delay2 = delays[ch, station2]
     delay = (delay1 - delay2)
     rate = (rate1 - rate2)
     if (ch == 0) and (station1==-1):
       pdb.set_trace()
     bldata[ch] = data[ch] * exp(-2j*pi*f*delay)
-    bldata[ch] = (bldata[ch].T * exp(-1j*t*rate)).T
+    bldata[ch] = (bldata[ch].T * exp(-2j*pi*t*rate)).T
   return bldata
 
-def phase_offsets(data, station, offsets, rates, snr):
+# FIXME: Create single cost function for delay and rate
+def cost_function_delay(delay, vis):
+    N = (vis.size - 1) * 2
+    v = exp(-2j * pi * delay * arange(N/2 + 1) / N) * vis
+    vsum = v[N/10:9*N/10].sum()
+    return 1. / (abs(vsum) + 1e-8)
+
+def cost_function_rate(rate, vis):
+    N = vis.size
+    v = exp(-2j * pi * rate * arange(N) / N) * vis
+    vsum = v.sum()
+    return 1. / (abs(vsum) + 1e-8)
+
+def refine_offsets(data, station, delays, rates):
   nchan = data.shape[0]
-  nfreq = data.shape[2]
-  avfreq = 32
+  nfreq = data.shape[2]^1
+  # Only use the inner 80% of the band
+  fmin = nfreq / 10
+  fmax = nfreq+1 - nfreq/10
+  f = arange(fmin, fmax) * pi / nfreq
   #pdb.set_trace()
   for chan in range(nchan):
+    # Find the peak lag, for coarse delay compensation
     fringe = irfft2(data[chan, :, :])
     max_idx = abs(fringe).argmax()
     idx = max_idx % fringe.shape[1]
     idy = max_idx / fringe.shape[1]
     vis = rfft(fringe[idy,:])
-    # We already did coarse correction, average down in frequency
-    factor = max(1, nfreq / avfreq)
-    vis2 = array([sum(vis[i:i+factor]) for i in range(0, nfreq-factor, factor)])
-    phase = unwrap(arctan2(imag(vis2), real(vis2)))
-    N = (phase.size/2) * 2
-    x = arange(N/10,N+1-N/10)*pi/N # Only use the inner 80% of the band
-    w = abs(vis2[N/10:N+1-N/10])
-    wmax = w.max()
-    if wmax > 1e-7:
-      w /= wmax
-    else:
-      w[:] = 1
-    coef_phase = polynomial.polynomial.polyfit(x, phase[N/10:N+1-N/10], 1, w=w)
-    M = nfreq^1
-    vis_rate = sum(data[chan, :, :]*exp(-2j*pi*(arange(0, M+1) * coef_phase[1]/(2.*M))),axis=1)
-    phase_rate = unwrap(arctan2(imag(vis_rate), real(vis_rate)))
-    w = abs(vis_rate)
-    rate_wmax = w.max()
-    if rate_wmax > 1e-6:
-      w /= rate_wmax
-    else:
-      w[:] = 1
-    coef_rate = polynomial.polynomial.polyfit(arange(phase_rate.size), phase_rate, 1, w=w)
-    offsets[chan,station] = -coef_phase[1]
-    rates[chan,station] = -coef_rate[1]
-    if (chan == 0) and (station==-1):
-      pdb.set_trace()
-    if wmax > 1e-6:
-      snr[chan, station] = phase_snr(x, phase[N/10:N+1-N/10])
-    else:
-      snr[chan, station] = 0
-  #print 'chan = ' + `chan` + ' ; offsets = ' + `offsets[chan,nr,:]`
+    result_delay = minimize(cost_function_delay, 0., args=(vis,), bounds=[(-2, 2)], method='L-BFGS-B')
+    delay = -result_delay.x[0]
+    if station == -4:
+        pdb.set_trace()
+    vis_rate = sum(data[chan, :, fmin:fmax]*exp(-1j * f * delay), axis=1)
+    result_rate = minimize(cost_function_rate, 0., args=(vis_rate,), bounds=[(-2, 2)], method='L-BFGS-B')
+    rate = -result_rate.x[0]
+    # Store results
+    delays[chan,station] = delay
+    rates[chan,station] = rate
 
-def phase_snr(x, phase):
-  cfit = polynomial.chebyshev.chebfit(x, phase, 6)
-  err = phase - polynomial.chebyshev.chebval(x, cfit)
-  std = err.std()
-  if(std >= 1): 
-    #weak signal
-    snr = max(0., (1-(sqrt(3)/pi)*std) * sqrt(2*pi**3)/3)
-  elif(std >=0.4):
-    #intermediate signal strength is done through interpolation
-    p1=(0.6-std)*(0.8-std)*(1.0-std)*2.777311908595/(0.2*0.4*0.6)
-    p2=(0.4-std)*(0.8-std)*(1.0-std)*2.018309748913/(-0.2*0.2*0.4)
-    p3=(0.4-std)*(0.6-std)*(1.0-std)*1.55159280933/(0.4*0.2*0.2)
-    p4=(0.4-std)*(0.6-std)*(0.8-std)*1.188669302/(-0.2*0.4*0.6)
-    snr = p1 + p2 + p3 + p4
-  else:
-    #strong signal
-    snr = 1 / std
-  return 2*snr
+def compute_snr(data, snr, station, sample_rate, integration_time):
+  nchan = data.shape[0]
+  nint = data.shape[1]
+  nlag = (data.shape[-1] - 1) * 2
+  # Noise estimate based on perfect sampler stats and 2bit sampling
+  # NB: This requires normalized visibilities
+  noise = sqrt(nint) / (0.881 * sqrt(sample_rate * 1e6 * integration_time))
+  for chan in range(nchan):
+    # Post fringe fitting
+    fringe = abs(irfft(data[chan, :, :]).sum(axis=0))
+    snr[chan, station] = fringe.max() / noise
 
 def get_options():
   parser = OptionParser('%prog [options] <vex file> <reference station>')
@@ -229,6 +204,7 @@ def get_options():
                     help='End time of clock search [Default : last integration]')
   parser.add_option('-t', '--timeout', dest='timeout', type='int', default = 0,
                     help='Determines after how many seconds of inactivity we assume that the correlator job ended. [Default : 0 seconds]')
+  parser.add_option('-s', '--setup-station', help='Setup station (if not specified in control file)')
   (options, args) = parser.parse_args()
   if len(args) != 2:
     parser.error('invalid number of arguments')
@@ -237,13 +213,15 @@ def get_options():
   vex_name = args[0]
   ref_station = args[1]
   ctrl = None
+  setup_station = options.setup_station
   if options.controlfile != None:
     try:
       ctrl = json.load(open(options.controlfile, "r"))
-      try:
-        setup_station = ctrl["setup_station"]
-      except KeyError:
-        setup_station = ctrl["stations"][0]
+      if setup_station == None:
+          try:
+            setup_station = ctrl["setup_station"]
+          except KeyError:
+            setup_station = ctrl["stations"][0]
       # TODO : Add file extensions for pulsar binning / multiple phase center
       if ctrl["output_file"][:7] != 'file://':
         raise StandardError('Correlator output_file should start with file://')
@@ -259,7 +237,9 @@ def get_options():
       sys.exit(1)
   else:
     corfile = options.corfile
-    setup_station = ref_station
+    if setup_station == None:
+        setup_station = ref_station
+
   try:
     vex = Vex.parse(open(vex_name, "r").read())
   except StandardError, err:
@@ -270,7 +250,7 @@ def get_options():
   except:
     print >> sys.stderr, "Error : Could not open " + corfile
     sys.exit(1)
-  if options.timeout > 0: 
+  if options.timeout > 0:
     # We are running concurrently with a correlator job
     if (options.end_time == None) and (options.controlfile == None):
         parser.error("When running concurrently with a correlator job either the end_time option should\
@@ -311,10 +291,10 @@ def write_clocks(vex, param, scan_param, delays, rates, snr, ref_station, begin_
   for s in range(n_stations):
     print '    \"' + stations[s] +'\" : {'
     for c in range(n_channels):
-      base_freq = param.freqs[scan_param['channels'][0][0]]
+      base_freq = param.freqs[scan_param['channels'][c][0]]
       sb =  -1 if scan_param['channels'][c][1] == 0 else 1
       delay = -delays[c,s] / (param.sample_rate)
-      rate = -sb * rates[c,s]/(2*pi*param.integration_time*(base_freq + sb * param.sample_rate/4))
+      rate = -sb * rates[c,s]/(param.integration_time*(base_freq + sb * param.sample_rate/4) * n_integrations)
       snr_tot = snr[c,s]
       weight = weights[c,s]
       if (c < n_channels - 1):
@@ -328,20 +308,27 @@ def write_clocks(vex, param, scan_param, delays, rates, snr, ref_station, begin_
       print '}'
   print '}'
 
-def fringe_fit(data, delays, rates, snr, param, scan_param):
+def clock_search(data, delays, rates, snr, param, options, scan_param, refstation):
   n_stations = len(scan_param['stations'])
+
   #Get initial estimate
-  lag_offsets(data, n_stations, delays, rates, snr)
-  #pdb.set_trace()
+  lag_offsets(data, n_stations, delays, rates)
+
+  # Refine clocksearch
   ddelays = zeros(delays.shape)
   drates = zeros(rates.shape)
   for it in range(2):
     for station in range(n_stations):
-      bldata = apply_model(data[:,station,:], ref_index, station, delays, rates, param, scan_param)
-      phase_offsets(bldata, station, ddelays, drates, snr)
+      bldata = apply_model(data[:,station,:], refstation, station, delays, rates, param, scan_param)
+      refine_offsets(bldata, station, ddelays, drates)
     delays += ddelays
     rates += drates
-  
+
+  # Compute SNR
+  for station in range(n_stations):
+    bldata = apply_model(data[:,station,:], refstation, station, delays, rates, param, scan_param)
+    compute_snr(bldata, snr, station, param.sample_rate, param.integration_time)
+
 def goto_scan(scan, inputfile, param, timeout):
   # Wait the correlation to reach the requested scan
   scan_param = param.get_scan_param(scan)
@@ -365,7 +352,7 @@ def goto_scan(scan, inputfile, param, timeout):
 def get_parameters(vex, ctrl, corfile, scan_param, begin_time, end_time, timeout):
   scan = scan_param["name"]
   start_of_scan = vex_time.get_time(vex['SCHED'][scan]["start"])
-  scan_duration = int(vex["SCHED"][scan]["station"][2].partition('sec')[0])   
+  scan_duration = int(vex["SCHED"][scan]["station"][2].partition('sec')[0])
   if scan == param.get_scan_name(param.starttime):
     diff_time = begin_time - param.starttime
     scan_duration -= (param.starttime - start_of_scan).seconds
@@ -377,7 +364,7 @@ def get_parameters(vex, ctrl, corfile, scan_param, begin_time, end_time, timeout
   slice_in_scan = int(diff_time.seconds / param.integration_time)
   start_slice = slice_in_scan + scan_param["start_slice"]
   start_fpos = scan_param["fpos"] + slice_in_scan * scan_param["slice_size"]
-  if timeout > 0: 
+  if timeout > 0:
     # We are running concurrently with a correlator job
     if (end_time == None):
       end_time = vex_time.get_time(ctrl["stop"])
@@ -390,13 +377,13 @@ def get_parameters(vex, ctrl, corfile, scan_param, begin_time, end_time, timeout
     nslice = min((pos - start_fpos + 1)/scan_param['slice_size'],
                  int(scan_duration / param.integration_time))
   return start_fpos, start_slice, nslice
- 
+
 def sighandler(signum, frame):
   # Data reading was interupted, compute delays and rates.
   # All variables are from global scope
   data_read = data[:,:,0:int_read[0],:]
   if int_read[0] > 0:
-    fringe_fit(data_read, delays, rates, snr, param, scan_param)
+    clock_search(data_read, delays, rates, snr, param, options, scan_param, ref_index)
     write_clocks(vex, param, scan_param, delays, rates, snr, ref_index, begin_time, n_integrations)
   sys.exit(0)
 
@@ -420,7 +407,7 @@ if scan_param == None:
   print >> sys.stderr, "Error : Premature end of correlation file"
   exit(1)
 
-end_time = vex_time.get_time(options.end_time) if options.end_time != None else None   
+end_time = vex_time.get_time(options.end_time) if options.end_time != None else None
 start_fpos, start_slice, n_integrations = get_parameters(vex, ctrl, corfile, scan_param, begin_time, end_time, timeout)
 
 # initialize variables
@@ -470,7 +457,7 @@ except EndOfData:
 
 # compute delays and rates
 data = data[:,:,:n_integrations,:]
-fringe_fit(data, delays, rates, snr, param, scan_param)
+clock_search(data, delays, rates, snr, param, options, scan_param, ref_index)
 
 ############ Print output in JSON format ################
 write_clocks(vex, param, scan_param, delays, rates, snr, ref_index, begin_time, n_integrations)
