@@ -84,7 +84,7 @@ def read_data(inputfile, ndata):
       sleep(1) # if not enough data is available sleep for 1 sec
   return data
 
-def update_plots(visibilities, plots):
+def update_plots(visibilities, fig, plots):
   nstation = visibilities.shape[0]
   nbins = visibilities.shape[1]
   nif = visibilities.shape[2]
@@ -97,7 +97,8 @@ def update_plots(visibilities, plots):
     data = bins[i,:] / divider
     data = data - data.min()
     plots[i].set_ydata(data)
-  draw()
+  fig.canvas.draw()
+  fig.canvas.flush_events()
 
 def get_station_list(vexfile):
   stations = []
@@ -218,7 +219,9 @@ def create_plot_window(station_list, stations_in_job, ref_station, nbins):
       draw()
       plots.append(p)
       f += 1
-  return plots
+  fig.canvas.draw()
+  fig.canvas.flush_events()
+  return fig, plots
 
 def get_options():
   parser = OptionParser('%prog <vex file> <base_file_name> <nbins> <ref_station>')
@@ -252,7 +255,7 @@ if pol == 3:
 else:
   npol = 1
 visibilities = zeros([nstation - 1, nbins, nif, num_sb, npol], dtype=complex128)
-plots = create_plot_window(station_list, stations_in_job, ref_station, nbins)
+fig, plots = create_plot_window(station_list, stations_in_job, ref_station, nbins)
 time_slice = 0
 while True:
   #read one integration
@@ -260,4 +263,4 @@ while True:
   time_slice += 1
   #update plot
   if time_slice % nsubint == 0:
-    update_plots(visibilities, plots)
+    update_plots(visibilities, fig, plots)
