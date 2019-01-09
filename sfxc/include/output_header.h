@@ -114,7 +114,7 @@ struct Output_header_timeslice {
 struct Output_uvw_coordinates {
 Output_uvw_coordinates() : station_nr(0), reserved(0), u(0), v(0), w(0) {}
   int32_t station_nr; // The station number in the vex-file
-  int16_t source_nr;  // The source number in the vex-file
+  int16_t source_nr;  // The source number in the global header
   int16_t reserved;   // Added for 64bit alignment
   double u, v, w;     // The u, v and w coordinates
 };
