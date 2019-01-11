@@ -167,7 +167,7 @@ double Delay_table_akima::amplitude(const Time &time, int phase_center) {
 
 // Default constructor
 Delay_table::Delay_table()
-  : scan_nr(0), clock_nr(0), n_sources_in_current_scan(0) {
+  : scan_nr(0), clock_nr(0), n_sources_in_current_scan(0), n_padding(0) {
     // Add default clock offset
     set_clock_offset(0., 0., 0., 0.);
 }
@@ -179,6 +179,7 @@ Delay_table::Delay_table(const Delay_table &other)
   clock_offsets = other.clock_offsets;
   clock_rates = other.clock_rates;
   clock_epochs = other.clock_epochs;
+  n_padding = other.n_padding;
   sources = other.sources;
   scans = other.scans;
   times = other.times;
@@ -198,6 +199,7 @@ void Delay_table::operator=(const Delay_table &other) {
   clock_offsets = other.clock_offsets;
   clock_rates = other.clock_rates;
   clock_epochs = other.clock_epochs;
+  n_padding = other.n_padding;
   sources = other.sources;
   scans = other.scans;
   times = other.times;
@@ -252,8 +254,13 @@ void Delay_table::open(const char *delayTableName, const Time tstart, const Time
   int32_t version = -1;
   if (header_size >= sizeof(version))
     memcpy(&version, header, sizeof(version));
-  if (version != -1 && version != 0)
-    sfxc_abort("unsupport delay table version");
+  if (version < -1 || version > 1)
+    sfxc_abort("Unsupport delay table version");
+  // For earlier versions of the delay table format n_padding = 0
+  if (version >= 1) {
+    memcpy(&n_padding, &header[sizeof(version)], sizeof(n_padding));
+  }
+  Time padding_time = Time(1000000.) * n_padding;
 
   double line[7], scan_start, scan_end;
   int32_t current_mjd;
@@ -266,7 +273,7 @@ void Delay_table::open(const char *delayTableName, const Time tstart, const Time
   while (!done_reading && in.good()) {
     switch (state) {
     case READ_SCAN_HEADER:{
-      if (version == 0)
+      if (version >= 0)
 	in.read(current_scan, sizeof(current_scan));
       else
 	memset(current_scan, 0, sizeof(current_scan));
@@ -275,6 +282,7 @@ void Delay_table::open(const char *delayTableName, const Time tstart, const Time
         in.read(reinterpret_cast<char *>(&current_mjd), sizeof(int32_t));
         in.read(reinterpret_cast<char *>(line), 7 * sizeof(double));
         Time start_time_scan(current_mjd, line[0]);
+        start_time_scan += padding_time;
         // strip whitespace from end of source string
         for (int i = 79; i >= 0; i--) {
           if (current_source[i] != ' ') {
@@ -313,7 +321,7 @@ void Delay_table::open(const char *delayTableName, const Time tstart, const Time
         if (line[0] == 0 && line[4] == 0) {
           state = READ_SCAN_HEADER;
           break;
-        } else if (time >= tstart) {
+        } else if (time >= tstart - padding_time) {
           state = START_NEW_SCAN;
           break;
         }
@@ -321,7 +329,7 @@ void Delay_table::open(const char *delayTableName, const Time tstart, const Time
       break;
     }
     case START_NEW_SCAN:{
-      scan_start = line[0];
+      scan_start = line[0] + n_padding * 1.0;
       Time start_time_scan(current_mjd, scan_start);
       // look up the current source in the list of sources and append it to the list if needed
       int source_index;
@@ -355,7 +363,7 @@ void Delay_table::open(const char *delayTableName, const Time tstart, const Time
       // Read the data
       do {
         if (line[0] == 0 && line[4] == 0) {
-          if (times.size() == 1) {
+          if (times.size() <= 1 + n_padding) {
             // Instead of the first point of the desired scan, we got the
             // last point of the previous scan.  Get rid of it.
             scans.resize(0);
@@ -371,7 +379,7 @@ void Delay_table::open(const char *delayTableName, const Time tstart, const Time
           delays.push_back(line[4]);
           phases.push_back(line[5]);
           amplitudes.push_back(line[6]);
-          scan_end = line[0];
+          scan_end = line[0] - n_padding * 1.0;
         }
       } while (in.read(reinterpret_cast<char *>(line), 7 * sizeof(double)));
       correlation_scan = scans.size() - 1;
@@ -460,17 +468,20 @@ Delay_table::create_akima_spline(const Time start_, const Time duration) {
 
   // Determine interpolation interval
   Time onesec(1000000.);
+  Time padding_time = onesec * n_padding;
   Time interval_begin = start - onesec * 2;
   Time interval_end = start + onesec * (2 + n_seconds);
-  if (interval_begin < scans[scan_nr].begin) {
-    interval_begin = scans[scan_nr].begin;
+  // NB: to keep the spline output binary identical to earlier versions,
+  // except at scan boundaries, scan begin / end doesn't include padding
+  if (interval_begin < scans[scan_nr].begin - padding_time) {
+    interval_begin = scans[scan_nr].begin - padding_time;
     if (interval_end.diff(interval_begin) < 4)
       interval_end = interval_begin + onesec * 4;
   }
-  if (interval_end > scans[scan_nr].end) {
-    interval_end = scans[scan_nr].end;
+  if (interval_end > scans[scan_nr].end + padding_time) {
+    interval_end = scans[scan_nr].end + padding_time;
     if (interval_end.diff(interval_begin) < 4)
-      interval_begin = interval_end - onesec * 4;
+      interval_begin = interval_end + padding_time - onesec * 4;
   }
 
   // Create the splines
@@ -488,8 +499,8 @@ Delay_table::create_akima_spline(const Time start_, const Time duration) {
     result.sources[i] = sources[scan.source];
 
     // at least 4 sample points for a spline
-    int n_pts = (interval_end - interval_begin) / onesec + 1;
-    int idx = (int)interval_begin.diff(scan.begin);
+    int n_pts = (int)((interval_end - interval_begin) / onesec) + 1;
+    int idx = (int)interval_begin.diff(scan.begin - padding_time);
     SFXC_ASSERT(n_pts > 4);
 
     // Initialise the Akima spline
@@ -535,7 +546,7 @@ operator<<(std::ostream &out, const Delay_table &delay_table) {
     out << "scan " << i << ": start = " << scan.begin << ", stop = " << scan.end 
         << ", source = " << sources[scan.source] << std::endl;
     const Time one_sec(1000000);
-    int n = (scan.end - scan.begin) / one_sec;
+    int n = (scan.end - scan.begin) / one_sec + 2 * delay_table.n_padding;
     for (int k = 0; k <= n; k++) {
       out << " t = " << times[scan.times + k] << " \t delay =" << delays[scan.delays + k] << std::endl;
     }

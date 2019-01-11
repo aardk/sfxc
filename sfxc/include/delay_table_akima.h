@@ -71,6 +71,10 @@ class Delay_table {
 
 public:
   struct Scan{
+    // NB: Scan begin / end are without padding; Because times are computed 
+    // relative to scan start, this is needed to make the spline output 
+    // binary identical to earlier versions (for datapoints that are not within
+    // 2 seconds from the scan boundary)
     Time begin, end;
     int32_t source;
     int32_t times;
@@ -128,6 +132,7 @@ private:
   int scan_nr;
   int clock_nr;
   int n_sources_in_current_scan;
+  int n_padding; // extra datapoints before and after each scan
   std::vector<Time> clock_starts;
   std::vector<double> clock_offsets;
   std::vector<Time> clock_epochs;
@@ -138,7 +143,6 @@ private:
   std::vector<double> delays;
   std::vector<double> phases;
   std::vector<double> amplitudes;
-  int tst;
 };
 
 

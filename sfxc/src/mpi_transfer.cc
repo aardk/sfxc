@@ -163,7 +163,7 @@ pack(std::vector<char> &buffer, Delay_table &table, int sn[2]) {
   int32_t n_times = table.times.size();
   int32_t n_delays = table.delays.size();
   int32_t n_clocks = table.clock_offsets.size();
-  int32_t size = 7 * sizeof(int32_t) + n_sources * 81 * sizeof(char) + 
+  int32_t size = 8 * sizeof(int32_t) + n_sources * 81 * sizeof(char) + 
                  n_scans * (2 * sizeof(int64_t) + 5 * sizeof(int32_t)) +
                  (n_times + 3*n_delays) * sizeof(double) +
                  n_clocks * (2 * sizeof(int64_t) + 2 * sizeof(double));
@@ -174,6 +174,7 @@ pack(std::vector<char> &buffer, Delay_table &table, int sn[2]) {
   // First integer is the station number
   MPI_Pack(sn, 2, MPI_INT32, &buffer[0], size, &position, MPI_COMM_WORLD);
 
+  MPI_Pack(&table.n_padding, 1, MPI_INT32, &buffer[0], size, &position, MPI_COMM_WORLD);
   // all sources
   MPI_Pack(&n_sources, 1, MPI_INT32, &buffer[0], size, &position, MPI_COMM_WORLD);
   for(int i = 0; i < n_sources; i++){
@@ -256,6 +257,7 @@ unpack(std::vector<char> &buffer, Delay_table &table, int sn[2]) {
   // First, get the station number
   MPI_Unpack(&buffer[0], size, &position, sn, 2, MPI_INT32, MPI_COMM_WORLD);
 
+  MPI_Unpack(&buffer[0], size, &position, &table.n_padding, 1, MPI_INT32, MPI_COMM_WORLD);
   // Get all sources
   int32_t n_sources;
   MPI_Unpack(&buffer[0], size, &position, &n_sources, 1, MPI_INT32, MPI_COMM_WORLD);
@@ -363,7 +365,7 @@ pack(std::vector<char> &buffer, Uvw_model &table, int sn) {
   int32_t n_scans = table.scans.size();
   int32_t n_times = table.times.size();
   int32_t n_model = table.u.size();
-  int32_t size = 5 * sizeof(int32_t) + n_sources * 81 * sizeof(char) +
+  int32_t size = 6 * sizeof(int32_t) + n_sources * 81 * sizeof(char) +
                  n_scans * (2 * sizeof(int64_t) + 3 * sizeof(int32_t)) +
                  (n_times + 3 * n_model) * sizeof(double);
 
@@ -372,6 +374,8 @@ pack(std::vector<char> &buffer, Uvw_model &table, int sn) {
 
   // First integer is the station number
   MPI_Pack(&sn, 1, MPI_INT32, &buffer[0], size, &position, MPI_COMM_WORLD);
+  // all sources
+  MPI_Pack(&table.n_padding, 1, MPI_INT32, &buffer[0], size, &position, MPI_COMM_WORLD);
   // all sources
   MPI_Pack(&n_sources, 1, MPI_INT32, &buffer[0], size, &position, MPI_COMM_WORLD);
   for(int i = 0; i < n_sources; i++){
@@ -440,6 +444,7 @@ unpack(std::vector<char> &buffer, Uvw_model &table, int &sn) {
   // First, get the station number
   MPI_Unpack(&buffer[0], size, &position, &sn, 1, MPI_INT32, MPI_COMM_WORLD);
 
+  MPI_Unpack(&buffer[0], size, &position, &table.n_padding, 1, MPI_INT32, MPI_COMM_WORLD);
   // Get all sources
   int32_t n_sources;
   MPI_Unpack(&buffer[0], size, &position, &n_sources, 1, MPI_INT32, MPI_COMM_WORLD);

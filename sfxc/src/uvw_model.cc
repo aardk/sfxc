@@ -41,7 +41,7 @@
 
 //default constructor, set default values
 Uvw_model::Uvw_model()
-    : scan_nr(0), n_sources_in_scan(0) {}
+    : scan_nr(0), n_sources_in_scan(0), n_padding(0) {}
 
 //destructor
 Uvw_model::~Uvw_model() {}
@@ -54,6 +54,7 @@ void Uvw_model::operator=(const Uvw_model &other) {
   u = other.u;
   v = other.v;
   w = other.w;
+  n_padding = other.n_padding;
   splineakima_u.resize(0);
   splineakima_v.resize(0);
   splineakima_w.resize(0);
@@ -93,8 +94,13 @@ int Uvw_model::open(const char *delayTableName, Time tstart, Time tstop, const s
   int32_t version = -1;
   if (header_size >= sizeof(version))
     memcpy(&version, header, sizeof(version));
-  if (version != -1 && version != 0)
+  if (version < -1 || version > 1)
     sfxc_abort("unsupport delay table version");
+  // For earlier versions of the delay table format n_padding = 0
+  if (version >= 1) {
+    memcpy(&n_padding, &header[sizeof(version)], sizeof(n_padding));
+  }
+  Time padding_time = Time(1000000.) * n_padding;
 
   double line[7], scan_start, scan_end;
   int32_t current_mjd;
@@ -105,7 +111,7 @@ int Uvw_model::open(const char *delayTableName, Time tstart, Time tstop, const s
   while((!done_reading) && (in.good())){
     switch(state){
     case READ_SCAN_HEADER:{
-      if (version == 0)
+      if (version >= 0)
 	in.read(current_scan, sizeof(current_scan));
       else
 	memset(current_scan, 0, sizeof(current_scan));
@@ -114,6 +120,7 @@ int Uvw_model::open(const char *delayTableName, Time tstart, Time tstop, const s
         in.read(reinterpret_cast < char * > (&current_mjd), sizeof(int32_t));
         in.read(reinterpret_cast < char * > (line), 7*sizeof(double));
         Time start_time_scan(current_mjd, line[0]);
+        start_time_scan += padding_time;
         // strip whitespace from end of source string
         for(int i = 79; i >=0 ; i--){
           if(current_source[i] != ' '){
@@ -152,7 +159,7 @@ int Uvw_model::open(const char *delayTableName, Time tstart, Time tstop, const s
         if(line[0] == 0 && line[4] == 0){
           state = READ_SCAN_HEADER;
           break;
-        }else if(time >= tstart){
+        }else if(time >= tstart - padding_time) {
           state = READ_NEW_SCAN;
           break;
         }
@@ -160,7 +167,7 @@ int Uvw_model::open(const char *delayTableName, Time tstart, Time tstop, const s
       break;
     }
     case READ_NEW_SCAN:
-      scan_start = line[0];
+      scan_start = line[0] + n_padding * 1.0;
       Time start_time_scan(current_mjd, scan_start);
       // look up the current source in the list of sources and append it to the list if needed
       int source_index;
@@ -190,7 +197,7 @@ int Uvw_model::open(const char *delayTableName, Time tstart, Time tstop, const s
       // Read the data
       do {
         if (line[0] == 0 && line[4] == 0) {
-          if(times.size() == 1){
+          if(times.size() <= 1 + n_padding) {
             // Instead of the first point of the desired scan, we got the
             // last point of the previous scan.  Get rid of it.
             scans.resize(0);
@@ -206,7 +213,7 @@ int Uvw_model::open(const char *delayTableName, Time tstart, Time tstop, const s
           u.push_back(line[1]);
           v.push_back(line[2]);
           w.push_back(line[3]);
-          scan_end = line[0];
+          scan_end = line[0] - n_padding * 1.0;
         }
       } while(in.read(reinterpret_cast < char * > (line), 7*sizeof(double)));
       if((n_scans > 1) && (scans[n_scans - 2].begin == scan.begin) && 
@@ -287,22 +294,23 @@ void Uvw_model::create_akima_spline(Time time_) {
   //double seconds_start = floor((t-mjd_start) * 86400.);
   Time start(mjd_start, seconds_start);
   Time onesec(1000000.);
+  Time padding_time = onesec * n_padding;
   interval_begin = start;
   interval_end = start + onesec;
   Time interpol_begin = start - onesec*2;
   Time interpol_end = start + onesec*3;
 
-  if(interpol_begin < scans[scan_nr].begin){
-    interpol_begin = scans[scan_nr].begin;
+  if(interpol_begin < scans[scan_nr].begin - padding_time) {
+    interpol_begin = scans[scan_nr].begin - padding_time;
     if (interpol_end.diff(interpol_begin) < 4)
       interpol_end = interpol_begin + onesec*4;
   }
-  if(interpol_end > scans[scan_nr].end){
-    interpol_end = scans[scan_nr].end;
+  if(interpol_end > scans[scan_nr].end + padding_time) {
+    interpol_end = scans[scan_nr].end + padding_time;
     if (interpol_end.diff(interpol_begin) < 4)
-      interpol_begin = interpol_end - onesec*4;
+      interpol_begin = interpol_end + padding_time - onesec*4;
   }
-  
+
   acc_u.resize(n_sources_in_scan);
   acc_v.resize(n_sources_in_scan);
   acc_w.resize(n_sources_in_scan);
@@ -314,7 +322,7 @@ void Uvw_model::create_akima_spline(Time time_) {
     Scan &scan = scans[scan_nr + i];
     // at least 5 sample points for a spline
     int n_pts = (int)((interpol_end - interpol_begin) / onesec) + 1;
-    int idx = (int)interpol_begin.diff(scan.begin);
+    int idx = (int)interpol_begin.diff(scan.begin - padding_time);
     SFXC_ASSERT(n_pts > 4);
 
     // Initialise the Akima spline
