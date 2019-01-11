@@ -8,7 +8,8 @@ LDADD       = -L@top_srcdir@/lib/calc10/lib/ -L@top_srcdir@/lib/vex_parser/insta
 bin_PROGRAMS = generate_delay_model
 
 generate_delay_model_SOURCES=\
+  ../../src/correlator_time.cc \
   generate_delay_model.cc \
-  generate_delay_model_calc.c
+  generate_delay_model_calc.c 
 
 pkginclude_HEADERS = *.h

@@ -438,7 +438,7 @@ mvrec(short *ntoc, short *kmode, short *knum, short *err)
   if (!isnan(delay[0])) {
     // The number of seconds since midnight on the day the scan starts
     sec_of_day=scan_data[scan_nr].sec_of_day;
-    // At the start of each scan output the mjd at witch the scan starts and the name of the source
+    // At the start of each scan output the mjd of scan start, and the source name
     if (interval == 0) {
       fwrite(scan_data[scan_nr].scan_name, 81, sizeof(char), output_file);
       fwrite(scan_data[scan_nr].sources[source_nr]->source_name, 81, sizeof(char), output_file);
@@ -632,8 +632,8 @@ generate_delay_tables(FILE *output, char *stationname, double start,
   assert(strlen(stationname) < 3);
 
   if (ftell(output) == 0) {
-    int32_t header_size = 7;
-    int32_t version = 0;
+    int32_t header_size = 11;
+    int32_t version = 1;
     char name[3];
 
     strncpy(name, stationname, sizeof(name));
@@ -641,6 +641,7 @@ generate_delay_tables(FILE *output, char *stationname, double start,
 
     fwrite(&header_size, 1, sizeof(int32_t), output_file);
     fwrite(&version, 1, sizeof(int32_t), output_file);
+    fwrite(&n_padding_seconds, 1, sizeof(int32_t), output_file);
     fwrite(name, 3, sizeof(char), output_file);
   }
 

@@ -29,6 +29,10 @@ class Uvw_model {
 
 public:
   struct Scan{
+    // NB: Scan begin / end are without padding; Because times are computed 
+    // relative to scan start, this is needed to make the spline output 
+    // binary identical to earlier versions (for datapoints that are not within
+    // 2 seconds from the scan boundary)
     Time begin, end;
     int32_t source;
     int32_t times;
@@ -74,6 +78,7 @@ private:
   int n_sources_in_scan;
   std::vector<Scan> scans;
   std::vector<std::string> sources;
+  int n_padding; // extra datapoints before and after each scan
   std::vector<double> times, u, v, w;
   Time interval_begin, interval_end;
   std::vector<gsl_interp_accel *> acc_u, acc_v, acc_w;

@@ -48,6 +48,8 @@ struct Scan_data {
 };
 
 extern const double delta_time; //unit: seconds
+// We compute the model for a number of extra seconds before and after each scan
+extern const int n_padding_seconds;
 
 // Station related data
 extern struct Station_data station_data;
