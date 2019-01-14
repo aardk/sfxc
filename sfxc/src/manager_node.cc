@@ -449,9 +449,8 @@ Manager_node::initialise() {
   while(it != vex.get_root_node()["SCHED"]->end() && vex.start_of_scan(it.key()) < stop_time){
     Vex::Node::const_iterator sources_it = it->begin("source");
     while(sources_it != it->end("source")){
-      std::string source_name = vex.get_root_node()["SOURCE"][sources_it->to_string()]["source_name"]->to_string();
-      sources.insert(source_name);
-      std::cout << "found source " << source_name << " in scan " << it.key() << std::endl;
+      sources.insert(sources_it->to_string());
+      std::cout << "found source " << sources_it->to_string() << " in scan " << it.key() << std::endl;
       sources_it++;
     }
     it++;
