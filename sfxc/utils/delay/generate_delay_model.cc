@@ -242,7 +242,7 @@ check_antenna(Vex::Node& root, const std::string& antenna) {
 void
 check_source(Vex::Node& root, const std::string& source) {
   // Check if all required information is there.
-  const char *params[] = { "source_name", "ra", "dec", "ref_coord_frame", NULL };
+  const char *params[] = { "ra", "dec", "ref_coord_frame", NULL };
   for (int i = 0; params[i]; i++) {
     if (root["SOURCE"][source][params[i]] == root["SOURCE"][source]->end()) {
       std::cerr << "Parameter " << params[i] << " missing for source " << source
@@ -418,8 +418,8 @@ int initialise_data(const char *vex_filename,
     struct Source_data &source = source_data[source_idx];
     check_source(root, source_block.key());
 
-    strncpy(source.source_name, source_block["source_name"]->to_string().c_str(), 80);
-    for (int i = strlen(source_block["source_name"]->to_string().c_str()); i < 80; i++) {
+    strncpy(source.source_name, source_block.key().c_str(), 80);
+    for (int i = strlen(source_block.key().c_str()); i < 80; i++) {
       source.source_name[i] = ' ';
     }
     source.source_name[80]='\0';
@@ -500,7 +500,6 @@ int initialise_data(const char *vex_filename,
 	    std::cerr << "source " << source << " not found" << std::endl;
             exit(EXIT_FAILURE);
           }
-          source = root["SOURCE"][source]["source_name"]->to_c_string();
           const int source_len = strlen(source);
           for(i = 0; i < n_sources ; i++){
             int pos;
