@@ -119,8 +119,7 @@ class progressDialog(QtGui.QDialog):
                 scans = self.json_input['scans']
                 for scan in scans:
                     for source in self.vex['SCHED'][scan].getall('source'):
-                        source_name = self.vex['SOURCE'][source]['source_name']
-                        sources.append(source_name)
+                        sources.append(source)
                         continue
                     continue
                 pass
