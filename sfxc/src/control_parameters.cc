@@ -2291,8 +2291,6 @@ get_correlation_parameters(const std::string &scan_name,
           station_param.station_number = station_number(station[0]->to_string());
           stations_set.insert(station_param.station_number);
           station_param.station_stream = station_nr_it->second;
-          station_param.start_time = station[1]->to_int_amount("sec");
-          station_param.stop_time = station[2]->to_int_amount("sec");
           station_param.bits_per_sample = bits_per_sample(mode_name, station[0]->to_string());
           station_param.sample_rate = sample_rate(mode_name, station[0]->to_string());
           station_param.channel_freq = channel_freq(mode_name, station[0]->to_string(), channel_name);
@@ -2326,8 +2324,6 @@ get_correlation_parameters(const std::string &scan_name,
 	    station_param.station_stream = station_nr_it->second + number_stations();
 	  else
 	    station_param.station_stream = station_nr_it->second;;
-          station_param.start_time = station[1]->to_int_amount("sec");
-          station_param.stop_time = station[2]->to_int_amount("sec");
           station_param.bits_per_sample = bits_per_sample(mode_name, station[0]->to_string());
           station_param.sample_rate = sample_rate(mode_name, station[0]->to_string());
           station_param.channel_freq = channel_freq(mode_name, station[0]->to_string(), channel_name);
@@ -2543,8 +2539,6 @@ std::ostream &operator<<(std::ostream &out,
       out << ", ";
     out << std::endl;
     out << "{ \"stream\": " <<param.station_streams[i].station_stream
-    << ", \"start\": " <<param.station_streams[i].start_time
-    << ", \"stop\": " <<param.station_streams[i].stop_time
     << ", \"bits_per_sample\": " << param.station_streams[i].bits_per_sample
     << ", \"sample_rate\": " << param.station_streams[i].sample_rate
     << ", \"bandwidth\": " << param.station_streams[i].bandwidth
@@ -2563,11 +2557,7 @@ operator==(const Correlation_parameters::Station_parameters& other) const {
     return false;
   if (station_stream != other.station_stream)
     return false;
-  if (start_time != other.start_time)
-    return false;
-  if (stop_time != other.stop_time)
-    return false;
-
+  SFXC_ASSERT(false); // FIXME remove debug
   return true;
 }
 

@@ -857,7 +857,7 @@ void
 MPI_Transfer::send(Correlation_parameters &corr_param, int rank) {
   int size = 0;
   size = 8 * sizeof(int64_t) + 11 * sizeof(int32_t) + 14 * sizeof(char) +
-    corr_param.station_streams.size() * (5 * sizeof(int64_t) + 4 * sizeof(int32_t) + 2 * sizeof(char) + sizeof(double));
+    corr_param.station_streams.size() * (3 * sizeof(int64_t) + 4 * sizeof(int32_t) + 2 * sizeof(char) + sizeof(double));
   int position = 0;
   char message_buffer[size];
 
@@ -929,12 +929,6 @@ MPI_Transfer::send(Correlation_parameters &corr_param, int rank) {
     MPI_Pack(&station->station_number, 1, MPI_INT32,
              message_buffer, size, &position, MPI_COMM_WORLD);
     MPI_Pack(&station->station_stream, 1, MPI_INT32,
-             message_buffer, size, &position, MPI_COMM_WORLD);
-    ticks = station->start_time.get_clock_ticks();
-    MPI_Pack(&ticks, 1, MPI_INT64,
-             message_buffer, size, &position, MPI_COMM_WORLD);
-    ticks = station->stop_time.get_clock_ticks();
-    MPI_Pack(&ticks, 1, MPI_INT64,
              message_buffer, size, &position, MPI_COMM_WORLD);
     MPI_Pack(&station->bits_per_sample, 1, MPI_INT32,
              message_buffer, size, &position, MPI_COMM_WORLD);
@@ -1064,14 +1058,6 @@ MPI_Transfer::receive(MPI_Status &status, Correlation_parameters &corr_param) {
                &station_param.station_stream, 1, MPI_INT32,
                MPI_COMM_WORLD);
     int64_t ticks;
-    MPI_Unpack(buffer, size, &position,
-               &ticks, 1, MPI_INT64,
-               MPI_COMM_WORLD);
-    station_param.start_time.set_clock_ticks(ticks);
-    MPI_Unpack(buffer, size, &position,
-               &ticks, 1, MPI_INT64,
-               MPI_COMM_WORLD);
-    station_param.stop_time.set_clock_ticks(ticks);
     MPI_Unpack(buffer, size, &position,
                &station_param.bits_per_sample, 1, MPI_INT32,
                MPI_COMM_WORLD);

@@ -135,8 +135,6 @@ public:
     // according to the vex file
     // sorted alphabathically
     int32_t station_stream; // input stream (from multiple_data_readers)
-    Time start_time;         // Start and stop time for the station
-    Time stop_time;
     uint64_t sample_rate;
     int64_t channel_freq;
     uint64_t bandwidth;
