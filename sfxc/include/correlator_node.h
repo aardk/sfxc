@@ -106,7 +106,6 @@ class Reader_thread : public Thread {
     std::vector< Bit_sample_reader_ptr >        bit_sample_readers_;
 
     struct job {
-      int number_ffts_in_integration;
       std::vector<int> bits_per_sample;
       std::vector<int> stream_list;
       int station_streams_size;
@@ -209,11 +208,6 @@ class Reader_thread : public Thread {
     /// This function add a new timeslice to read...
     void add_time_slice_to_read(const Correlation_parameters& parameters) {
       struct job jb;
-      jb.number_ffts_in_integration =
-        Control_parameters::nr_ffts_per_integration_slice
-        (parameters.integration_time,
-         parameters.sample_rate,
-         parameters.fft_size_delaycor);
       // First create a list of input streams
       jb.stream_list.resize(bit_sample_readers_.size());
       jb.station_streams_size = parameters.station_streams.size();
