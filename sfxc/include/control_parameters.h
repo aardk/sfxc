@@ -17,7 +17,7 @@ typedef std::pair<std::string, std::string> stream_key;
 class Input_node_parameters {
 public:
   Input_node_parameters()
-      : track_bit_rate(0), fft_size(-1), data_modulation(0) {}
+      : track_bit_rate(0), data_modulation(0) {}
 
   class Channel_parameters {
   public:
@@ -51,8 +51,8 @@ public:
   uint64_t track_bit_rate; // in Ms/s
   // Frame size
   int32_t frame_size;
-  // Number of samples per FFT.
-  int32_t fft_size;
+  // Size of slice in number_of_samples
+  int32_t slice_size;
   /// The integration time
   Time integr_time;
   /// Time offset for the data reader, used e.g. to compensate for formatter errors
@@ -61,6 +61,8 @@ public:
   int32_t data_modulation;
   // Phasecal integration time
   Time phasecal_integr_time;
+  // Because of dispersion, consecutive time slices overlap
+  Time overlap_time;
   // Abort the correlation if the input stream contains no valid data
   bool exit_on_empty_datastream;
 };
@@ -150,8 +152,9 @@ public:
 
   // Data members
   Time experiment_start;    // Start time of the experiment
-  Time start_time;          // Start of the slice in microseconds
-  Time stop_time;           // End of the slice in microseconds
+  Time stream_start;        // Start of the slice
+  int64_t slice_size;       // Number of samples in slice
+  Time integration_start;   // The time at which to start the integration
   Time integration_time;
   Time sub_integration_time;// The length of one sub integration
   int32_t number_channels;  // number of frequency channels
@@ -300,14 +303,26 @@ public:
                 const std::string &station_name,
                 const std::string &mode) const;
 
-  /**
-   * Returns the number of bytes transferred for one integration slice
-   * from the input node to the correlator node.
-   **/
-  static int nr_ffts_per_integration_slice(const Time &integration_time,
+  // Returns the number of correlation ffts to be processed for one integration slice
+  static int nr_correlation_ffts_per_integration(const Time &integration_time,
 				           uint64_t sample_rate, int fft_size) {
     Time time_one_fft(fft_size / (sample_rate / 1000000.));
     return floor(integration_time / time_one_fft);
+  }
+
+  // Returns the number of de-dispersion ffts to be processed for one integration slice, 
+  // taking into account that integrations are half overlapped
+  static int nr_dedisp_ffts_per_integration(const Time &integration_time,
+                                         int sample_rate,
+                                         int fft_size_dedispersion,
+                                         int fft_size_correlation) {
+    Time time_correlation(fft_size_correlation / (sample_rate / 1000000.));
+    Time time_dedispersion(fft_size_dedispersion / (sample_rate / 1000000.));
+    int nr_corr_fft = nr_correlation_ffts_per_integration(integration_time,
+                        sample_rate, fft_size_correlation);
+    int nr_fft = ceil((time_correlation*nr_corr_fft + time_dedispersion) /
+                      time_dedispersion);
+    return nr_fft;
   }
 
   int polarisation_type_for_global_output_header(const std::string &mode) const;

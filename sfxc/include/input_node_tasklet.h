@@ -95,6 +95,7 @@ private:
   uint64_t sample_rate;
   int bits_per_sample;
   int64_t size_slice; // Number of samples for one integration slice
+  Time overlap_time;  // Size of buffer additional data needed for dedispersion filter
 };
 
 

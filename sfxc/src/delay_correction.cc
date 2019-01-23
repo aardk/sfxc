@@ -163,7 +163,7 @@ void Delay_correction::fringe_stopping(FLOAT output[]) {
   const double center_freq = channel_freq() + sideband() * (bandwidth() / 2) + LO_offset;
 
   double phi, delta_phi, sin_phi, cos_phi;
-  double lo_phase = start_phase + LO_offset*current_time.diff(correlation_parameters.start_time);
+  double lo_phase = start_phase + LO_offset*current_time.diff(correlation_parameters.stream_start);
   phi = center_freq * get_delay(current_time) + lo_phase + get_phase(current_time) / (2 * M_PI);
   double floor_phi = std::floor(phi);
   phi = mult_factor_phi*(phi-floor_phi);
@@ -221,7 +221,7 @@ Delay_correction::set_parameters(const Correlation_parameters &parameters, Delay
   correlation_parameters = parameters;
   oversamp = sample_rate() / (2 * bandwidth());
 
-  current_time = parameters.start_time;
+  current_time = parameters.stream_start;
   current_time.set_sample_rate(sample_rate());
   SFXC_ASSERT(((int64_t)fft_size() * 1000000) % sample_rate() == 0);
   fft_length = Time((double)fft_size() / (sample_rate() / 1000000));
@@ -275,11 +275,8 @@ Delay_correction::set_parameters(const Correlation_parameters &parameters, Delay
 
   SFXC_ASSERT(parameters.fft_size_correlation >= parameters.fft_size_delaycor);
   n_ffts_per_integration =
-    ((parameters.fft_size_correlation / parameters.fft_size_delaycor) *
-     Control_parameters::nr_ffts_per_integration_slice(
-         (int) parameters.integration_time.get_time_usec(),
-	 parameters.sample_rate, parameters.fft_size_correlation) *
-     parameters.station_streams[stream_idx].sample_rate) / parameters.sample_rate;
+    (parameters.station_streams[stream_idx].sample_rate / parameters.sample_rate) *
+        parameters.slice_size / parameters.fft_size_delaycor;
 
   LO_offset = parameters.station_streams[stream_idx].LO_offset;
   double dt = current_time.diff(parameters.experiment_start);

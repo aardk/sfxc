@@ -80,7 +80,7 @@ Correlation_core_phased::set_parameters(const Correlation_parameters &parameters
 void
 Correlation_core_phased::create_baselines(const Correlation_parameters &parameters){
   number_ffts_in_integration =
-    Control_parameters::nr_ffts_per_integration_slice(
+    Control_parameters::nr_correlation_ffts_per_integration(
       (int) parameters.integration_time.get_time_usec(),
       parameters.sample_rate,
       parameters.fft_size_correlation); 
@@ -90,7 +90,7 @@ Correlation_core_phased::create_baselines(const Correlation_parameters &paramete
     number_ffts_in_integration -= 1;
 
   number_ffts_in_sub_integration =
-    Control_parameters::nr_ffts_per_integration_slice(
+    Control_parameters::nr_correlation_ffts_per_integration(
       (int) parameters.sub_integration_time.get_time_usec(),
       parameters.sample_rate,
       parameters.fft_size_correlation);

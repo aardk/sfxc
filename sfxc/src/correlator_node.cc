@@ -319,12 +319,10 @@ Correlator_node::set_parameters() {
   const Correlation_parameters &parameters =
     integration_slices_queue.front();
 
-  SFXC_ASSERT(((parameters.stop_time-parameters.start_time) /
-               parameters.integration_time) == 1);
   // Get delay and UVW tables
   // NB: The total number of streams in the job is not nessecarily the same 
   // as the number of streams in the scan
-  Time tmid = parameters.start_time + parameters.integration_time/2;
+  Time tmid = parameters.integration_start + parameters.integration_time / 2;
   std::vector<Delay_table_akima> akima_tables(delay_index.size());
   std::vector<std::vector<double> > uvw(uvw_tables.size());
   for(int i=0;i<parameters.station_streams.size();i++){
@@ -332,7 +330,7 @@ Correlator_node::set_parameters() {
     int index = delay_index[stream];
     SFXC_ASSERT(index != -1);
     akima_tables[stream] = 
-       delay_tables[index].create_akima_spline(parameters.start_time,
+       delay_tables[index].create_akima_spline(parameters.stream_start,
                                                 parameters.integration_time);
     if(stream < uvw.size()){
       uvw[stream].resize(parameters.n_phase_centers*3);

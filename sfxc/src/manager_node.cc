@@ -350,10 +350,10 @@ void Manager_node::start_next_timeslice_on_node(int corr_node_nr) {
     get_correlation_parameters(scan_name,
                                current_channel,
                                get_input_node_map());
-  correlation_parameters.start_time =
+  correlation_parameters.integration_start =
     start_time + integration_time() * integration_slice_nr;
-  correlation_parameters.stop_time  =
-    start_time + integration_time() * (integration_slice_nr+1);
+  // stream_start <= integration_start ; needed for coherent dedispersion (place holder for now)
+  correlation_parameters.stream_start = correlation_parameters.integration_start;
   correlation_parameters.integration_nr = integration_slice_nr;
   correlation_parameters.slice_nr = output_slice_nr;
   strncpy(correlation_parameters.source, control_parameters.scan_source(scan_name).c_str(), 11);
@@ -376,8 +376,8 @@ void Manager_node::start_next_timeslice_on_node(int corr_node_nr) {
       input_node_set_time_slice(input_node,
                                 ch_number_in_scan[current_channel][input_node],
 				stream,
-                                correlation_parameters.start_time,
-                                correlation_parameters.stop_time);
+                                correlation_parameters.integration_start,
+                                correlation_parameters.integration_time);
       stream += n_corr_nodes;
     }
 
@@ -386,8 +386,8 @@ void Manager_node::start_next_timeslice_on_node(int corr_node_nr) {
       input_node_set_time_slice(input_node,
 				ch_number_in_scan[cross_channel][input_node],
 				stream,
-				correlation_parameters.start_time,
-				correlation_parameters.stop_time);
+				correlation_parameters.integration_start,
+				correlation_parameters.integration_time);
     }
   }
 

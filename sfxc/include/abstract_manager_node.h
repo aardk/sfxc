@@ -84,16 +84,14 @@ public:
   // Sets the track parameters for a station:
   void input_node_set(int input_node,
                       Input_node_parameters &input_node_params);
-  /// Returns the time in milliseconds since midnight on the start-day
   Time input_node_get_current_time(int input_node);
   void input_node_set_time(int input_node,
                            Time start_time, Time stop_time, Time leave_time);
 
-  // Send a new time slice, start and stop time are in milliseconds
+  // Send a new time slice 
   void input_node_set_time_slice(int input_node, int32_t channel,
                                  int32_t stream_nr,
-                                 Time start_time, Time stop_time);
-
+                                 Time start_time, Time integr_time);
 
   void output_node_set_global_header(char* header_msg, int size);
 

@@ -244,7 +244,7 @@ set_new_parameters(const Correlation_parameters &parameters, Delay_table_akima &
     return;
   }
 
-  new_parameters.start_time = parameters.start_time;
+  new_parameters.stream_start = parameters.stream_start;
   new_parameters.bits_per_sample = parameters.station_streams[stream_idx].bits_per_sample;
   new_parameters.sample_rate = parameters.station_streams[stream_idx].sample_rate;
   new_parameters.base_sample_rate = parameters.sample_rate;
@@ -256,21 +256,11 @@ set_new_parameters(const Correlation_parameters &parameters, Delay_table_akima &
     (std::max(CORRELATOR_BUFFER_SIZE / parameters.fft_size_delaycor, nfft_min) *
      parameters.station_streams[stream_idx].sample_rate) / parameters.sample_rate;
   new_parameters.delay_in_samples = 
-    delay_table.delay(parameters.start_time) * new_parameters.sample_rate;
+    delay_table.delay(parameters.stream_start) * new_parameters.sample_rate;
 
-  if(parameters.fft_size_correlation > parameters.fft_size_delaycor) 
-    new_parameters.n_ffts_per_integration =
-      ((parameters.fft_size_correlation / parameters.fft_size_delaycor) *
-       Control_parameters::nr_ffts_per_integration_slice(
-           (int)parameters.integration_time.get_time_usec(),
-	   parameters.sample_rate, parameters.fft_size_correlation) *
-       parameters.station_streams[stream_idx].sample_rate) / parameters.sample_rate;
-  else
-    new_parameters.n_ffts_per_integration =
-      (Control_parameters::nr_ffts_per_integration_slice(
-           (int)parameters.integration_time.get_time_usec(),
-           parameters.sample_rate, parameters.fft_size_delaycor) *
-       parameters.station_streams[stream_idx].sample_rate) / parameters.sample_rate;
+  new_parameters.n_ffts_per_integration =
+     (new_parameters.sample_rate / new_parameters.base_sample_rate) *
+     parameters.slice_size / parameters.fft_size_delaycor;
 
   have_new_parameters=true;
 }

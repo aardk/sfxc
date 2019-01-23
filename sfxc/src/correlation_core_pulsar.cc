@@ -43,7 +43,7 @@ Correlation_core_pulsar::set_parameters(const Correlation_parameters &parameters
   }
   n_flagged.resize(baselines.size());
 
-  double start_mjd = parameters.start_time.get_mjd();
+  double start_mjd = parameters.integration_start.get_mjd();
   fft_duration = ((double)fft_size() * 1000000) / parameters.sample_rate;
   if (offsets.size() != fft_size() + 1)
     offsets.resize(fft_size() + 1);
