@@ -133,7 +133,7 @@ Correlation_core::set_parameters(const Correlation_parameters &parameters,
 void
 Correlation_core::create_baselines(const Correlation_parameters &parameters){
   number_ffts_in_integration =
-    Control_parameters::nr_ffts_per_integration_slice(
+    Control_parameters::nr_correlation_ffts_per_integration(
       (int) parameters.integration_time.get_time_usec(),
       parameters.sample_rate,
       parameters.fft_size_correlation); 
@@ -145,7 +145,7 @@ Correlation_core::create_baselines(const Correlation_parameters &parameters){
     number_ffts_in_integration -= SFXC_NTAPS*2 - 1; 
 
   number_ffts_in_sub_integration =
-    Control_parameters::nr_ffts_per_integration_slice(
+    Control_parameters::nr_correlation_ffts_per_integration(
       (int) parameters.sub_integration_time.get_time_usec(),
       parameters.sample_rate,
       parameters.fft_size_correlation);
@@ -510,7 +510,7 @@ Correlation_core::tsys_write() {
     MPI_Pack(&frequency_number, 1, MPI_UINT8, msg, len, &pos, MPI_COMM_WORLD);
     MPI_Pack(&sideband, 1, MPI_UINT8, msg, len, &pos, MPI_COMM_WORLD);
     MPI_Pack(&polarisation, 1, MPI_UINT8, msg, len, &pos, MPI_COMM_WORLD);
-    uint64_t ticks = correlation_parameters.start_time.get_clock_ticks();
+    uint64_t ticks = correlation_parameters.integration_start.get_clock_ticks();
     MPI_Pack(&ticks, 1, MPI_INT64, msg, len, &pos, MPI_COMM_WORLD);
     MPI_Pack(&tsys_on_lo, 1, MPI_INT64, msg, len, &pos, MPI_COMM_WORLD);
     MPI_Pack(&tsys_on_hi, 1, MPI_INT64, msg, len, &pos, MPI_COMM_WORLD);
@@ -526,7 +526,7 @@ Correlation_core::sub_integration(){
   const int current_sub_int = (int) round((double)current_fft / number_ffts_in_sub_integration);
   Time tfft(0., correlation_parameters.sample_rate); 
   tfft.inc_samples(fft_size());
-  const Time tmid = correlation_parameters.start_time + tfft*(previous_fft+(current_fft-previous_fft)/2.); 
+  const Time tmid = correlation_parameters.integration_start + tfft*(previous_fft+(current_fft-previous_fft)/2.); 
 
   // Start with the auto correlations
   const int n_fft = fft_size() + 1;

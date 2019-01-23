@@ -12,6 +12,9 @@ Input_node_data_writer::Input_node_data_writer() {
   _current_time=0;
   interval=0;
   phasecal_count=0;
+  frames_to_buffer = 0;
+  intnr = 0;
+  input_index = 0;
   sync_stream=false;
 }
 
@@ -90,7 +93,7 @@ has_work() {
   }
 
  // Not sufficient input data
-  if(input_buffer_->empty())
+  if (input_index >= input_buffer_->size())
     return false;
 
 #if 0
@@ -106,7 +109,7 @@ uint64_t
 Input_node_data_writer::
 do_task() {
   // Acquire the input data
-  Input_buffer_element &input_element = input_buffer_->front();
+  Input_buffer_element &input_element = (*input_buffer_)[input_index];
   struct Writer_struct& data_writer = data_writers_.front();
 
   do_phasecal();
@@ -125,13 +128,16 @@ do_task() {
     data_writer.writer->set_size_dataslice(-1);
     data_writer.writer->activate();
     data_writer.active = true;
-    _slice_start = _current_time;
-
+    // Determine how many frames should be buffered because of the dedispersion filter
+    block_size = input_element.channel_data.data().data.size();
+    frames_to_buffer = std::max(1., ceil(3*overlap_time.get_time_usec() * (sample_rate/1000000) *
+                                         bits_per_sample / (8.*block_size)));
+ 
     DEBUG_MSG("FETCHING FOR A NEW WRITER......");
+    delay_index = 0;
     sync_stream = true;
   }
   if(sync_stream){
-    block_size=input_element.channel_data.data().data.size();
     // Move to the next integer delay change
     while((delay_index < delay_size - 1) && (cur_delay[delay_index+1].time <= _current_time+byte_length))
        delay_index++;
@@ -210,18 +216,25 @@ do_task() {
   data_writer.slice_size -= total_to_write*samples_per_byte;
   _current_time.inc_samples(total_to_write*samples_per_byte);
   // If we are at the end of the input buffer remove it from the queue
-  if(index >= block_size){
-    input_buffer_->pop();
+  if (index >= block_size) {
+    // Buffer the current frame if necessary
+    if (input_index >= frames_to_buffer)
+      input_buffer_->pop();
+    else
+      input_index++;
   }
 
   // Check whether we have written all data to the data_writer
   if (data_writer.slice_size <= 0) {
-    if (_slice_start + integration_time >= current_interval_.stop_time_) {
+    intnr++;
+    if (current_interval_.start_time_ + integration_time * intnr >= current_interval_.stop_time_) {
       write_phasecal(_current_time);
     }
     write_end_of_stream(data_writer.writer);
     // resync clock to a multiple of the integration time
-    _current_time = _slice_start + integration_time;
+    _current_time = current_interval_.start_time_ + integration_time * intnr - overlap_time;
+    _current_time.set_sample_rate(sample_rate);
+    input_index = 0;
     data_writer.writer->deactivate();
     data_writers_.pop();
     DEBUG_MSG("POPPING FOR A NEW WRITER......");
@@ -235,7 +248,9 @@ const int8_t sample_value_1[] = { -5, 5 };
 
 void
 Input_node_data_writer::do_phasecal() {
-  Input_buffer_element &input_element = input_buffer_->front();
+  if (input_index < frames_to_buffer - 1)
+    return;
+  Input_buffer_element &input_element = (*input_buffer_)[input_index];
   int samples_per_byte = 8 / bits_per_sample;
   size_t size = input_element.channel_data.data().data.size();
   uint8_t *data = (uint8_t *)&input_element.channel_data.data().data[0];
@@ -345,6 +360,7 @@ set_parameters(int nr_stream, const Input_node_parameters &input_param, int stat
   bits_per_sample = input_param.bits_per_sample();
   integration_time = input_param.integr_time;
   byte_length = Time( 8 * 1000000. / (sample_rate * bits_per_sample));
+  overlap_time = input_param.overlap_time;
 
   station_number = station_number_;
   frequency_number = input_param.channels[nr_stream].frequency_number;
@@ -394,8 +410,10 @@ Input_node_data_writer::fetch_next_time_interval() {
   delay_index = 0;
   delay_list = delays_.front_and_pop();
 
-  _current_time = current_interval_.start_time_;
+  _current_time = current_interval_.start_time_ - overlap_time;
   _current_time.set_sample_rate(sample_rate);
+  input_index = 0;
+  intnr = 0;
 }
 
 void
@@ -461,7 +479,7 @@ Input_node_data_writer::write_data(Data_writer_sptr writer, int ndata, int byte_
     int16_t data_to_write = (int16_t) std::min(ndata-bytes_written, SHRT_MAX);
     writer->put_bytes(sizeof(header), (char *)&header);
     writer->put_bytes(sizeof(data_to_write), (char *)&data_to_write);
-    Input_buffer_element &input_element = input_buffer_->front();
+    Input_buffer_element &input_element = (*input_buffer_)[input_index];
     char *data =(char*)&input_element.channel_data.data().data[start];
     int written = 0;
 
