@@ -100,7 +100,8 @@ do_task() {
     int nframes = std::min(NSKIP, nframes_left[0]);
     nr_read_error += nframes;
     // Insert invalid blocks to prevent bad data streams to stall the correlation
-    push_random_blocks(nframes, 0);
+    for (size_t i = 0; i < current_time.size(); i++) 
+      push_random_blocks(nframes, i);
     return;
   }
 
@@ -108,8 +109,10 @@ do_task() {
   SFXC_ASSERT(channel >= 0 && channel < current_time.size());
 
   if (current_time[channel] >= current_interval_.leave_time_) {
-    int nframes = std::min(NSKIP, nframes_left[0]);
+    int nframes = std::min(NSKIP, nframes_left[channel]);
     push_random_blocks(nframes, channel);
+    for (int i = 0; i < duplicate[channel].size(); i++) 
+      push_random_blocks(nframes, duplicate[channel][i]);
     return;
   }
 
@@ -132,12 +135,16 @@ do_task() {
 	// Data from the future; drop the frame, insert an invalid block and complain
 	LOG_MSG(": causality violation " << input_element_.start_time);
 	push_random_blocks(1, channel);
+        for (int i = 0; i < duplicate[channel].size(); i++) 
+          push_random_blocks(1, duplicate[channel][i]);
 	return;
       }
 
       nr_missing += nframes_missing;
       Input_element old_input_element = input_element_;
       push_random_blocks(nframes_missing, channel);
+      for (int i = 0; i < duplicate[channel].size(); i++) 
+        push_random_blocks(nframes_missing, duplicate[channel][i]);
       input_element_ = old_input_element;
     } else if (nframes_missing < 0) {
       nr_past += 1;
@@ -217,6 +224,10 @@ Input_data_format_reader_tasklet::fetch_next_time_interval() {
 
   data_read_ += input_element_.buffer->data.size();
   push_element();
+  for (int i = 0; i < duplicate[input_element_.channel].size(); i++) {
+    input_element_.channel = duplicate[input_element_.channel][i];
+    push_element();
+  }
 }
 
 void
