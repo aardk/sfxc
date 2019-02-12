@@ -121,7 +121,7 @@ class Correlation_parameters {
 public:
   Correlation_parameters()
     : number_channels(0), fft_size_delaycor(0), fft_size_correlation(0),
-    integration_nr(-1), slice_nr(-1), sample_rate(0),
+    fft_size_dedispersion(0), integration_nr(-1), slice_nr(-1), sample_rate(0),
     channel_freq(0), bandwidth(0), sideband('n'), frequency_nr(-1),
     polarisation('n'), multi_phase_center(false), pulsar_binning(false),
     window(SFXC_WINDOW_RECT) {}
@@ -159,6 +159,7 @@ public:
   Time sub_integration_time;// The length of one sub integration
   int32_t number_channels;  // number of frequency channels
   int32_t fft_size_delaycor;    // Number of samples per FFT in the delay correction
+  int32_t fft_size_dedispersion; // Number of samples per FFT in the coherent dedispersion
   int32_t fft_size_correlation; // Number of samples per FFT in the (cross-)correlation
   int32_t integration_nr;   // number of the integration
   int32_t slice_nr;         // Number of the output slice
