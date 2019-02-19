@@ -28,7 +28,6 @@ def time2vex(secs):
 usage = "usage: %prog [options] vexfile controlfiles"
 parser = optparse.OptionParser(usage=usage)
 parser.add_option("-n", "--nodes", dest="number_nodes",
-                  default=256,
                   type="int", 
                   help="Number of correlator nodes",
                   metavar="N")
@@ -42,7 +41,7 @@ parser.add_option("-d", "--no-delays", dest="gen_delays",
                   action = "store_false",
                   help="Disable generating new delays")
 parser.add_option("-m", "--machines", dest="machines",
-                  default="a,b,c,d,e,f,g,h,i,j,k", type="string",
+                  default="a,b,c,d,e,f,g,h,i,j,k,l", type="string",
                   help="Machines to run correlator nodes on",
                   metavar="LIST")
 parser.add_option("-e", "--exclude", dest="exclude_nodes",
@@ -61,7 +60,7 @@ parser.add_option("-M", "--on-mark5", help="Correlate with input node on the mar
 if len(args) < 2:
     parser.error("incorrect number of arguments")
 
-ncore_manager = 8 if options.head_node == 'out.sfxc' else 4
+ncore_manager = 20 if options.head_node == 'out.sfxc' else 4
 
 vex_file = args[0]
 # Parse the VEX file.
@@ -91,19 +90,23 @@ for station in vex['STATION']:
 # Generate a list of machines to use.
 machines = []
 for machine in options.machines.split(','):
-    if machine in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k']:
+    if machine in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l']:
         for unit in [0, 1, 2, 3]:
             machines.append("sfxc-" + machine + str(unit) + ".sfxc")
     else:
         machines.append(machine)
 # Remove nodes which are excluded from job
 if options.exclude_nodes != None:
-  nodes = ["sfxc-%s.sfxc"%node for node in options.exclude_nodes.split(',')]
-  for node in nodes:
-    try:
-      machines.remove(node)
-    except ValueError:
-      pass
+  for exclude_node in options.exclude_nodes.split(','):
+    if len(exclude_node) == 1:
+      nodes = ['sfxc-%s%d.sfxc'%(exclude_node, unit) for unit in range(0, 4)]
+    else:
+      nodes = ['sfxc-%s.sfxc'%(exclude_node)]
+    for node in nodes:
+      try:
+        machines.remove(node)
+      except ValueError:
+        pass
 
 # Nodes with a 10Gb interface
 machines_10g = []
@@ -297,8 +300,8 @@ for ctrl_file in args[1:]:
             ranks[machine] = int(n)
       elif machine.startswith('aribox') or (machine == '10.88.0.24'):
         if machine not in ranks:
-          print >>fp, machine, " slots=16"
-          ranks[machine] = 16
+          print >>fp, machine, " slots=8"
+          ranks[machine] = 8
       elif machine.startswith('flexbuf'):
         if machine not in ranks:
           print >>fp, machine, " slots=12"
@@ -343,12 +346,15 @@ for ctrl_file in args[1:]:
         ranks[node] -= nthread
         print >>fp, "rank", str(rank), "=", node, slots
 
-    for i in range(8):
+    done = False
+    while not done:
+        done = True
         for machine in machines:
           if ranks[machine] > 0:
             rank += 1
             print >>fp, "rank", str(rank), "=", machine, "slot=", str(ranks[machine]-1)
             ranks[machine] -= 1
+            done = False
     fp.close()
     output_control_file = "run_job.out.ctrl"
     outfp = open(output_control_file, "w")
@@ -356,7 +362,10 @@ for ctrl_file in args[1:]:
     outfp.close()
 
     # Start the job.
-    number_nodes = 3 + len(stations) + options.number_nodes
+    if options.number_nodes != None:
+        number_nodes = 3 + len(stations) + options.number_nodes
+    else:
+        number_nodes = rank + 1
     sfxc = "`which sfxc`"
     cmd = "mpirun --mca btl_tcp_if_include " \
         + options.subnet + " " \
