@@ -39,6 +39,7 @@ private:
   IppsFFTSpec_C_64fc *ippspec;
   IppsFFTSpec_R_64f *ippspec_r2c;
   Ipp8u *buffer, *buffer_r2c;
+  Ipp8u *specbuffer, *specbuffer_r2c;
 };
 #else // USE FFTW
 #include <fftw3.h>
