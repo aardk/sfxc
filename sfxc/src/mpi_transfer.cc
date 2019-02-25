@@ -694,11 +694,10 @@ MPI_Transfer::receive(MPI_Status &status, std::map<std::string, int> &sources){
 
   for(int i=0; i<nsources; i++){
     int32_t source_len;
-    char source[source_len];
     MPI_Unpack(buffer, size, &position, &source_len, 1, MPI_INT32, MPI_COMM_WORLD);
+    char source[source_len];
     MPI_Unpack(buffer, size, &position, &source[0], source_len, MPI_CHAR, MPI_COMM_WORLD);
     sources[std::string(source)] = i;
-    //std::cout << "Added " << source << ", nr = " << i << "\n";
   }
   SFXC_ASSERT(position == size);
 }
