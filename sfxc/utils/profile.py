@@ -142,7 +142,7 @@ def initialize(base_file_name, nbins, station_list):
   pol=0
   sb=0
   nif=0
-  while(integration_slice == 0):
+  while (integration_slice == 0) and (len(tsheader_buf) == timeslice_header_size):
     # get the uvw buffer
     nuvw = timeslice_header[2]
     inputfile.seek(uvw_header_size * nuvw, 1)
@@ -170,8 +170,9 @@ def initialize(base_file_name, nbins, station_list):
       #print 's1=%d, s2=%d, pol=%d, sb=%d, nif=%d, if_found=%d, sb_found=%d'%(station1, station2, pol, sb, nif, byte>>3, (byte>>2)&1)
       index += baseline_data_size
     tsheader_buf = inputfile.read(timeslice_header_size)
-    timeslice_header = struct.unpack('4i', tsheader_buf)
-    integration_slice = timeslice_header[0]
+    if len(tsheader_buf) == timeslice_header_size:
+        timeslice_header = struct.unpack('4i', tsheader_buf)
+        integration_slice = timeslice_header[0]
     nsubint += 1
   
   inputfile.seek(global_header_size)
