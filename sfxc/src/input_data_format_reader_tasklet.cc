@@ -224,8 +224,8 @@ Input_data_format_reader_tasklet::fetch_next_time_interval() {
 
   data_read_ += input_element_.buffer->data.size();
   push_element();
-  for (int i = 0; i < duplicate[input_element_.channel].size(); i++) {
-    input_element_.channel = duplicate[input_element_.channel][i];
+  for (int i = 0, ch = input_element_.channel; i < duplicate[ch].size(); i++) {
+    input_element_.channel = duplicate[ch][i];
     push_element();
   }
 }
