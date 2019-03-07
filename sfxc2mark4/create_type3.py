@@ -400,9 +400,11 @@ def write_type309(info, in_file, out_fp):
         mjd = header[4]
         secs = (mjd - 40587) * 86400 + header[5]
         sign = -1 if sideband == 0 else 1
-        acc_period = float(header[6])
         num_samples = header[7]
         buf = in_fp.read(num_samples * 4)
+        if float(header[6]) == 0:
+            continue
+        acc_period = float(header[6])
         dd = np.frombuffer(buf, dtype='int32').astype(float)
 
         if not secs in data:
