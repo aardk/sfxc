@@ -21,9 +21,6 @@ class SFXCData:
       print >> sys.stderr, "Error : Could not open " + corfilename
       sys.exit(1)
     
-    # Parse global header
-    self._parse_global_header()
-
     self._integration_byte_pos = []
     self.vis = {}
     self.uvw = {}
@@ -34,6 +31,9 @@ class SFXCData:
     self.current_slice = -1
     self.exp_stations = stations
     self.exp_sources = sources
+
+    # Parse global header
+    self._parse_global_header()
 
     # Read in the first integration
     self.next_integration()
