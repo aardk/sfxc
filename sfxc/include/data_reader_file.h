@@ -30,6 +30,7 @@ private:
 
   std::queue<std::string> filenames;
   std::ifstream file;
+  std::streampos file_end;
 };
 
 #endif // DATA_READER_FILE_H
