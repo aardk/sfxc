@@ -13,12 +13,12 @@
 #include <iostream>
 
 Data_reader_file::Data_reader_file(const std::vector<std::string> &sources) :
-  Data_reader() {
+  Data_reader(), file_end(0) {
   init(sources);
 }
 
 Data_reader_file::Data_reader_file(const std::string &source) :
-  Data_reader() {
+  Data_reader(), file_end(0) {
   std::vector<std::string> sources(1, source);
   init(sources);
 }
@@ -44,10 +44,15 @@ Data_reader_file::open_next_file(){
 
   while ((!opened_file) && (filenames.size() > 0)) {
     file.open(filenames.front().c_str(), std::ios::in | std::ios::binary);
-    if (file.is_open()) 
+    if (file.is_open()) { 
       opened_file = true;
-    else
+      file.seekg(0, std::ios::end);
+      file_end = file.tellg();
+      file.seekg(0, std::ios::beg);
+    } else {
+      file_end = 0;
       std::cerr << RANK_OF_NODE << " : Warning : Cannot open " <<  filenames.front() << "\n";
+    }
     filenames.pop();
   }
   return opened_file;
@@ -59,14 +64,18 @@ Data_reader_file::~Data_reader_file() {
 
 size_t
 Data_reader_file::do_get_bytes(size_t nbytes, char *out) {
-  if (!file.good()){
+  // If EOF is reached through a seek, the EOF bit won't be set
+  std::streampos pos = file.tellg();
+  if (!file.good() || pos >= file_end) {
     if (!open_next_file())
       return -1;
   }
 
   if (out == NULL) {
     std::streampos pos = file.tellg();
-    file.seekg(nbytes, std::ios::cur);
+    size_t nbytes_to_read = std::min((size_t)(file_end - pos), nbytes);
+    file.seekg(nbytes_to_read, std::ios::cur);
+
     return file.tellg() - pos;
   }
 
