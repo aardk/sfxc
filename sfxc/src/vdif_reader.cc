@@ -55,9 +55,39 @@ VDIF_reader::print_header() {
 
 Time
 VDIF_reader::goto_time(Data_frame &data, Time time) {
-  while (time > get_current_time()) {
-    if (!read_new_block(data))
-      break;
+  if (!data_reader_->is_seekable()) {
+    while (time > get_current_time()) {
+      if (!read_new_block(data))
+        break;
+    }
+  } else if (time > get_current_time()) {
+    // FIXME nthreads will be smaller than the actual number of threads when
+    // correlating a subset of all channels, causing goto_time to take smaller steps. 
+    // Currently, the input node doesn't know how many threads were recorded to disk.
+    const int nthreads = thread_map.size();
+    const size_t header_size = (first_header.legacy_mode == 0) ? 32 : 16;
+    const size_t vdif_block_size = vdif_frames_per_block * (header_size + frame_size);
+
+    // first search until we are within 1 sec from requested time
+    const Time one_sec(1000000.);
+    Time delta_time = time - get_current_time();
+    while (delta_time >= one_sec) {
+      size_t n_blocks = nthreads * (one_sec / time_between_headers_);
+      // Don't read the last header, to be able to check whether we are at the right time
+      size_t bytes_to_read = (n_blocks-1) * vdif_block_size;
+      size_t byte_read = Data_reader_blocking::get_bytes_s( data_reader_.get(), bytes_to_read, NULL );
+      if (bytes_to_read != byte_read)
+        return get_current_time();
+
+      // Read last block:
+      read_new_block(data);
+      delta_time = time - get_current_time();
+    }
+    // Now read the last bit of data up to the requested time
+    while (time > get_current_time()) {
+      if (!read_new_block(data))
+        break;
+    }
   }
   return get_current_time();
 }
