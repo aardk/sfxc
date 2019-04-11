@@ -175,6 +175,10 @@ int main(int argc, char *argv[]) {
   if (print_uvw)
     uvw_table.open(argv[optind]);
   std::ofstream out(argv[optind+1]);
+  if (!out.is_open()) {
+    std::cerr << "Couldn't open output file :\"" << argv[optind+1] << "\"\n";
+    exit(1);
+  }
   out.precision(20);
 
   int scan = 1;
