@@ -543,7 +543,8 @@ def process_job(vex, ctrl, rootid, basename="1234"):
 
     if not data.next_integration():
       break
-
+  # write end time and number of records for final scan
+  finalize_type1(outfiles, data, scan, n)
 #########
 ########################## MAIN #################################3
 ########
