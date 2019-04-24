@@ -516,11 +516,14 @@ def process_job(vex, ctrl, rootid, basename="1234"):
   stations.sort()
   sources = []
   try:
-    scan = ctrl["scans"][0]
-    source = vex['SCHED'][scan]['source']
-    sources.append(vex['SOURCE'][source]['source_name'])
+    scan = ctrl['scans'][0]
   except:
-    pass
+    start = ctrl['start']
+    for scan in vex['SCHED']:
+      if start == vex['SCHED'][scan]:
+        break
+  source = vex['SCHED'][scan]['source']
+  sources.append(vex['SOURCE'][source]['source_name'])
   out_tuple = urlparse(ctrl['output_file'])
   output_file = out_tuple.netloc if out_tuple.path == '' else out_tuple.path
   data = SFXCData(output_file, stations, sources)
