@@ -510,7 +510,15 @@ def process_job(vex, json_input, rootid, basename="1234", interval=120):
         phasecal_file = None
         pass
 
-    scan = json_input['scans'][0]
+    try:
+        scan = json_input['scans'][0]
+    except:
+        start = json_input['start']
+        for scan in vex['SCHED']:
+            if start == vex['SCHED'][scan]['start']:
+                break
+            continue
+        pass
 
     for station in json_input['stations']:
 
