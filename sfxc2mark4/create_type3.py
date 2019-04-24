@@ -153,9 +153,9 @@ class ScanInfo:
             self.clock[0] *= 1e-6
             pass
         value = clock_early[3].split()
-        # If clock rate unit is missing, assume usec/sec.
+        # If clock rate unit is missing, assume sec/sec.
         if len(value) == 1:
-            value.append('usec/sec')
+            value.append('sec/sec')
             pass
         self.clock[1] = float(value[0])
         if value[1] == 'usec/sec':
