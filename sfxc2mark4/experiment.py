@@ -129,9 +129,11 @@ class experiment:
       if sourcefound:
         tstart = self._vex_time(vex['SCHED'][scan]['start'])
         maxduration = 0
+        data_stop = {}
         for line in vex['SCHED'][scan].getall('station'):
           if line[0] in data.stations:
             duration = int(line[2].split()[0])
+            data_stop[line[0]] = duration
             maxduration = max(maxduration, duration)
         datatime = data.current_time()
         tstop = tstart + timedelta(0, maxduration)
@@ -146,6 +148,7 @@ class experiment:
           result['mode'] = mode
           result['start'] = tstart
           result['stop'] = tstop
+          result['data_stop'] = data_stop
           result['name'] = scan
           result['source'] = data.source
           result['freq'] = self.modes[mode]['bykey'][setup_station]

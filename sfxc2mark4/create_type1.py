@@ -390,7 +390,7 @@ def create_t101(f, crosschan):
   # Remaining t101 fields are obsolete, set to zero
   f.write(struct.pack("!4h2i", *(6*[0])))
 
-def write_t120s(data, scan, outfiles, t101_map, scalefactors, n):
+def write_t120s(data, scan, outfiles, t101_map, scalefactors, ap):
   # type 120 header format:
   # <field>     <type> <nbytes> <description>
   # Type        ascii     3       120
@@ -412,6 +412,13 @@ def write_t120s(data, scan, outfiles, t101_map, scalefactors, n):
   integr_time = data.integration_time.total_seconds()
   hbase = struct.pack("!3s2sbh", "120", "00", 5, data.nchan)
   for bl in data.vis:
+    if (ap * integr_time) >= min(scan['data_stop'][bl[0]], scan['data_stop'][bl[1]]):
+      continue
+    # Skip initial integrations which have no data 
+    #TODO: should we do a weight cut-off for all visibilities?
+    if (outfiles[bl]['nrec'] == 0) and (data.vis[bl].items()[0][1].weight == 0):
+        continue
+
     if bl[0] == bl[1]:
       scalefac = 10000.
     else:
@@ -423,7 +430,7 @@ def write_t120s(data, scan, outfiles, t101_map, scalefactors, n):
       f.write(hbase)
       # Baseline, rootcode, Index, ap
       t101 = t101_map[ch]
-      f.write(struct.pack("!2s6s2i", blname, ROOTID, t101['index'], n))
+      f.write(struct.pack("!2s6s2i", blname, ROOTID, t101['index'], ap))
       # Normalize weight
       bw = scan['freq'][(ch.freqnr, ch.sideband, ch.pol1)]['bw']
       v = data.vis[bl][ch]
@@ -532,22 +539,22 @@ def process_job(vex, ctrl, rootid, basename="1234"):
 
   scan = {'stop': datetime(1,1,1)}
   outfiles = {}
-  n = 0
+  ap = 0
   while True:
     # Check if we need to move to next scan
     if data.current_time() >= scan["stop"]:
       # write end time and number of records for previous scan
-      finalize_type1(outfiles, data, scan, n)
+      finalize_type1(outfiles, data, scan, ap)
       scan, outfiles, t101_map, scale = initialise_next_scan(vex, exper, ctrl, data)
-      n = 0
+      ap = 0
 
-    write_t120s(data, scan, outfiles, t101_map, scale, n)
-    n += 1
+    write_t120s(data, scan, outfiles, t101_map, scale, ap)
+    ap += 1
 
     if not data.next_integration():
       break
   # write end time and number of records for final scan
-  finalize_type1(outfiles, data, scan, n)
+  finalize_type1(outfiles, data, scan, ap)
 #########
 ########################## MAIN #################################3
 ########
