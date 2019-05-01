@@ -444,6 +444,8 @@ def write_type309(info, in_file, out_fp):
     for secs in times:
         if not station in data[secs]:
             continue
+        if not data[secs][station]:
+            continue
 
         # Blast from the past: calculate ROT
         tm = time.gmtime(secs)
