@@ -161,6 +161,9 @@ VDIF_reader::read_new_block(Data_frame &data) {
       ((uint32_t *)&current_header)[3] == 0x11223344) {
     LOG_MSG(": VDIF_READER, fill pattern in header, frame_size =" << frame_size);
     dorestart = true;
+  } else if ((current_header.ref_epoch == 0 ) && (current_header.sec_from_epoch == 0)) {
+    // jive5ab sometimes inserts an invalid frame with timestamp 0 into the stream
+    dorestart = true;
   } else if ((current_header.dataframe_in_second % vdif_frames_per_block) != 0) {
     //    LOG_MSG("VDIF_READER, unexpected frame nr = " << current_header.dataframe_in_second);
     dorestart = true;
