@@ -105,4 +105,10 @@ class MultiDict(UserDict.DictMixin):
             continue
         pass
 
+    def iteritems(self):
+        for pair in self._items:
+            yield pair
+            continue
+        pass
+
     pass
