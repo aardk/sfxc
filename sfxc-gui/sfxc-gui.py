@@ -333,6 +333,8 @@ class progressDialog(QtGui.QDialog):
                 '--mca', 'oob_tcp_if_include', subnet,
                 '--mca', 'orte_keep_fqdn_hostnames', '1',
                 '--mca', 'orte_hetero_nodes', '1',
+                '--mca', 'btl', '^openib',
+                '--mca', 'oob', '^ud',
                 '--machinefile', machine_file, '--rankfile', rank_file,
                 '--np', str(ranks), sfxc, ctrl_file, vex_file]
         print ' '.join(args)
