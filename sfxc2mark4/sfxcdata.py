@@ -100,9 +100,9 @@ class SFXCData:
         channel = self.Channel(*stat_header[1:4])
         channels.add(channel)
         try:
-          stats[station][channel] = stat_header[-4:]
+          stats[station][channel] = stat_header[-5:]
         except KeyError:
-          stats[station] = {channel: stat_header[-4:]}
+          stats[station] = {channel: stat_header[-5:]}
 
       for i in range(nbaseline):
         bl_buf = inputfile.read(baseline_header_size)
