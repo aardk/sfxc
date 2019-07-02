@@ -160,8 +160,6 @@ Correlation_core::create_baselines(const Correlation_parameters &parameters){
     for (size_t j = i + 1; j < number_input_streams(); j++) {
       int station1 = correlation_parameters.station_streams[i].station_number;
       int station2 = correlation_parameters.station_streams[j].station_number;
-      if (station1 == station2)
-	continue;
       if (ref_station >= 0 &&
 	  ref_station != station1 && ref_station != station2)
 	continue;
