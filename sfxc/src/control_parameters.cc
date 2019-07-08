@@ -900,49 +900,45 @@ uint64_t
 Control_parameters::sample_rate(const std::string &mode,
 				const std::string &station) const
 {
-  // Use the sample rate specified in the $TRACKS, $BITSTREAMS or
-  // $DATASTREAMS block if specified.  This is mandatory for VEX 2.0.
-  if (data_format(station) == "VDIF") {
-    const std::string datastreams_name = get_vex().get_section("DATASTREAMS", mode, station);
-    if (get_vex().get_version() > 1.5 && datastreams_name == std::string()) {
-      std::cerr << "Cannot find $DATASTREAMS reference for " << station
-		<< " in mode" << mode << std::endl;
-      sfxc_abort();
-    }
-    if (datastreams_name != std::string()) {
+  if (get_vex().get_version() > 1.5) {
+    // Use the sample rate specified in the $TRACKS, $BITSTREAMS or
+    // $DATASTREAMS block if specified.  This is mandatory for VEX 2.0.
+    if (data_format(station) == "VDIF") {
+      const std::string datastreams_name = get_vex().get_section("DATASTREAMS", mode, station);
+      if (datastreams_name == std::string()) {
+        std::cerr << "Cannot find $DATASTREAMS reference for " << station
+                  << " in mode" << mode << std::endl;
+        sfxc_abort();
+      }
       Vex::Node::const_iterator datastreams = vex.get_root_node()["DATASTREAMS"][datastreams_name];
       for (Vex::Node::const_iterator thread_it = datastreams->begin("thread");
-	   thread_it != datastreams->end("thread"); thread_it++) {
-	return (int)(thread_it[4]->to_double_amount("Ms/sec") * 1e6);
+           thread_it != datastreams->end("thread"); thread_it++) {
+        return (int)(thread_it[4]->to_double_amount("Ms/sec") * 1e6);
       }
     }
-  }
 
-  if (data_format(station) == "Mark5B") {
-    const std::string bitstreams_name = get_vex().get_section("BITSTREAMS", mode, station);
-    if (get_vex().get_version() > 1.5 && bitstreams_name == std::string()) {
-      std::cerr << "Cannot find $BITSTREAMS reference for " << station
-		<< " in mode" << mode << std::endl;
-      sfxc_abort();
-    }
-    if (bitstreams_name != std::string()) {
+    if (data_format(station) == "Mark5B") {
+      const std::string bitstreams_name = get_vex().get_section("BITSTREAMS", mode, station);
+      if (bitstreams_name == std::string()) {
+        std::cerr << "Cannot find $BITSTREAMS reference for " << station
+                  << " in mode" << mode << std::endl;
+        sfxc_abort();
+      }
       Vex::Node::const_iterator bitstreams = vex.get_root_node()["BITSTREAMS"][bitstreams_name];
       if (bitstreams->begin("stream_sample_rate") != bitstreams->end())
-	return (int)(bitstreams["stream_sample_rate"]->to_double_amount("Ms/sec") * 1e6);
+        return (int)(bitstreams["stream_sample_rate"]->to_double_amount("Ms/sec") * 1e6);
     }
-  }
 
-  if (data_format(station) == "Mark4") {
-    const std::string tracks_name = get_vex().get_section("TRACKS", mode, station);
-    if (get_vex().get_version() > 1.5 && tracks_name == std::string()) {
-      std::cerr << "Cannot find $TRACKS reference for " << station
-		<< " in mode" << mode << std::endl;
-      sfxc_abort();
-    }
-    if (tracks_name != std::string()) {
+    if (data_format(station) == "Mark4") {
+      const std::string tracks_name = get_vex().get_section("TRACKS", mode, station);
+      if (tracks_name == std::string()) {
+        std::cerr << "Cannot find $TRACKS reference for " << station
+                  << " in mode" << mode << std::endl;
+        sfxc_abort();
+      }
       Vex::Node::const_iterator tracks = vex.get_root_node()["TRACKS"][tracks_name];
       if (tracks->begin("sample_rate") != tracks->end())
-	return (int)(tracks["sample_rate"]->to_double_amount("Ms/sec") * 1e6);
+        return (int)(tracks["sample_rate"]->to_double_amount("Ms/sec") * 1e6);
     }
   }
 
