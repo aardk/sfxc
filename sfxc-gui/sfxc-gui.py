@@ -191,6 +191,11 @@ class progressDialog(QtGui.QDialog):
         self.reference = options.reference
         self.timeout_interval = options.timeout_interval
         self.path = options.path
+        self.label = options.label
+
+        if self.label:
+            self.setWindowTitle("Progress " + self.label)
+            pass
 
         # Default to using the SFXC binaries in $HOME/bin
         if not self.path:
@@ -205,6 +210,7 @@ class progressDialog(QtGui.QDialog):
 
         exper = self.vex['GLOBAL']['EXPER']
         exper = self.vex['EXPER'][exper]['exper_name']
+        self.exper = exper
 
         basename = os.path.splitext(ctrl_file)[0]
         log_file = basename + ".log"
@@ -416,10 +422,18 @@ class progressDialog(QtGui.QDialog):
                         self.cordata = CorrelatedData(self.vex, output_file, True)
                         if not self.wplot:
                             self.wplot = WeightPlotWindow(self.vex, [self.ctrl_file], self.cordata, True)
+                            if self.label:
+                                title = self.exper + " Weights " + self.label
+                                self.wplot.setWindowTitle(title)
+                                pass
                             self.wplot.show()
                             pass
                         if not self.fplot and self.cordata:
                             self.fplot = FringePlotWindow(self.vex, [self.ctrl_file], self.cordata, self.reference, self.evlbi)
+                            if self.label:
+                                title = self.exper + " Fringes " + self.label
+                                self.fplot.setWindowTitle(title)
+                                pass
                             self.fplot.show()
                             pass
                         self.update_output()
@@ -518,6 +532,10 @@ parser.add_option("-d", "--database-host", dest="dbhost",
                   default="db0", type="string",
                   help="Database host to use, default = db0",
                   metavar="HOST")
+parser.add_option("-l", "--label", dest="label",
+                  default="", type="string",
+                  help="label",
+                  metavar="LABEL")
 
 (options, args) = parser.parse_args()
 if len(args) != 4:
