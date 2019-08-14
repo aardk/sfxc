@@ -73,7 +73,6 @@ Dedispersion_tasklet::set_parameters(const Correlation_parameters &parameters, P
   sideband = (parameters.sideband == 'L') ? -1 : 1;
   fft_size_dedispersion = parameters.fft_size_dedispersion;
   fft_size_correlation = parameters.fft_size_correlation;
-  sample_rate = parameters.sample_rate;
   start_time = parameters.integration_start;
   stop_time = parameters.integration_start + parameters.integration_time; 
 

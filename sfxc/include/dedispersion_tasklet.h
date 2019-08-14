@@ -28,7 +28,6 @@ private:
   void create_dedispersion_filter();
 private:
   double channel_freq, channel_bw; // In MHz
-  double sample_rate;
   double DM;
   int sideband;
   int out_pos;
