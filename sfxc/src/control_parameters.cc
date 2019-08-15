@@ -834,7 +834,7 @@ int
 Control_parameters::bits_per_sample(const std::string &mode,
                                     const std::string &station) const
 {
-  if (data_format(station) == "VDIF") {
+  if (data_format(station, mode) == "VDIF") {
     const std::string datastreams_name = get_vex().get_section("DATASTREAMS", mode, station);
     if (get_vex().get_version() > 1.5 && datastreams_name == std::string()) {
       std::cerr << "Cannot find $DATASTREAMS reference for " << station
@@ -857,7 +857,7 @@ Control_parameters::bits_per_sample(const std::string &mode,
     }
   }
 
-  if (data_format(station) == "Mark5B") {
+  if (data_format(station, mode) == "Mark5B") {
     const std::string bitstreams_name = get_vex().get_section("BITSTREAMS", mode, station);
     if (get_vex().get_version() > 1.5 && bitstreams_name == std::string()) {
       std::cerr << "Cannot find $BITSTREAMS reference for " << station
@@ -879,8 +879,8 @@ Control_parameters::bits_per_sample(const std::string &mode,
 
   // Fall back on the $TRACKS block for Mark5B recordings if there is
   // no $BITSTREAMS block.
-  if (data_format(station) == "Mark4" || data_format(station) == "VLBA" ||
-      data_format(station) == "Mark5B") {
+  if (data_format(station, mode) == "Mark4" || data_format(station, mode) == "VLBA" ||
+      data_format(station, mode) == "Mark5B") {
     const std::string &track_name = get_vex().get_track(mode, station);
     Vex::Node::const_iterator track = vex.get_root_node()["TRACKS"][track_name];
     for (Vex::Node::const_iterator fanout_def_it = track->begin("fanout_def");
@@ -903,7 +903,7 @@ Control_parameters::sample_rate(const std::string &mode,
   if (get_vex().get_version() > 1.5) {
     // Use the sample rate specified in the $TRACKS, $BITSTREAMS or
     // $DATASTREAMS block if specified.  This is mandatory for VEX 2.0.
-    if (data_format(station) == "VDIF") {
+    if (data_format(station, mode) == "VDIF") {
       const std::string datastreams_name = get_vex().get_section("DATASTREAMS", mode, station);
       if (datastreams_name == std::string()) {
         std::cerr << "Cannot find $DATASTREAMS reference for " << station
@@ -917,7 +917,7 @@ Control_parameters::sample_rate(const std::string &mode,
       }
     }
 
-    if (data_format(station) == "Mark5B") {
+    if (data_format(station, mode) == "Mark5B") {
       const std::string bitstreams_name = get_vex().get_section("BITSTREAMS", mode, station);
       if (bitstreams_name == std::string()) {
         std::cerr << "Cannot find $BITSTREAMS reference for " << station
@@ -929,7 +929,7 @@ Control_parameters::sample_rate(const std::string &mode,
         return (int)(bitstreams["stream_sample_rate"]->to_double_amount("Ms/sec") * 1e6);
     }
 
-    if (data_format(station) == "Mark4") {
+    if ((data_format(station, mode) == "Mark4") || (data_format(station, mode) == "VLBA")) {
       const std::string tracks_name = get_vex().get_section("TRACKS", mode, station);
       if (tracks_name == std::string()) {
         std::cerr << "Cannot find $TRACKS reference for " << station
@@ -941,7 +941,6 @@ Control_parameters::sample_rate(const std::string &mode,
         return (int)(tracks["sample_rate"]->to_double_amount("Ms/sec") * 1e6);
     }
   }
-
   const std::string &freq_name = get_vex().get_frequency(mode, station);
   Vex::Node::const_iterator freq = vex.get_root_node()["FREQ"][freq_name];
 
@@ -985,7 +984,7 @@ Control_parameters::datastream(const std::string &mode,
 			       const std::string &station,
 			       const std::string &channel) const
 {
-  if (data_format(station) == "VDIF") {
+  if (data_format(station, mode) == "VDIF") {
     const std::string datastreams_name = get_vex().get_section("DATASTREAMS", mode, station);
     if (get_vex().get_version() > 1.5 && datastreams_name == std::string()) {
       std::cerr << "Cannot find $DATASTREAMS reference for " << station
@@ -1830,13 +1829,13 @@ get_input_node_parameters(const std::string &mode_name,
 
   result.track_bit_rate = sample_rate(mode_name, station_name);
 
-  if (data_format(station_name) == "VDIF") {
+  if (data_format(station_name, mode_name) == "VDIF") {
     get_vdif_tracks(mode_name, station_name, ds_name, result);
-  } else if (data_format(station_name) == "Mark4" ||
-	     data_format(station_name) == "VLBA")  {
+  } else if (data_format(station_name, mode_name) == "Mark4" ||
+	     data_format(station_name, mode_name) == "VLBA")  {
     get_mark5a_tracks(mode_name, station_name, result);
   } else {
-    SFXC_ASSERT(data_format(station_name) == "Mark5B");
+    SFXC_ASSERT(data_format(station_name, mode_name) == "Mark5B");
     get_mark5b_tracks(mode_name, station_name, result);
   }
 
@@ -1861,34 +1860,49 @@ get_input_node_parameters(const std::string &mode_name,
 }
 
 std::string
-Control_parameters::data_format(const std::string &station) const {
-
-  if (recorder_type(station) == "Mark5A") {
-    if (rack_type(station) == "VLBA4")
-      return "Mark4";
-    else
-      return rack_type(station);
-  }
-  if (recorder_type(station) == "Mark5B") {
-    if (rack_type(station) == "DVP" || rack_type(station) == "RDBE2" ||
-	rack_type(station) == "WIDAR")
+Control_parameters::data_format(const std::string &station, const std::string &mode) const {
+// For Vex 1.5 data_format is determined using a heuristic through the DAS section.
+// For Vex 2.0 the existance of either a DATASTREAMS (VDIF), BITSTREAMS (Mark5B), 
+// or TRACKS (Mark5a) block determines the data format.
+  if (get_vex().get_version() > 1.5) {
+    if (get_vex().get_section("DATASTREAMS", mode, station) != std::string())
       return "VDIF";
-    else
+     
+    if (get_vex().get_section("BITSTREAMS", mode, station) != std::string())
       return "Mark5B";
-  }
-  if (recorder_type(station) == "Mark5C") {
-    if (rack_type(station) == "DBBC" || rack_type(station) == "DVP" ||
-	rack_type(station) == "RDBE2" || rack_type(station) == "WIDAR")
+      
+    std::string tracks_name = get_vex().get_section("TRACKS", mode, station);
+    if (tracks_name != std::string()) {
+      Vex::Node::const_iterator tracks = get_vex().get_root_node()["TRACKS"][tracks_name];
+      return tracks["track_frame_format"]->to_string();
+    }
+  } else {
+    if (recorder_type(station) == "Mark5A") {
+      if (rack_type(station) == "VLBA4")
+        return "Mark4";
+      else
+        return rack_type(station);
+    }
+    if (recorder_type(station) == "Mark5B") {
+      if (rack_type(station) == "DVP" || rack_type(station) == "RDBE2" ||
+          rack_type(station) == "WIDAR")
+        return "VDIF";
+      else
+        return "Mark5B";
+    }
+    if (recorder_type(station) == "Mark5C") {
+      if (rack_type(station) == "DBBC" || rack_type(station) == "DVP" ||
+          rack_type(station) == "RDBE2" || rack_type(station) == "WIDAR")
+        return "VDIF";
+    }
+    if (recorder_type(station) == "Mark6") {
       return "VDIF";
+    }
+    if (recorder_type(station) == "None") {
+      if (rack_type(station) == "DBBC")
+        return "VDIF";
+    }
   }
-  if (recorder_type(station) == "Mark6") {
-    return "VDIF";
-  }
-  if (recorder_type(station) == "None") {
-    if (rack_type(station) == "DBBC")
-      return "VDIF";
-  }
-
   std::cerr << "Cannot determine data format for " << station << std::endl;
   sfxc_abort();
 }

@@ -34,21 +34,33 @@ start_input_node(int rank, const std::string &station, const std::string &datast
   input_node_map[stream_key(station, datastream)] = input_node_rank.size();
   input_node_rank.push_back(rank);
 
+  // Get the mode of the first scan
+  const Vex vex = control_parameters.get_vex();
+  Time start_time = control_parameters.get_start_time();
+  int current_scan = control_parameters.scan(start_time.date_string());
+  if (current_scan == -1) {
+    std::cerr << "Cannot find scan corresponding to start time "
+	      << start_time.date_string() << std::endl;
+    sfxc_abort();
+  }
+  std::string scan_name = control_parameters.scan(current_scan);
+  std::string mode = control_parameters.get_vex().get_mode(scan_name); 
+
   // Start the appropriate input reader.
   int station_number = control_parameters.station_number(station);
-  if (control_parameters.data_format(station) == "Mark4") {
+  if (control_parameters.data_format(station, mode) == "Mark4") {
     MPI_Send(&station_number, 1, MPI_INT32,
 	     rank, MPI_TAG_SET_INPUT_NODE_MARK5A, MPI_COMM_WORLD);
-  } else if (control_parameters.data_format(station) == "VLBA") {
+  } else if (control_parameters.data_format(station, mode) == "VLBA") {
     MPI_Send(&station_number, 1, MPI_INT32,
 	     rank, MPI_TAG_SET_INPUT_NODE_VLBA, MPI_COMM_WORLD);
-  } else if (control_parameters.data_format(station) == "VDIF") {
+  } else if (control_parameters.data_format(station, mode) == "VDIF") {
     MPI_Send(&station_number, 1, MPI_INT32,
 	     rank, MPI_TAG_SET_INPUT_NODE_VDIF, MPI_COMM_WORLD);
   } else {
-    if (control_parameters.data_format(station) != "Mark5B")
+    if (control_parameters.data_format(station, mode) != "Mark5B")
       std::cerr << "Invalid DAS for station " << station << "\n";
-    SFXC_ASSERT(control_parameters.data_format(station) == "Mark5B");
+    SFXC_ASSERT(control_parameters.data_format(station, mode) == "Mark5B");
     MPI_Send(&station_number, 1, MPI_INT32,
              rank, MPI_TAG_SET_INPUT_NODE_MARK5B, MPI_COMM_WORLD);
   }
