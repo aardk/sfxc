@@ -437,6 +437,7 @@ Manager_node::initialise() {
   SFXC_ASSERT(current_scan < control_parameters.number_scans());
 
   // build a list of all source in the current job
+  {
   const Vex vex = control_parameters.get_vex();
 
   Vex::Date start_time(control_parameters.get_start_time().date_string());
@@ -455,7 +456,9 @@ Manager_node::initialise() {
     }
     it++;
   }
+  }
   correlator_node_set_all(sources);
+  
 
   if (control_parameters.get_mask_parameters(mask_parameters))
     correlator_node_set_all(mask_parameters);
