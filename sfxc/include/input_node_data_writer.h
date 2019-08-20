@@ -41,6 +41,8 @@ public:
   struct Writer_struct {
     Writer_struct():active(false) {}
     Data_writer_sptr writer;
+    Time	    slice_start;
+    Time	    slice_stop;
     int64_t         slice_size;
     bool            active;
   };
@@ -53,7 +55,8 @@ public:
   /// Set the input
   void connect_to(Input_buffer_ptr new_input_buffer);
 
-  void add_timeslice(Data_writer_sptr data_writer, int64_t nr_samples);
+  void add_timeslice(Data_writer_sptr data_writer, Time slice_start,
+		     Time slice_stop, int64_t slice_samples);
 
 	/// return the amount of data sent...
   uint64_t do_task();
@@ -91,13 +94,11 @@ private:
 
   uint64_t sample_rate;
   int bits_per_sample;
-  Time integration_time;
   Time channel_offset;
   Time overlap_time;
   int frames_to_buffer;
   bool sync_stream;
   int stream_nr;
-  int intnr;
   uint8_t station_number;
   uint8_t frequency_number;
   uint8_t sideband;

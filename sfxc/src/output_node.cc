@@ -7,6 +7,7 @@
  *
  */
 #include "mpi_transfer.h"
+#include "output_header.h"
 #include "output_node.h"
 #include "utils.h"
 
@@ -18,7 +19,7 @@ Output_node::Output_node(int rank, int size)
     data_readers_ctrl(*this),
     data_writer_ctrl(*this),
     status(STOPPED), n_data_writers(0), output_file_index(0),
-    curr_slice(0), number_of_time_slices(-1), curr_stream(-1), current_output_file(-1) {
+      curr_slice(0), number_of_time_slices(-1), curr_band(-1), curr_stream(-1), current_output_file(-1) {
   initialise();
 }
 
@@ -28,7 +29,7 @@ Output_node::Output_node(int rank, Log_writer *writer, int size)
     data_readers_ctrl(*this),
     data_writer_ctrl(*this),
     status(STOPPED), n_data_writers(0), output_file_index(0),
-    curr_slice(0), number_of_time_slices(-1), curr_stream(-1), current_output_file(-1) {
+      curr_slice(0), number_of_time_slices(-1), curr_band(-1), curr_stream(-1), current_output_file(-1) {
   initialise();
 }
 
@@ -88,33 +89,121 @@ void Output_node::start() {
 
         SFXC_ASSERT(!input_streams_order.empty());
         SFXC_ASSERT(input_streams_order.begin()->first == curr_slice);
-        curr_stream = input_streams_order.begin()->second;
+        curr_stream = input_streams_order.begin()->second.stream;
+        curr_band = input_streams_order.begin()->second.band;
+        finalize_integration = !input_streams_order.begin()->second.accum;
         SFXC_ASSERT(curr_stream >= 0);
         input_streams_order.erase(input_streams_order.begin());
         input_streams[curr_stream]->goto_next_slice(curr_slice_size, number_of_bins);
         total_bytes_written = 0;
         if (input_buffer.size() < (number_of_bins * curr_slice_size))
           input_buffer.resize(number_of_bins * curr_slice_size);
-        status = WRITE_OUTPUT;
+	if (curr_band >= accum_buffer.size()) {
+	  accum_buffer.resize(curr_band + 1);
+	  integration.resize(curr_band + 1, -1);
+	}
+	if (accum_buffer[curr_band].size() < (number_of_bins * curr_slice_size))
+	  accum_buffer[curr_band].resize(number_of_bins * curr_slice_size);
+	total_bytes_read = 0;
+        status = READ_INPUT;
         break;
       }
-    case WRITE_OUTPUT: {
+    case READ_INPUT: {
         process_all_waiting_messages();
 
         int bytes_read = input_streams[curr_stream]->read_bytes(input_buffer);
-        if (bytes_read<=0) {
+        if (bytes_read <= 0) {
           usleep(100);
-        }else{
-          write_output(bytes_read);
-          total_bytes_written+=bytes_read;
-       }
+	} else {
+	  total_bytes_read += bytes_read;
+	}
 
         // Check whether we arrived at the end of the slice
         if (input_streams[curr_stream]->end_of_slice()) {
-          status = END_SLICE;
-          break;
+	  SFXC_ASSERT(total_bytes_read == number_of_bins * curr_slice_size);
+          status = ACCUMULATE_INPUT;
         }
+	break;
+      }
+    case ACCUMULATE_INPUT: {
+        Output_header_timeslice *timeslice =
+	  (Output_header_timeslice *)&input_buffer[4];
+	size_t stats_offset = 4 + sizeof(Output_header_timeslice) +
+	  timeslice->number_uvw_coordinates * sizeof(Output_uvw_coordinates);
+	size_t data_offset = stats_offset + 
+	  timeslice->number_statistics * sizeof(Output_header_bitstatistics);
 
+	if (integration[curr_band] != timeslice->integration_slice) {
+	  integration[curr_band] = timeslice->integration_slice;
+
+	  // Initialize metadata
+	  accum_buffer[curr_band] = input_buffer;
+
+	  // Initialize visibilities if have more than one integration
+	  // slice per integeration
+	  if (!finalize_integration) {
+	    for (int i = 0; i < timeslice->number_baselines; i++) {
+	      Output_header_baseline *baseline =
+		(Output_header_baseline *)&input_buffer[data_offset];
+	      data_offset += sizeof(Output_header_baseline);
+	      float *input = (float *)&input_buffer[data_offset];
+	      float *accum = (float *)&accum_buffer[curr_band][data_offset];
+
+	      // Complex is simply a pair of doubles.
+	      for (int j = 0; j < 2 * number_channels; j++)
+		accum[j] = input[j] * baseline->weight;;
+
+	      data_offset += 2 * number_channels * sizeof(float);
+	    }
+	  }
+	} else {
+	  // Accumulate statistics
+	  for (int i = 0; i < timeslice->number_statistics; i++) {
+	    Output_header_bitstatistics *input =
+	      (Output_header_bitstatistics *)&input_buffer[stats_offset];
+	    Output_header_bitstatistics *accum =
+	      (Output_header_bitstatistics *)&accum_buffer[curr_band][stats_offset];
+
+	    for (int j = 0; j < sizeof(input->levels) / sizeof(input->levels[0]); j++)
+	      accum->levels[j] += input->levels[j];
+	    accum->n_invalid += input->n_invalid;
+	    stats_offset += sizeof(Output_header_bitstatistics);
+	  }
+
+	  // Accumulate visibilities
+	  for (int i = 0; i < timeslice->number_baselines; i++) {
+	    Output_header_baseline *input_baseline =
+	      (Output_header_baseline *)&input_buffer[data_offset];
+	    Output_header_baseline *accum_baseline =
+	      (Output_header_baseline *)&accum_buffer[curr_band][data_offset];
+	    data_offset += sizeof(Output_header_baseline);
+	    float *input = (float *)&input_buffer[data_offset];
+	    float *accum = (float *)&accum_buffer[curr_band][data_offset];
+
+	    // Accumulate visibility weights
+	    accum_baseline->weight += input_baseline->weight;
+
+	    // Complex is simply a pair of doubles.
+	    for (int j = 0; j < 2 * number_channels; j++) {
+	      accum[j] += input[j] * input_baseline->weight;
+	      if (finalize_integration && accum_baseline->weight != 0)
+		accum[j] /= accum_baseline->weight;
+	    }
+
+	    data_offset += 2 * number_channels * sizeof(float);
+	  }
+	}
+
+	if (finalize_integration)
+	  status = WRITE_OUTPUT;
+	else
+	  status = END_SLICE;
+	break;
+      }
+    case WRITE_OUTPUT: {
+        write_output(number_of_bins * curr_slice_size);
+        total_bytes_written += number_of_bins * curr_slice_size;
+        status = END_SLICE;
         break;
       }
     case END_SLICE: {
@@ -154,11 +243,14 @@ write_global_header(const Output_header_global &global_header) {
   int nbytes = global_header.header_size;
   for(int i=0;i<n_data_writers;i++)
     data_writer_ctrl.get_data_writer(i)->put_bytes(nbytes, (char *)&global_header);
+
+  number_channels = (global_header.number_channels + 1);
 }
 
 void
 Output_node::
-set_order_of_input_stream(int stream, int order, size_t size, int nbins) {
+set_order_of_input_stream(int stream, int order, int band, int accum, size_t size,
+			  int nbins) {
   SFXC_ASSERT(stream >= 0);
 
   SFXC_ASSERT(stream < (int)input_streams.size());
@@ -170,7 +262,7 @@ set_order_of_input_stream(int stream, int order, size_t size, int nbins) {
   }
 
   // Add the stream to the queue:
-  input_streams_order.insert(Input_stream_order_map_value(order, stream));
+  input_streams_order.insert(Input_stream_order_map_value(order, Stream_param(stream, band, accum)));
   input_streams[stream]->set_length_time_slice(size, nbins);
 
   SFXC_ASSERT(status != END_NODE);
@@ -191,7 +283,7 @@ bool Output_node::write_output(int nBytes) {
     if(output_file_index < 4){
       char *current_output_file_ptr = (char *)&current_output_file;
       int to_read = std::min(4 - output_file_index, nBytes - bytes_written);
-      memcpy(&current_output_file_ptr[output_file_index], &input_buffer[bytes_written], to_read);
+      memcpy(&current_output_file_ptr[output_file_index], &accum_buffer[curr_band][bytes_written], to_read);
       output_file_index += to_read;
       bytes_written += to_read;
       index_in_file += to_read;
@@ -199,7 +291,7 @@ bool Output_node::write_output(int nBytes) {
     // Write the data
     int to_write = std::min(nbytes_per_file-index_in_file, nBytes-bytes_written);
 //    std::cout << "current_output_file = " << current_output_file <<"\n";
-    data_writer_ctrl.get_data_writer(current_output_file)->put_bytes(to_write, &input_buffer[bytes_written]);
+    data_writer_ctrl.get_data_writer(current_output_file)->put_bytes(to_write, &accum_buffer[curr_band][bytes_written]);
     bytes_written += to_write;
     index_in_file += to_write;
     if(index_in_file >= nbytes_per_file){
@@ -248,7 +340,10 @@ Output_node::Input_stream::read_bytes(std::vector<char> &buffer) {
   SFXC_ASSERT(reader != boost::shared_ptr<Data_reader>());
   size_t nBytes = std::min(buffer.size(),
                            (size_t)reader->get_size_dataslice());
-  return reader->get_bytes(nBytes, &buffer[0]);
+  nBytes = reader->get_bytes(nBytes, &buffer[offset]);
+  if (nBytes > 0)
+    offset += nBytes;
+  return nBytes;
 }
 
 
@@ -272,6 +367,7 @@ Output_node::Input_stream::goto_next_slice(int &new_slice_size, int &new_nbins) 
   new_slice_size = slice_size.front().nBytes;
   new_nbins = slice_size.front().nBins;
   reader->set_size_dataslice(new_nbins * new_slice_size);
+  offset = 0;
 
   SFXC_ASSERT(reader->get_size_dataslice() > 0);
   slice_size.pop();

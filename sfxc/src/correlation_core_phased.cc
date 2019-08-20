@@ -16,10 +16,10 @@ Correlation_core_phased::do_task() {
 
   if (current_fft % 1000 == 0) {
     PROGRESS_MSG("node " << node_nr_ << ", "
-                 << current_fft << " of " << number_ffts_in_integration);
+                 << current_fft << " of " << number_ffts_in_slice);
   }
 
-  if (current_fft % number_ffts_in_integration == 0) {
+  if (current_fft % number_ffts_in_slice == 0) {
     integration_initialise();
   }
 
@@ -41,9 +41,9 @@ Correlation_core_phased::do_task() {
     input_buffers[stream]->pop();
   }
 
-  if (current_fft == number_ffts_in_integration) {
+  if (current_fft == number_ffts_in_slice) {
     PROGRESS_MSG("node " << node_nr_ << ", "
-                 << current_fft << " of " << number_ffts_in_integration);
+                 << current_fft << " of " << number_ffts_in_slice);
 
     int source = sources[delay_tables[first_stream].get_source(0)];
     integration_write(accumulation_buffers, 0, source, 1);
@@ -79,15 +79,15 @@ Correlation_core_phased::set_parameters(const Correlation_parameters &parameters
 
 void
 Correlation_core_phased::create_baselines(const Correlation_parameters &parameters){
-  number_ffts_in_integration =
+  number_ffts_in_slice =
     Control_parameters::nr_correlation_ffts_per_integration(
-      (int) parameters.integration_time.get_time_usec(),
+      (int) parameters.slice_time.get_time_usec(),
       parameters.sample_rate,
       parameters.fft_size_correlation); 
   // One less because of the overlapping windows
   if ((parameters.window != SFXC_WINDOW_NONE) &&
       (parameters.window != SFXC_WINDOW_PFB))
-    number_ffts_in_integration -= 1;
+    number_ffts_in_slice -= 1;
 
   number_ffts_in_sub_integration =
     Control_parameters::nr_correlation_ffts_per_integration(
@@ -96,12 +96,12 @@ Correlation_core_phased::create_baselines(const Correlation_parameters &paramete
       parameters.fft_size_correlation);
 
   baselines.clear();
-  baselines.resize(number_ffts_in_integration / number_ffts_in_sub_integration + 1);
+  baselines.resize(number_ffts_in_slice / number_ffts_in_sub_integration + 1);
 }
 
 void Correlation_core_phased::integration_initialise() {
   int num_sub_integrations =
-    (number_ffts_in_integration / number_ffts_in_sub_integration + 1);
+    (number_ffts_in_slice / number_ffts_in_sub_integration + 1);
   if (accumulation_buffers.size() != num_sub_integrations) {
     accumulation_buffers.resize(num_sub_integrations);
     for (size_t i = 0; i < accumulation_buffers.size(); i++) {

@@ -330,7 +330,7 @@ Correlator_node::set_parameters() {
     int index = delay_index[stream];
     SFXC_ASSERT(index != -1);
     akima_tables[stream] = 
-       delay_tables[index].create_akima_spline(parameters.stream_start,
+       delay_tables[index].create_akima_spline(parameters.integration_start,
                                                 parameters.integration_time);
     if(stream < uvw.size()){
       uvw[stream].resize(parameters.n_phase_centers*3);
@@ -385,21 +385,32 @@ Correlator_node::set_parameters() {
   // when the cross_polarize flag is set then the correlator node receives 2 polarizations
   int size_stats = nstreams * sizeof(Output_header_bitstatistics);
 
+  int band = parameters.frequency_nr << 1;
+  if (parameters.sideband == 'U')
+    band |= 1;
+
+  bool accum = true;
+  if (parameters.slice_start + parameters.slice_time >=
+      parameters.integration_start + parameters.integration_time)
+    accum = false;
+
   int slice_size;
   slice_size = sizeof(int32_t) + sizeof(Output_header_timeslice) + size_uvw + size_stats +
                nBaselines * ( size_of_one_baseline + sizeof(Output_header_baseline));
   SFXC_ASSERT(nBins >= 1);
+
   output_node_set_timeslice(parameters.slice_nr, get_correlate_node_number(),
-			    slice_size, nBins);
+			    band, accum, slice_size, nBins);
   integration_slices_queue.pop();
 }
 
 void
 Correlator_node::
-output_node_set_timeslice(int slice_nr, int stream_nr, int bytes, int bins) {
+output_node_set_timeslice(int slice_nr, int stream_nr, int band, int accum,
+			  int bytes, int bins) {
   correlation_core->data_writer()->set_size_dataslice(bins * bytes);
-  int32_t msg_output_node[] = {stream_nr, slice_nr, bytes, bins};
-  MPI_Send(&msg_output_node, 4, MPI_INT32,
+  int32_t msg_output_node[] = {stream_nr, slice_nr, band, accum, bytes, bins};
+  MPI_Send(&msg_output_node, 6, MPI_INT32,
 	   RANK_OUTPUT_NODE,
 	   MPI_TAG_OUTPUT_STREAM_SLICE_SET_ORDER,
 	   MPI_COMM_WORLD);

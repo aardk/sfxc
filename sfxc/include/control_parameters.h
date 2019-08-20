@@ -53,8 +53,6 @@ public:
   int32_t frame_size;
   // Size of slice in number_of_samples
   int32_t slice_size;
-  /// The integration time
-  Time integr_time;
   /// Time offset for the data reader, used e.g. to compensate for formatter errors
   Time offset;
   /// Indicates if data modulation is used (p.6 of Mark4 memo 230A, Whitney 2005)
@@ -152,11 +150,13 @@ public:
 
   // Data members
   Time experiment_start;    // Start time of the experiment
-  Time stream_start;        // Start of the slice
   int64_t slice_size;       // Number of samples in slice
-  Time integration_start;   // The time at which to start the integration
-  Time integration_time;
-  Time sub_integration_time;// The length of one sub integration
+  Time integration_start;   // Start of the integration
+  Time integration_time;    // Length of an integration
+  Time slice_start;	    // Start of the integration slice
+  Time slice_time;          // Length of an integration slice
+  Time sub_integration_time;// Length of a subintegration
+  Time stream_start;        // Start of the data (for dedispersion)
   int32_t number_channels;  // number of frequency channels
   int32_t fft_size_delaycor;    // Number of samples per FFT in the delay correction
   int32_t fft_size_dedispersion; // Number of samples per FFT in the coherent dedispersion
@@ -225,6 +225,7 @@ public:
   Time integration_time() const; // Integration time in microseconds
   Time sub_integration_time() const;
   Time phasecal_integration_time() const;
+  int slices_per_integration() const;
   int number_channels() const;
   int fft_size_delaycor() const;
   int fft_size_correlation() const;

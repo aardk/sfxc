@@ -13,7 +13,6 @@ Input_node_data_writer::Input_node_data_writer() {
   interval=0;
   phasecal_count=0;
   frames_to_buffer = 0;
-  intnr = 0;
   input_index = 0;
   sync_stream=false;
 }
@@ -226,13 +225,12 @@ do_task() {
 
   // Check whether we have written all data to the data_writer
   if (data_writer.slice_size <= 0) {
-    intnr++;
-    if (current_interval_.start_time_ + integration_time * intnr >= current_interval_.stop_time_) {
+    if (data_writer.slice_stop >= current_interval_.stop_time_) {
       write_phasecal(_current_time);
     }
     write_end_of_stream(data_writer.writer);
-    // resync clock to a multiple of the integration time
-    _current_time = current_interval_.start_time_ + integration_time * intnr - overlap_time;
+    // resync clock to end of slice (which should be the start of the next slice)
+    _current_time = data_writer.slice_stop - overlap_time;
     _current_time.set_sample_rate(sample_rate);
     input_index = 0;
     data_writer.writer->deactivate();
@@ -341,10 +339,13 @@ Input_node_data_writer::write_phasecal(Time last_time)
 
 void
 Input_node_data_writer::
-add_timeslice(Data_writer_sptr data_writer, int64_t nr_samples) {
+add_timeslice(Data_writer_sptr data_writer, Time slice_start, Time slice_stop,
+	      int64_t slice_samples) {
   Writer_struct writer;
   writer.writer = data_writer;
-  writer.slice_size = nr_samples;
+  writer.slice_start = slice_start;
+  writer.slice_stop = slice_stop;
+  writer.slice_size = slice_samples;
 
   data_writers_.push(writer);
   DEBUG_MSG(": This data writer has a waiting queue of " << data_writers_.size() 
@@ -358,7 +359,6 @@ set_parameters(int nr_stream, const Input_node_parameters &input_param, int stat
   sample_rate = input_param.sample_rate();
   _current_time.set_sample_rate(sample_rate);
   bits_per_sample = input_param.bits_per_sample();
-  integration_time = input_param.integr_time;
   byte_length = Time( 8 * 1000000. / (sample_rate * bits_per_sample));
   overlap_time = input_param.overlap_time;
 
@@ -413,7 +413,6 @@ Input_node_data_writer::fetch_next_time_interval() {
   _current_time = current_interval_.start_time_ - overlap_time;
   _current_time.set_sample_rate(sample_rate);
   input_index = 0;
-  intnr = 0;
 }
 
 void

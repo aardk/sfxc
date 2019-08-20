@@ -43,7 +43,7 @@ Correlation_core_pulsar::set_parameters(const Correlation_parameters &parameters
   }
   n_flagged.resize(baselines.size());
 
-  double start_mjd = parameters.integration_start.get_mjd();
+  double start_mjd = parameters.slice_start.get_mjd();
   fft_duration = ((double)fft_size() * 1000000) / parameters.sample_rate;
   if (offsets.size() != fft_size() + 1)
     offsets.resize(fft_size() + 1);
@@ -106,10 +106,10 @@ void Correlation_core_pulsar::do_task() {
 
   if (current_fft % 1000 == 0) {
     PROGRESS_MSG("node " << node_nr_ << ", "
-                 << current_fft << " of " << number_ffts_in_integration);
+                 << current_fft << " of " << number_ffts_in_slice);
   }
 
-  if (current_fft % number_ffts_in_integration == 0) {
+  if (current_fft % number_ffts_in_slice == 0) {
     integration_initialise();
   }
 
@@ -134,12 +134,12 @@ void Correlation_core_pulsar::do_task() {
     input_buffers[stream]->pop();
   }
 
-  if (current_fft == number_ffts_in_integration) {
+  if (current_fft == number_ffts_in_slice) {
     PROGRESS_MSG("node " << node_nr_ << ", "
-                 << current_fft << " of " << number_ffts_in_integration);
+                 << current_fft << " of " << number_ffts_in_slice);
 
     find_invalid();
-    const int64_t total_samples = number_ffts_in_integration * fft_size();
+    const int64_t total_samples = number_ffts_in_slice * fft_size();
     for(int bin = 0; bin < nbins; bin++) {
       integration_normalize(accumulation_buffers[bin]);
       int source = sources[delay_tables[first_stream].get_source(0)];

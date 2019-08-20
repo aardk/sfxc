@@ -705,7 +705,7 @@ MPI_Transfer::receive(MPI_Status &status, std::map<std::string, int> &sources){
 void
 MPI_Transfer::send(Input_node_parameters &input_node_param, int rank) {
   int size = 0;
-  size = 6 * sizeof(int32_t) + 5 * sizeof(int64_t);
+  size = 6 * sizeof(int32_t) + 4 * sizeof(int64_t);
   for (Input_node_parameters::Channel_iterator channel =
          input_node_param.channels.begin();
        channel != input_node_param.channels.end(); channel++) {
@@ -715,6 +715,7 @@ MPI_Transfer::send(Input_node_parameters &input_node_param, int rank) {
   int position = 0;
   int32_t length;
   char message_buffer[size];
+  uint64_t ticks;
 
   MPI_Pack(&input_node_param.n_tracks, 1, MPI_INT32,
            message_buffer, size, &position, MPI_COMM_WORLD);
@@ -723,9 +724,6 @@ MPI_Transfer::send(Input_node_parameters &input_node_param, int rank) {
   MPI_Pack(&input_node_param.frame_size, 1, MPI_INT32,
            message_buffer, size, &position, MPI_COMM_WORLD);
   MPI_Pack(&input_node_param.slice_size, 1, MPI_INT32,
-           message_buffer, size, &position, MPI_COMM_WORLD);
-  int64_t ticks = input_node_param.integr_time.get_clock_ticks();
-  MPI_Pack(&ticks, 1, MPI_INT64,
            message_buffer, size, &position, MPI_COMM_WORLD);
   ticks = input_node_param.offset.get_clock_ticks();
   MPI_Pack(&ticks, 1, MPI_INT64,
@@ -784,6 +782,7 @@ MPI_Transfer::receive(MPI_Status &status, Input_node_parameters &input_node_para
 
   int32_t length;
   int position = 0;
+  int64_t ticks;
 
   MPI_Unpack(buffer, size, &position,
              &input_node_param.n_tracks, 1, MPI_INT32,
@@ -797,11 +796,6 @@ MPI_Transfer::receive(MPI_Status &status, Input_node_parameters &input_node_para
   MPI_Unpack(buffer, size, &position,
              &input_node_param.slice_size, 1, MPI_INT32,
              MPI_COMM_WORLD);
-  int64_t ticks;
-  MPI_Unpack(buffer, size, &position,
-             &ticks, 1, MPI_INT64,
-             MPI_COMM_WORLD);
-  input_node_param.integr_time.set_clock_ticks(ticks);
   MPI_Unpack(buffer, size, &position,
              &ticks, 1, MPI_INT64,
              MPI_COMM_WORLD);
@@ -860,27 +854,35 @@ MPI_Transfer::receive(MPI_Status &status, Input_node_parameters &input_node_para
 void
 MPI_Transfer::send(Correlation_parameters &corr_param, int rank) {
   int size = 0;
-  size = 9 * sizeof(int64_t) + 12 * sizeof(int32_t) + 14 * sizeof(char) +
+  size = 11 * sizeof(int64_t) + 12 * sizeof(int32_t) + 14 * sizeof(char) +
     corr_param.station_streams.size() * (3 * sizeof(int64_t) + 4 * sizeof(int32_t) + 2 * sizeof(char) + sizeof(double));
   int position = 0;
   char message_buffer[size];
+  int64_t ticks;
 
-  int64_t ticks = corr_param.experiment_start.get_clock_ticks();
+  ticks = corr_param.experiment_start.get_clock_ticks();
+  MPI_Pack(&ticks, 1, MPI_INT64,
+           message_buffer, size, &position, MPI_COMM_WORLD);
+  ticks = corr_param.slice_start.get_clock_ticks();
+  MPI_Pack(&ticks, 1, MPI_INT64,
+           message_buffer, size, &position, MPI_COMM_WORLD);
+  ticks = corr_param.slice_time.get_clock_ticks();
   MPI_Pack(&ticks, 1, MPI_INT64,
            message_buffer, size, &position, MPI_COMM_WORLD);
   ticks = corr_param.integration_start.get_clock_ticks();
   MPI_Pack(&ticks, 1, MPI_INT64,
-           message_buffer, size, &position, MPI_COMM_WORLD);
-  ticks = corr_param.stream_start.get_clock_ticks();
-  MPI_Pack(&ticks, 1, MPI_INT64,
-           message_buffer, size, &position, MPI_COMM_WORLD);
-  MPI_Pack(&corr_param.slice_size, 1, MPI_INT64,
            message_buffer, size, &position, MPI_COMM_WORLD);
   ticks = corr_param.integration_time.get_clock_ticks();
   MPI_Pack(&ticks, 1, MPI_INT64,
            message_buffer, size, &position, MPI_COMM_WORLD);
   ticks = corr_param.sub_integration_time.get_clock_ticks();
   MPI_Pack(&ticks, 1, MPI_INT64,
+           message_buffer, size, &position, MPI_COMM_WORLD);
+  ticks = corr_param.stream_start.get_clock_ticks();
+  MPI_Pack(&ticks, 1, MPI_INT64,
+           message_buffer, size, &position, MPI_COMM_WORLD);
+
+  MPI_Pack(&corr_param.slice_size, 1, MPI_INT64,
            message_buffer, size, &position, MPI_COMM_WORLD);
   MPI_Pack(&corr_param.number_channels, 1, MPI_INT32,
            message_buffer, size, &position, MPI_COMM_WORLD);
@@ -975,6 +977,7 @@ MPI_Transfer::receive(MPI_Status &status, Correlation_parameters &corr_param) {
            status.MPI_TAG, MPI_COMM_WORLD, &status2);
   int position = 0;
   int64_t ticks;
+
   MPI_Unpack(buffer, size, &position,
              &ticks, 1, MPI_INT64,
              MPI_COMM_WORLD);
@@ -982,14 +985,15 @@ MPI_Transfer::receive(MPI_Status &status, Correlation_parameters &corr_param) {
   MPI_Unpack(buffer, size, &position,
              &ticks, 1, MPI_INT64,
              MPI_COMM_WORLD);
-  corr_param.integration_start.set_clock_ticks(ticks);
+  corr_param.slice_start.set_clock_ticks(ticks);
   MPI_Unpack(buffer, size, &position,
              &ticks, 1, MPI_INT64,
              MPI_COMM_WORLD);
-  corr_param.stream_start.set_clock_ticks(ticks);
+  corr_param.slice_time.set_clock_ticks(ticks);
   MPI_Unpack(buffer, size, &position,
-             &corr_param.slice_size, 1, MPI_INT64,
+             &ticks, 1, MPI_INT64,
              MPI_COMM_WORLD);
+  corr_param.integration_start.set_clock_ticks(ticks);
   MPI_Unpack(buffer, size, &position,
              &ticks, 1, MPI_INT64,
              MPI_COMM_WORLD);
@@ -998,6 +1002,14 @@ MPI_Transfer::receive(MPI_Status &status, Correlation_parameters &corr_param) {
              &ticks, 1, MPI_INT64,
              MPI_COMM_WORLD);
   corr_param.sub_integration_time.set_clock_ticks(ticks);
+  MPI_Unpack(buffer, size, &position,
+             &ticks, 1, MPI_INT64,
+             MPI_COMM_WORLD);
+  corr_param.stream_start.set_clock_ticks(ticks);
+
+  MPI_Unpack(buffer, size, &position,
+             &corr_param.slice_size, 1, MPI_INT64,
+             MPI_COMM_WORLD);
   MPI_Unpack(buffer, size, &position,
              &corr_param.number_channels, 1, MPI_INT32,
              MPI_COMM_WORLD);

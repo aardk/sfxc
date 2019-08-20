@@ -62,7 +62,8 @@ public:
   Time get_current_time();
 
   /// Sets the output writer for channel i
-  void add_data_writer(size_t i, Data_writer_sptr data_writer);
+  void add_data_writer(size_t i, Data_writer_sptr data_writer,
+		       Time slice_start, Time slice_stop);
 
   /// Compute a list of delays, note we only store the times(+delay) 
   /// where the integer delay changes
