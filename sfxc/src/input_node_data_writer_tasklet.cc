@@ -98,10 +98,13 @@ void Input_node_data_writer_tasklet::set_parameters(int nr_stream,
 *****************************************************************************/
 void Input_node_data_writer_tasklet::add_timeslice_to_stream(int nr_stream,
                                                      Data_writer_sptr wr,
-                                                     int64_t size)
+						     Time slice_start,
+						     Time slice_stop,
+                                                     int64_t slice_samples)
 {
   SFXC_ASSERT( nr_stream < data_writers_.size() );
-  data_writers_[nr_stream]->add_timeslice(wr, size);
+  data_writers_[nr_stream]->add_timeslice(wr, slice_start, slice_stop,
+					  slice_samples);
 }
 
 /*****************************************************************************

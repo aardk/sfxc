@@ -37,6 +37,19 @@ private:
   std::ofstream tsys_file;
 };
 
+class Stream_param {
+ public:
+  Stream_param(int stream_, int band_, bool accum_) {
+    stream = stream_;
+    band = band_;
+    accum = accum_;
+  };
+
+  int stream;
+  int band;
+  bool accum;
+};
+
 /**
  * The output node will receive a message from the controller node where
  * to store the data and it allows connections from the correlate node to
@@ -51,7 +64,7 @@ class Output_node : public Node {
 public:
   // Input types
   typedef Multiple_data_readers_controller::value_type input_value_type;
-  typedef std::map<int, int>                    Input_stream_order_map;
+  typedef std::map<int, Stream_param>            Input_stream_order_map;
   typedef Input_stream_order_map::value_type     Input_stream_order_map_value;
 
   /**
@@ -90,6 +103,8 @@ public:
     boost::shared_ptr<Data_reader> reader;
     // list with sizes of the time slices
     std::queue<Slice> slice_size;
+    // read offset within slice
+    size_t offset;
   };
 
   Output_node(int rank, Log_writer *writer, int buffer_size = 10);
@@ -104,6 +119,8 @@ public:
   enum STATUS {
     STOPPED=0,
     START_NEW_SLICE,
+    READ_INPUT,
+    ACCUMULATE_INPUT,
     WRITE_OUTPUT,
     END_SLICE,
     END_NODE
@@ -120,7 +137,8 @@ public:
    * Notifies the output node that there is a block of data arriving
    * from a correlator node.
    **/
-  void set_order_of_input_stream(int stream, int order, size_t size, int nbins);
+  void set_order_of_input_stream(int stream, int order, int band, int accum,
+				 size_t size, int nbins);
 
   /**
    * This function sets the total number of time slices so that the
@@ -146,6 +164,10 @@ private:
 
   /// Data buffer into which the data from the correlator node is read
   std::vector<char>                   input_buffer;
+  size_t			      total_bytes_read;
+
+  std::vector<std::vector<char> >     accum_buffer;
+  std::vector<int>		      integration;
 
   // Controllers:
   Output_node_controller              output_node_ctrl;
@@ -160,11 +182,15 @@ private:
   std::vector<Input_stream *>         input_streams;
 
   int32_t curr_slice, number_of_time_slices, curr_stream, curr_slice_size;
+  int32_t curr_band;
+  bool finalize_integration;
   int32_t total_bytes_written, number_of_bins;
   int32_t current_output_file;
   // In one read operation we might only partially receive the output file nr, 
   // this tracks the number of received bytes.
   int output_file_index;
+
+  uint32_t number_channels;
 };
 
 #endif // OUTPUT_NODE_H

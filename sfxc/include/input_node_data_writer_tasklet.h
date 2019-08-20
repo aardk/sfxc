@@ -73,7 +73,9 @@ public:
   * @param int64_t size the amount of samples to send to the given writer
   * assert( nr_stream < number_channels() )
   *****************************************************************************/
-  void add_timeslice_to_stream(int nr_stream, Data_writer_sptr wr, int64_t size);
+  void add_timeslice_to_stream(int nr_stream, Data_writer_sptr wr,
+			       Time slice_start, Time slice_stop,
+			       int64_t slice_samples);
 
   /*****************************************************************************
   * @desc Deplate the input_queues of all of the data_writers.

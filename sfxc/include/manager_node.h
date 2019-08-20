@@ -96,8 +96,10 @@ private:
   /// Stop time of the scan
   Time stop_time_scan;
 
-  /// The number of the integration slice
-  int32_t integration_slice_nr;
+  /// The integration number
+  int32_t integration_nr;
+  /// The slice number
+  uint32_t slice_nr;
 
   /// Number of the slice for the output node
   int32_t output_slice_nr;

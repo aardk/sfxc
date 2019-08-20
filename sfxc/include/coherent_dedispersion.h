@@ -42,7 +42,7 @@ private:
   int out_pos;
   int fft_to_skip;
   int current_fft, current_buffer;
-  int number_ffts_in_integration;
+  int number_ffts_in_slice;
   Correlation_parameters correlation_parameters;
   int output_stride;
   Memory_pool_vector_element<std::complex<FLOAT> > &filter, &dedispersion_buffer;

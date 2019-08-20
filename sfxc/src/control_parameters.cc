@@ -658,6 +658,14 @@ Control_parameters::phasecal_integration_time() const {
   return Time(ctrl["phasecal_integr_time"].asInt() * 1000000);
 }
 
+int
+Control_parameters::slices_per_integration() const {
+  if (ctrl["slices_per_integration"] == Json::Value())
+    return 1;
+  
+  return ctrl["slices_per_integration"].asInt();
+}
+
 bool
 Control_parameters::exit_on_empty_datastream() const{
   return ctrl["exit_on_empty_datastream"].asBool();
@@ -1783,7 +1791,6 @@ get_input_node_parameters(const std::string &mode_name,
   Input_node_parameters result;
   result.track_bit_rate = -1;
   result.frame_size = -1;
-  result.integr_time = integration_time();
   result.offset = reader_offset(station_name);
   result.phasecal_integr_time = phasecal_integration_time();
   result.exit_on_empty_datastream = exit_on_empty_datastream();
@@ -1843,14 +1850,14 @@ get_input_node_parameters(const std::string &mode_name,
   const int64_t sample_rate_ = sample_rate(mode_name, setup_station());
 
   result.overlap_time =  0;
-  int nfft = nr_correlation_ffts_per_integration(integration_time(),
+  int nfft = nr_correlation_ffts_per_integration(integration_time() / slices_per_integration(),
                                                  sample_rate_, 
                                                  fft_size_correlation());
   result.slice_size = nfft * fft_size_correlation();
   // Scale the slice size based on the sample rate.  This is important for
   // "mixed bandwidth" correlation where we need to make sure that we
   // send enough data to the correlator nodes.
-  result.slice_size *=  sample_rate(mode_name, station_name) / sample_rate_; 
+  result.slice_size *= sample_rate(mode_name, station_name) / sample_rate_; 
 
   if (!result.channels.empty()) {
     SFXC_ASSERT(!result.channels[0].tracks.empty());
@@ -2227,6 +2234,7 @@ get_correlation_parameters(const std::string &scan_name,
   Correlation_parameters corr_param;
   corr_param.experiment_start = vex.get_start_time_of_experiment();
   corr_param.integration_time = integration_time();
+  corr_param.slice_time = corr_param.integration_time / slices_per_integration();
   corr_param.sub_integration_time = sub_integration_time(); 
   corr_param.number_channels = number_channels();
   corr_param.fft_size_delaycor = fft_size_delaycor();
@@ -2320,7 +2328,7 @@ get_correlation_parameters(const std::string &scan_name,
     }
   }
 
-  int nfft = nr_correlation_ffts_per_integration(integration_time(), 
+  int nfft = nr_correlation_ffts_per_integration(corr_param.slice_time,
                                            corr_param.sample_rate,
                                            fft_size_correlation());
   corr_param.slice_size = fft_size_correlation() * nfft;
@@ -2422,8 +2430,6 @@ Input_node_parameters::operator==(const Input_node_parameters &other) const {
     return false;
   if (track_bit_rate != other.track_bit_rate)
     return false;
-  if (integr_time != other.integr_time)
-    return false;
 
   return true;
 }
@@ -2433,7 +2439,6 @@ operator<<(std::ostream &out,
            const Input_node_parameters &param) {
   out << "{ \"n_tracks\": " << param.n_tracks << ", "
       <<"\"track_bit_rate\": " << param.track_bit_rate << ", "
-      << "\"integr_time\": " << param.integr_time << ", "
       << std::endl;
 
   out << " channels: [";
@@ -2502,14 +2507,18 @@ operator==(const Input_node_parameters::Channel_parameters &other) const {
 
 bool
 Correlation_parameters::operator==(const Correlation_parameters& other) const {
+  if (slice_start != other.slice_start)
+    return false;
+  if (slice_time != other.slice_time)
+    return false;
   if (integration_start != other.integration_start)
+    return false;
+  if (integration_time != other.integration_time)
     return false;
   if (stream_start != other.stream_start)
     return false;
   if (slice_size != other.slice_size)
         return false;
-  if (integration_time != other.integration_time)
-    return false;
   if (number_channels != other.number_channels)
     return false;
   if (fft_size_delaycor != other.fft_size_delaycor)
@@ -2541,7 +2550,7 @@ Correlation_parameters::operator==(const Correlation_parameters& other) const {
 std::ostream &operator<<(std::ostream &out,
                          const Correlation_parameters &param) {
   out << "{ ";
-  out << "\"integration_start\": " << param.integration_start << ", " << std::endl;
+  out << "\"slice_start\": " << param.slice_start << ", " << std::endl;
   out << "  \"stream_start\": " << param.stream_start << ", " << std::endl;
   out << "  \"slice size\": " << param.slice_size << ", " << std::endl;
   out << "  \"integr_time\": " << param.integration_time << ", " << std::endl;

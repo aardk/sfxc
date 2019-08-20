@@ -30,7 +30,8 @@ Manager_node(int rank, int numtasks,
                             log_writer,
                             control_parameters),
     manager_controller(*this),
-    integration_slice_nr(0),
+    integration_nr(0),
+    slice_nr(0),
     current_scan(0)
 /**/ {
   SFXC_ASSERT(rank == RANK_MANAGER_NODE);
@@ -173,10 +174,11 @@ void Manager_node::start() {
         // If no inputs participate in the current scan move on to the next
         if (ninputs_in_scan == 0) {
           Time dt = stop_time_scan - start_time;
-          // NB: In GOTO_NEXT_TIMESLICE integration_slice_nr will be increased by one
-          integration_slice_nr = (int) (dt / integration_time()) - 1;
+          // NB: In GOTO_NEXT_TIMESLICE integration_nr will be increased by one
+          integration_nr = (int)(dt / integration_time()) - 1;
           if ((dt % integration_time()) != Time()) {
-            integration_slice_nr ++;
+            integration_nr++;
+            slice_nr = 0;
           }
           status = GOTO_NEXT_TIMESLICE;
           break;
@@ -189,15 +191,16 @@ void Manager_node::start() {
             Time station_time =
               input_node_get_current_time(input_node);
             if (station_time >
-                start_time + integration_time() * integration_slice_nr) {
-              integration_slice_nr = (int) ((station_time - start_time) / integration_time());
+                start_time + integration_time() * integration_nr) {
+              integration_nr = (int)((station_time - start_time) / integration_time());
+              slice_nr = 0;
             }
           }
         }
 
         // Check whether the new start time is before the stop time
-        get_log_writer() << "START_TIME: " << start_time + integration_time() * integration_slice_nr << std::endl;
-        if (stop_time <= start_time + integration_time() * integration_slice_nr) {
+        get_log_writer() << "START_TIME: " << start_time + integration_time() * integration_nr << std::endl;
+        if (stop_time <= start_time + integration_time() * integration_nr) {
           status = STOP_CORRELATING;
           break;
         }
@@ -212,7 +215,7 @@ void Manager_node::start() {
 	    Time stop_time_station =
 	      control_parameters.stop_time(scan_name, station_name);
             input_node_set_time(input_node,
-                                start_time + integration_time()*integration_slice_nr,
+                                start_time + integration_time() * integration_nr,
                                 stop_time_scan, stop_time_station);
 	  }
         }
@@ -254,16 +257,18 @@ void Manager_node::start() {
         break;
       }
       case GOTO_NEXT_TIMESLICE: {
-        integration_slice_nr += 1;
-        PROGRESS_MSG("starting timeslice " << start_time+integration_time()*integration_slice_nr);
+	slice_nr++;
+	if (slice_nr >= control_parameters.slices_per_integration()) {
+	  integration_nr++;
+	  slice_nr = 0;
+	}
+        PROGRESS_MSG("starting timeslice " << start_time + integration_time() * integration_nr);
         // Check whether the integration slice continues past the stop time
-        if (start_time + integration_time() * (integration_slice_nr + 1) >
-            stop_time) {
+        if (start_time + integration_time() * (integration_nr + 1) > stop_time) {
           status = STOP_CORRELATING;
 
           // Check whether the integration slice continues past the scan
-        } else if (start_time + integration_time() * (integration_slice_nr + 1) >
-                   stop_time_scan) {
+        } else if (start_time + integration_time() * (integration_nr + 1) > stop_time_scan) {
           // We can stop if we finished the last scan
           if (++current_scan == control_parameters.number_scans()) {
             status = STOP_CORRELATING;
@@ -316,31 +321,27 @@ void Manager_node::start_next_timeslice_on_node(int corr_node_nr) {
 
   // Initialise the correlator node
   if (cross_channel == -1) {
-    Time time = start_time + integration_time() * integration_slice_nr;
+    Time time = start_time + integration_time() * integration_nr;
     get_log_writer()(1)
-    << "start "
-    << time.date_string()
-    << ", channel " << current_channel << " to correlation node "
-    << corr_node_nr << std::endl;
-    PROGRESS_MSG("start "
-                 << time.date_string()
-                 << ", channel " << current_channel << " to correlation node "
-                 << corr_node_nr);
+      << "start " << time.date_string()
+      << ", slice " << slice_nr
+      << ", channel " << current_channel
+      << " to correlation node " << corr_node_nr << std::endl;
+    PROGRESS_MSG("start " << time.date_string()
+		 << ", slice " << slice_nr
+                 << ", channel " << current_channel
+		 << " to correlation node " << corr_node_nr);
   } else {
-    Time time = start_time + integration_time()*integration_slice_nr;
+    Time time = start_time + integration_time() * integration_nr;
     get_log_writer()(1)
-    << "start "
-    << time.date_string()
-    << ", channel "
-    << current_channel << ","
-    << cross_channel << " to correlation node "
-    << corr_node_nr << std::endl;
-    PROGRESS_MSG("start "
-                 << time.date_string()
-                 << ", channel "
-                 << current_channel << ","
-                 << cross_channel << " to correlation node "
-                 << corr_node_nr);
+      << "start " << time.date_string()
+      << ", slice " << slice_nr
+      << ", channel " << current_channel << "," << cross_channel
+      << " to correlation node " << corr_node_nr << std::endl;
+    PROGRESS_MSG("start " << time.date_string()
+		 << ", slice " << slice_nr
+                 << ", channel " << current_channel << "," << cross_channel
+		 << " to correlation node " << corr_node_nr);
   }
 
   Correlation_parameters correlation_parameters;
@@ -351,10 +352,12 @@ void Manager_node::start_next_timeslice_on_node(int corr_node_nr) {
                                current_channel,
                                get_input_node_map());
   correlation_parameters.integration_start =
-    start_time + integration_time() * integration_slice_nr;
-  // stream_start <= integration_start ; needed for coherent dedispersion (place holder for now)
-  correlation_parameters.stream_start = correlation_parameters.integration_start;
-  correlation_parameters.integration_nr = integration_slice_nr;
+    start_time + integration_time() * integration_nr;
+  correlation_parameters.slice_start = correlation_parameters.integration_start +
+    correlation_parameters.slice_time * slice_nr;
+  // stream_start <= slice_start ; needed for coherent dedispersion (place holder for now)
+  correlation_parameters.stream_start = correlation_parameters.slice_start;
+  correlation_parameters.integration_nr = integration_nr;
   correlation_parameters.slice_nr = output_slice_nr;
   strncpy(correlation_parameters.source, control_parameters.scan_source(scan_name).c_str(), 11);
   correlation_parameters.pulsar_binning = control_parameters.pulsar_binning();
@@ -376,8 +379,9 @@ void Manager_node::start_next_timeslice_on_node(int corr_node_nr) {
       input_node_set_time_slice(input_node,
                                 ch_number_in_scan[current_channel][input_node],
 				stream,
-                                correlation_parameters.integration_start,
-                                correlation_parameters.integration_time);
+                                correlation_parameters.slice_start,
+				correlation_parameters.slice_start +
+                                correlation_parameters.slice_time);
       stream += n_corr_nodes;
     }
 
@@ -386,8 +390,9 @@ void Manager_node::start_next_timeslice_on_node(int corr_node_nr) {
       input_node_set_time_slice(input_node,
 				ch_number_in_scan[cross_channel][input_node],
 				stream,
-				correlation_parameters.integration_start,
-				correlation_parameters.integration_time);
+				correlation_parameters.slice_start,
+				correlation_parameters.slice_start +
+				correlation_parameters.slice_time);
     }
   }
 
@@ -538,11 +543,12 @@ void Manager_node::initialise_scan(const std::string &scan) {
   Time scan_start(start_mjd, start_of_scan.to_miliseconds() / 1000.);
 
   // set the start time to the beginning of the scan
-  if (start_time + integration_time() * integration_slice_nr < scan_start) {
+  if (start_time + integration_time() * integration_nr < scan_start) {
     Time start_interval = scan_start - start_time;
-    integration_slice_nr = (int) (start_interval / integration_time());
+    integration_nr = (int)(start_interval / integration_time());
     if ((start_interval % integration_time()) != Time()) {
-      integration_slice_nr ++;
+      integration_nr++;
+      slice_nr = 0;
     }
   }
 

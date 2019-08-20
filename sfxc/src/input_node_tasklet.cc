@@ -222,10 +222,12 @@ get_current_time() {
 }
 
 void
-Input_node_tasklet::add_data_writer(size_t i, Data_writer_sptr data_writer) {
+Input_node_tasklet::add_data_writer(size_t i, Data_writer_sptr data_writer,
+				    Time slice_start, Time slice_stop) {
   /// Add a new timeslice to stream to the given data_writer into the
   /// data_writer queue.
-  data_writer_.add_timeslice_to_stream(i, data_writer, size_slice);
+  data_writer_.add_timeslice_to_stream(i, data_writer, slice_start,
+				       slice_stop, size_slice);
 }
 
 void

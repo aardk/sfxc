@@ -27,7 +27,7 @@ Coherent_dedispersion::do_task() {
   const int input_stride = input->stride;
   const int n_dedisp_fft = input_data.size() / input_stride;
   const int n_corr_fft = 
-    std::min((size_t) (number_ffts_in_integration - current_fft),
+    std::min((size_t) (number_ffts_in_slice - current_fft),
              n_dedisp_fft * fft_dedisp_size() / fft_cor_size());
   // Allocate output buffer
   allocate_element(n_corr_fft);
@@ -93,7 +93,7 @@ Coherent_dedispersion::overlap_add() {
         current_fft += 1;
       }
       k = 0;
-      if (current_fft == number_ffts_in_integration)
+      if (current_fft == number_ffts_in_slice)
         break;
     }
   }
@@ -143,15 +143,15 @@ Coherent_dedispersion::set_parameters(const Correlation_parameters &parameters)
   
   current_fft = 0;
   current_buffer = 0;
-  fft_to_skip = (parameters.integration_start.diff(parameters.stream_start) * 
+  fft_to_skip = (parameters.slice_start.diff(parameters.stream_start) * 
                  sample_rate()  + fft_dedisp_size() / 4) * 2 / fft_rot_size();
-  number_ffts_in_integration =
+  number_ffts_in_slice =
     Control_parameters::nr_correlation_ffts_per_integration(
-      (int) parameters.integration_time.get_time_usec(),
+      (int) parameters.slice_time.get_time_usec(),
       parameters.sample_rate,
       parameters.fft_size_correlation);
 
-  start_time = parameters.integration_start;
+  start_time = parameters.slice_start;
   // Initialize buffers
   time_buffer[0].resize(fft_dedisp_size());
   time_buffer[1].resize(fft_dedisp_size());

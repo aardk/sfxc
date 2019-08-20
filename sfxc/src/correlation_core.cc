@@ -22,10 +22,10 @@ void Correlation_core::do_task() {
 
   if (current_fft % 1000 == 0) {
     PROGRESS_MSG("node " << node_nr_ << ", "
-                 << current_fft << " of " << number_ffts_in_integration);
+                 << current_fft << " of " << number_ffts_in_slice);
   }
 
-  if (current_fft % number_ffts_in_integration == 0) {
+  if (current_fft % number_ffts_in_slice == 0) {
     integration_initialise();
   }
   for (size_t i = 0; i < number_input_streams(); i++) {
@@ -45,9 +45,9 @@ void Correlation_core::do_task() {
     input_buffers[stream]->pop();
   }
  
-  if (current_fft == number_ffts_in_integration) {
+  if (current_fft == number_ffts_in_slice) {
     PROGRESS_MSG("node " << node_nr_ << ", "
-                 << current_fft << " of " << number_ffts_in_integration);
+                 << current_fft << " of " << number_ffts_in_slice);
 
     sub_integration();
     find_invalid();
@@ -57,7 +57,6 @@ void Correlation_core::do_task() {
       integration_write(phase_centers[i], i, source, 1);
     }
     tsys_write();
-    current_integration++;
   } else if(current_fft >= next_sub_integration * number_ffts_in_sub_integration){
     sub_integration();
     next_sub_integration++;
@@ -65,11 +64,11 @@ void Correlation_core::do_task() {
 }
 
 bool Correlation_core::almost_finished() {
-  return current_fft >= number_ffts_in_integration*9/10;
+  return current_fft >= number_ffts_in_slice*9/10;
 }
 
 bool Correlation_core::finished() {
-  return current_fft == number_ffts_in_integration;
+  return current_fft == number_ffts_in_slice;
 }
 
 void Correlation_core::connect_to(size_t stream, std::vector<Invalid> *invalid_) {
@@ -94,7 +93,6 @@ Correlation_core::set_parameters(const Correlation_parameters &parameters,
                                  std::vector<std::vector<double> > &uvw,
                                  int node_nr) {
   node_nr_ = node_nr;
-  current_integration = 0;
   current_fft = 0;
   delay_tables = delays;
   uvw_table = uvw;
@@ -132,17 +130,17 @@ Correlation_core::set_parameters(const Correlation_parameters &parameters,
 
 void
 Correlation_core::create_baselines(const Correlation_parameters &parameters){
-  number_ffts_in_integration =
+  number_ffts_in_slice =
     Control_parameters::nr_correlation_ffts_per_integration(
-      (int) parameters.integration_time.get_time_usec(),
+      (int) parameters.slice_time.get_time_usec(),
       parameters.sample_rate,
       parameters.fft_size_correlation); 
   // One less because of the overlapping windows
   if ((parameters.window != SFXC_WINDOW_NONE) &&
       (parameters.window != SFXC_WINDOW_PFB))
-    number_ffts_in_integration -= 1;
+    number_ffts_in_slice -= 1;
   else if (parameters.window == SFXC_WINDOW_PFB)
-    number_ffts_in_integration -= SFXC_NTAPS*2 - 1; 
+    number_ffts_in_slice -= SFXC_NTAPS*2 - 1; 
 
   number_ffts_in_sub_integration =
     Control_parameters::nr_correlation_ffts_per_integration(
@@ -293,7 +291,7 @@ void Correlation_core::integration_normalize(std::vector<Complex_buffer> &integr
   }
 
   // Normalize the cross correlations
-  const int64_t total_samples = number_ffts_in_integration * fft_size();
+  const int64_t total_samples = number_ffts_in_slice * fft_size();
   for (size_t i = number_input_streams(); i < baselines.size(); i++) {
     std::pair<size_t, size_t> &baseline = baselines[i];
     int stream1 = station_stream(baseline.first);
@@ -345,8 +343,7 @@ void Correlation_core::integration_write(std::vector<Complex_buffer> &integratio
     // Timeslice header
     Output_header_timeslice htimeslice;
     htimeslice.number_baselines = baselines.size();
-    htimeslice.integration_slice =
-      correlation_parameters.integration_nr + current_integration;
+    htimeslice.integration_slice = correlation_parameters.integration_nr;
     htimeslice.number_uvw_coordinates = stations_set.size();
     htimeslice.number_statistics = nstreams;
 
@@ -446,7 +443,7 @@ void Correlation_core::integration_write(std::vector<Complex_buffer> &integratio
     }
 
     int64_t *levels = statistics[stream1]->get_statistics(); // We get the number of invalid samples from the bitstatistics
-    const int64_t total_samples = number_ffts_in_integration * fft_size();
+    const int64_t total_samples = number_ffts_in_slice * fft_size();
     int64_t valid_samples;
     if (stream1 == stream2) {
       valid_samples = std::max(total_samples - levels[4], (int64_t)0);
@@ -508,7 +505,7 @@ Correlation_core::tsys_write() {
     MPI_Pack(&frequency_number, 1, MPI_UINT8, msg, len, &pos, MPI_COMM_WORLD);
     MPI_Pack(&sideband, 1, MPI_UINT8, msg, len, &pos, MPI_COMM_WORLD);
     MPI_Pack(&polarisation, 1, MPI_UINT8, msg, len, &pos, MPI_COMM_WORLD);
-    uint64_t ticks = correlation_parameters.integration_start.get_clock_ticks();
+    uint64_t ticks = correlation_parameters.slice_start.get_clock_ticks();
     MPI_Pack(&ticks, 1, MPI_INT64, msg, len, &pos, MPI_COMM_WORLD);
     MPI_Pack(&tsys_on_lo, 1, MPI_INT64, msg, len, &pos, MPI_COMM_WORLD);
     MPI_Pack(&tsys_on_hi, 1, MPI_INT64, msg, len, &pos, MPI_COMM_WORLD);
@@ -524,7 +521,7 @@ Correlation_core::sub_integration(){
   const int current_sub_int = (int) round((double)current_fft / number_ffts_in_sub_integration);
   Time tfft(0., correlation_parameters.sample_rate); 
   tfft.inc_samples(fft_size());
-  const Time tmid = correlation_parameters.integration_start + tfft*(previous_fft+(current_fft-previous_fft)/2.); 
+  const Time tmid = correlation_parameters.slice_start + tfft*(previous_fft+(current_fft-previous_fft)/2.); 
 
   // Start with the auto correlations
   const int n_fft = fft_size() + 1;

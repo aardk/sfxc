@@ -104,7 +104,7 @@ protected:
   std::vector< std::vector<Complex_buffer> >           phase_centers;
   Complex_buffer_float                                 integration_buffer_float;
   std::vector< std::pair<size_t, size_t> >             baselines;
-  int number_ffts_in_integration, number_ffts_in_sub_integration, current_fft, total_ffts;
+  int number_ffts_in_slice, number_ffts_in_sub_integration, current_fft, total_ffts;
 
   boost::shared_ptr<Data_writer>                       writer;
 

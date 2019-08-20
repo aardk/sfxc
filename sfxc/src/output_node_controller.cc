@@ -76,15 +76,16 @@ Output_node_controller::process_event(MPI_Status &status) {
     }
   case MPI_TAG_OUTPUT_STREAM_SLICE_SET_ORDER: {
       get_log_writer()(3) << print_MPI_TAG(status.MPI_TAG) << std::endl;
-      int32_t param[4]; // stream, order, size (in bytes), n_bins
-      MPI_Recv(&param, 4, MPI_INT32, status.MPI_SOURCE,
+      int32_t param[6]; // stream, order, band, accum, size (in bytes), n_bins
+      MPI_Recv(&param, 6, MPI_INT32, status.MPI_SOURCE,
                status.MPI_TAG, MPI_COMM_WORLD, &status2);
 
       SFXC_ASSERT(status.MPI_SOURCE == status2.MPI_SOURCE);
       SFXC_ASSERT(status.MPI_TAG == status2.MPI_TAG);
 
       // Create an output buffer:
-      node.set_order_of_input_stream(param[0], param[1], param[2], param[3]);
+      node.set_order_of_input_stream(param[0], param[1], param[2], param[3],
+				     param[4], param[5]);
 
       return PROCESS_EVENT_STATUS_SUCCEEDED;
     }
