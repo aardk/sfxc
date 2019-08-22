@@ -12,6 +12,11 @@ Vexpp_node::Vexpp_node() : m_type(EMPTY) {}
 
 Vexpp_node::Vexpp_node(Type _type) {
   m_type = _type;
+  if (m_type == DICT) {
+    dict = shared_ptr<Dict>(new Dict());
+  } else if (m_type == ARRAY) {
+    lst = shared_ptr<Array>(new Array());
+  }
 }
 
 Vexpp_node::Vexpp_node(const char* ident) {
@@ -67,11 +72,11 @@ std::ostream &Vexpp_node::print(std::ostream &out, int indent) const {
   case Vexpp_node::ARRAY: {
       for (int i=0; i<indent; i++) out << " ";
       out << "[" << std::endl;
-      for (const_array_iterator it = lst.begin(); it != lst.end(); it++) {
+      for (const_array_iterator it = lst->begin(); it != lst->end(); it++) {
         (*it).print(out, indent + indent_lvl);
         const_array_iterator next = it;
         next++;
-        if (next != lst.end()) {
+        if (next != lst->end()) {
           out << ",";
         }
         out << std::endl;
@@ -83,13 +88,13 @@ std::ostream &Vexpp_node::print(std::ostream &out, int indent) const {
   case Vexpp_node::DICT: {
       for (int i=0; i<indent; i++) out << " ";
       out << "{" << std::endl;
-      for (const_dict_iterator it = dict.begin(); it != dict.end(); ++it) {
+      for (const_dict_iterator it = dict->begin(); it != dict->end(); ++it) {
         for (int i=0; i<indent; i++) out << " ";
         out << '"' << it->first << '"' << ": " << std::endl;
         (*it).second.print(out, indent+indent_lvl);
         const_dict_iterator next = it;
         ++next;
-        if (next != dict.end()) {
+        if (next != dict->end()) {
           out << ",";
         }
         out << std::endl;
@@ -107,9 +112,9 @@ std::ostream &Vexpp_node::print(std::ostream &out, int indent) const {
 size_t
 Vexpp_node::size() {
   if (m_type == DICT) {
-    return dict.size();
+    return dict->size();
   } else if (m_type == ARRAY) {
-    return lst.size();
+    return lst->size();
   }
   return 0;
 }
@@ -117,49 +122,49 @@ Vexpp_node::size() {
 Vexpp_node::iterator
 Vexpp_node::operator[](const std::string &key) {
   assert(m_type == DICT);
-  dict_iterator it = dict.lower_bound(key);
-  if (it != dict.end() && it->first == key) {
+  dict_iterator it = dict->lower_bound(key);
+  if (it != dict->end() && it->first == key) {
     return iterator(this, it);
   }
-  return iterator(this, dict.end());
+  return iterator(this, dict->end());
 }
 
 Vexpp_node::iterator
 Vexpp_node::operator[](size_t i) {
   assert(m_type == ARRAY);
-  if (i < lst.size()) {
-    return iterator(&lst[i]);
+  if (i < lst->size()) {
+    return iterator(&(*lst)[i]);
   }
-  return iterator(this, lst.end());
+  return iterator(this, lst->end());
 }
 
 Vexpp_node::const_iterator
 Vexpp_node::operator[](const std::string &key) const {
   assert(m_type == DICT);
-  const_dict_iterator it = dict.lower_bound(key);
-  if (it != dict.end() && it->first == key) {
+  const_dict_iterator it = dict->lower_bound(key);
+  if (it != dict->end() && it->first == key) {
     return const_iterator(this, it);
   }
-  return const_iterator(this, dict.end());
+  return const_iterator(this, dict->end());
 }
 
 Vexpp_node::const_iterator
 Vexpp_node::operator[](size_t i) const {
   assert(m_type == ARRAY);
-  if (i < lst.size()) {
-    return const_iterator(&lst[i]);
+  if (i < lst->size()) {
+    return const_iterator(&(*lst)[i]);
   }
-  return const_iterator(this, lst.end());
+  return const_iterator(this, lst->end());
 }
 
 void Vexpp_node::set_key(const std::string &key, Self& value) {
   assert(m_type == DICT);
-  dict.insert(dict_element(key, value));
+  dict->insert(dict_element(key, value));
 }
 
 void Vexpp_node::append(const Self& value) {
   assert(m_type == ARRAY);
-  lst.push_back(value);
+  lst->push_back(value);
 }
 
 void Vexpp_node::join(Self& value) {
@@ -304,55 +309,55 @@ const char *Vexpp_node::to_c_string() const {
 Vexpp_node::iterator Vexpp_node::begin() {
   assert(m_type == ARRAY || m_type == DICT);
   if (m_type == ARRAY) {
-    return iterator(this, lst.begin());
+    return iterator(this, lst->begin());
   } else {
-    return iterator(this, dict.begin());
+    return iterator(this, dict->begin());
   }
 }
 
 Vexpp_node::iterator Vexpp_node::end() {
   assert(m_type == ARRAY || m_type == DICT);
   if (m_type == ARRAY) {
-    return iterator(this, lst.end());
+    return iterator(this, lst->end());
   } else {
-    return iterator(this, dict.end());
+    return iterator(this, dict->end());
   }
 }
 
 Vexpp_node::const_iterator Vexpp_node::begin() const {
   assert(m_type == ARRAY || m_type == DICT);
   if (m_type == ARRAY) {
-    return const_iterator(this, lst.begin());
+    return const_iterator(this, lst->begin());
   } else {
-    return const_iterator(this, dict.begin());
+    return const_iterator(this, dict->begin());
   }
 }
 
 Vexpp_node::const_iterator Vexpp_node::end() const {
   assert(m_type == ARRAY || m_type == DICT);
   if (m_type == ARRAY) {
-    return const_iterator(this, lst.end());
+    return const_iterator(this, lst->end());
   } else {
-    return const_iterator(this, dict.end());
+    return const_iterator(this, dict->end());
   }
 }
 
 Vexpp_node::iterator
 Vexpp_node::begin(const std::string &key) {
   assert(m_type == DICT);
-  dict_iterator it = dict.lower_bound(key);
-  if (it != dict.end() && it->first == key) {
+  dict_iterator it = dict->lower_bound(key);
+  if (it != dict->end() && it->first == key) {
     return iterator(this, it);
   }
-  return iterator(this, dict.end());
+  return iterator(this, dict->end());
 }
 
 Vexpp_node::iterator
 Vexpp_node::end(const std::string &key) {
   assert(m_type == DICT);
-  if (dict.find(key) == dict.end())
-    return iterator(this, dict.end()); // key not present in dictionary
-  return iterator(this, dict.upper_bound(key));
+  if (dict->find(key) == dict->end())
+    return iterator(this, dict->end()); // key not present in dictionary
+  return iterator(this, dict->upper_bound(key));
 }
 
 Vexpp_node::iterator
@@ -369,25 +374,25 @@ Vexpp_node::end_key(const char *key) {
 
 Vexpp_node::const_iterator Vexpp_node::begin(const std::string &key) const {
   assert(m_type == DICT);
-  const_dict_iterator it = dict.lower_bound(key);
-  if (it != dict.end() && it->first == key) {
+  const_dict_iterator it = dict->lower_bound(key);
+  if (it != dict->end() && it->first == key) {
     return const_iterator(this, it);
   }
-  return const_iterator(this, dict.end());
+  return const_iterator(this, dict->end());
 }
 
 Vexpp_node::const_iterator Vexpp_node::end(const std::string &key) const {
   assert(m_type == DICT);
-  if (dict.find(key) == dict.end())
-    return const_iterator(this, dict.end()); // key not present in dictionary
-  return const_iterator(this, dict.upper_bound(key));
+  if (dict->find(key) == dict->end())
+    return const_iterator(this, dict->end()); // key not present in dictionary
+  return const_iterator(this, dict->upper_bound(key));
 }
 
 size_t Vexpp_node::size() const {
   if (m_type == ARRAY) {
-    return lst.size();
+    return lst->size();
   } else {
-    return dict.size();
+    return dict->size();
   }
   assert((m_type == ARRAY) || (m_type == DICT));
 }
@@ -519,12 +524,12 @@ Vexpp_node::Date::normalize() {
 Vexpp_node::const_key_iterator
 Vexpp_node::keys_begin() const {
   assert(m_type == DICT);
-  return const_key_iterator(dict.begin(), dict.end());
+  return const_key_iterator(dict->begin(), dict->end());
 }
 Vexpp_node::const_key_iterator
 Vexpp_node::keys_end() const {
   assert(m_type == DICT);
-  return const_key_iterator(dict.end(), dict.end());
+  return const_key_iterator(dict->end(), dict->end());
 }
 
 Vexpp_node::const_key_iterator::const_key_iterator(const_dict_iterator curr,
