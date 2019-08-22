@@ -9,6 +9,14 @@
 #include <map>
 #include <iostream>
 
+#if __cplusplus >= 201103L
+#include <memory>
+using std::shared_ptr;
+#else
+#include <tr1/memory>
+using std::tr1::shared_ptr;
+#endif
+
 template <class Vexpp_node_iterator_type>
 class Vexpp_node_iterator;
 
@@ -157,8 +165,8 @@ public:
 private:
   Type        m_type;
   std::string name;
-  Array       lst;
-  Dict        dict;
+  shared_ptr<Array> lst;
+  shared_ptr<Dict> dict;
 
   std::string dimension(const std::string &unit) const;
   double scale(const std::string &unit) const;
