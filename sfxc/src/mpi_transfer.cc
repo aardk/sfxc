@@ -13,6 +13,7 @@
 #include "exception_common.h"
 
 #include <iostream>
+#include <climits>
 
 MPI_Transfer::MPI_Transfer() {}
 

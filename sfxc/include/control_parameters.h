@@ -1,7 +1,6 @@
 #ifndef CONTROL_PARAMETERS_H_
 #define CONTROL_PARAMETERS_H_
 
-#include <boost/shared_ptr.hpp>
 #include <json/json.h>
 #include <vex/Vex++.h>
 #include <list>
