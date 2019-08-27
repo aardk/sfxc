@@ -139,7 +139,7 @@ public:
 
 class PAllocator : public Allocator<Packet_fixed_size> {
   public:
-    typedef boost::shared_ptr< PAllocator > SelfPtr;
+    typedef shared_ptr<PAllocator> SelfPtr;
     typedef Packet_fixed_size   Type;
     typedef Packet_fixed_size* pType;
 
