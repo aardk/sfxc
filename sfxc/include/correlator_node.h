@@ -58,10 +58,10 @@ friend class Correlator_node_controller;
 public:
   typedef Correlator_node                              Self;
   typedef Memory_pool_vector_element<char>             output_value_type;
-  typedef boost::shared_ptr<Correlator_node_data_reader_tasklet>
-  Bit_sample_reader_ptr;
+  typedef shared_ptr<Correlator_node_data_reader_tasklet>
+    Bit_sample_reader_ptr;
 
-  typedef boost::shared_ptr<Delay_correction>     Delay_correction_ptr;
+  typedef shared_ptr<Delay_correction>     Delay_correction_ptr;
 
   bool has_requested;
 
