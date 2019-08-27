@@ -2,16 +2,20 @@
 
 #define ALLOCATOR_H_INCLUDED
 
-
-#include <boost/shared_ptr.hpp>
-
+#if __cplusplus >= 201103L
+#include <memory>
+using std::shared_ptr;
+#else
+#include <tr1/memory>
+using std::tr1::shared_ptr;
+#endif
 
 template<class T>
 
 class Allocator {
 
 public:
-  typedef boost::shared_ptr< Allocator<T> > SelfPtr;
+  typedef shared_ptr< Allocator<T> > SelfPtr;
 
 
   virtual ~Allocator() {};

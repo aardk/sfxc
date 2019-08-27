@@ -15,9 +15,17 @@
 #ifndef PC_BUFFER_H
 #define PC_BUFFER_H
 
-#include <boost/shared_ptr.hpp>
 #include <stack>
 #include <vector>
+
+#if __cplusplus >= 201103L
+#include <memory>
+using std::shared_ptr;
+#else
+#include <tr1/memory>
+using std::tr1::shared_ptr;
+#endif
+
 #include "exception_common.h"
 
 #include "raiimutex.h"
@@ -71,8 +79,8 @@ public:
 
 	~Memory_pool();
 
-  typedef boost::shared_ptr<Resize_policy> PolicyPtr;
-  typedef boost::shared_ptr<Allocator<T> > AllocatorPtr;
+  typedef shared_ptr<Resize_policy> PolicyPtr;
+  typedef shared_ptr<Allocator<T> > AllocatorPtr;
 
   /************************************
    * @class Resize_policy

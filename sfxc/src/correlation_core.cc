@@ -1,6 +1,7 @@
 #include "correlation_core.h"
 #include "output_header.h"
 #include <utils.h>
+#include <climits>
 #include <complex>
 #include <set>
 
