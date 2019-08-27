@@ -16,7 +16,7 @@
 #include "bit_statistics.h"
 
 class Bit2float_worker;
-typedef boost::shared_ptr<Bit2float_worker> Bit2float_worker_sptr;
+typedef shared_ptr<Bit2float_worker> Bit2float_worker_sptr;
 
 class Bit2float_worker  {
 public:

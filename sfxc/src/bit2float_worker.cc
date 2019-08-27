@@ -318,7 +318,7 @@ Bit2float_worker::bit2float(FLOAT *output, int start, int nsamples, uint64_t *re
   std::vector<unsigned char> &input_data = input_buffer_->data;
   int dsize = input_data.size();
   uint64_t read = *readp;
-  // avoid the overhead of the boost shared pointer by derefferencing it
+  // avoid the overhead of the shared pointer by dereferencing it
   bit_statistics *stats = statistics.get();
 
   int iout = 0;
