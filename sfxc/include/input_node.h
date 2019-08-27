@@ -12,7 +12,14 @@
 
 #include <map>
 #include <vector>
-#include <boost/shared_ptr.hpp>
+
+#if __cplusplus >= 201103L
+#include <memory>
+using std::shared_ptr;
+#else
+#include <tr1/memory>
+using std::tr1::shared_ptr;
+#endif
 
 #include "node.h"
 #include "single_data_reader_controller.h"

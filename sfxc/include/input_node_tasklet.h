@@ -1,8 +1,15 @@
 #ifndef INPUT_NODE_TASKLET_H
 #define INPUT_NODE_TASKLET_H
 
-#include <boost/shared_ptr.hpp>
 #include <queue>
+
+#if __cplusplus >= 201103L
+#include <memory>
+using std::shared_ptr;
+#else
+#include <tr1/memory>
+using std::tr1::shared_ptr;
+#endif
 
 #include "tasklet/tasklet.h"
 #include "thread.h"
@@ -26,12 +33,12 @@
 
 class Input_node_tasklet {
 public:
-  typedef Input_data_format_reader                     Input_reader_;
-  typedef boost::shared_ptr<Input_reader_>             Input_reader_ptr_;
-  typedef Input_data_format_reader_tasklet             Input_reader_tasklet_;
-  typedef Input_node_types::Data_memory_pool           Data_memory_pool;
-  typedef boost::shared_ptr<Data_memory_pool>          Data_memory_pool_ptr;
-  typedef boost::shared_ptr<Channel_extractor_tasklet> Channel_extractor_tasklet_ptr;
+  typedef Input_data_format_reader              Input_reader_;
+  typedef shared_ptr<Input_reader_>             Input_reader_ptr_;
+  typedef Input_data_format_reader_tasklet      Input_reader_tasklet_;
+  typedef Input_node_types::Data_memory_pool    Data_memory_pool;
+  typedef shared_ptr<Data_memory_pool>          Data_memory_pool_ptr;
+  typedef shared_ptr<Channel_extractor_tasklet> Channel_extractor_tasklet_ptr;
 
   // The mark5a-reader and the first data block
   Input_node_tasklet(Input_reader_ptr_ input_reader_ptr, Data_memory_pool_ptr memory_pool_);
@@ -104,7 +111,7 @@ private:
  * It determines the number of tracks from the data
  **/
 Input_node_tasklet *
-get_input_node_tasklet(boost::shared_ptr<Data_reader> reader,
+get_input_node_tasklet(shared_ptr<Data_reader> reader,
                        TRANSPORT_TYPE type, Time ref_date);
 
 #endif // INPUT_NODE_TASKLET_H

@@ -18,7 +18,7 @@
 
 typedef Input_node_types::Data_memory_pool Data_memory_pool;
 
-int find_start_of_header(boost::shared_ptr<Data_reader> reader,
+int find_start_of_header(shared_ptr<Data_reader> reader,
                          VLBA_reader::Data_frame &data,
                          std::vector<unsigned char> &header) {
   // We fill the "data" and then look for the header
@@ -97,7 +97,7 @@ void get_input_node_parameters(Input_node_parameters &param, VLBA_reader::Data_f
   int n_tracks_8;
   bool header_correct=false;
   bool first_msg=true;
-  boost::shared_ptr<Data_reader> reader(new Data_reader_file(filename));
+  shared_ptr<Data_reader> reader(new Data_reader_file(filename));
   do{
     std::vector<unsigned char> buffer;
     n_tracks_8 = find_start_of_header(reader, data, buffer);
@@ -165,7 +165,7 @@ void parse_arguments(int argc, char *argv[], char **filename, int *n_time_stamps
   *filename = argv[optind];
 }
 
-boost::shared_ptr< Data_memory_pool > memory_pool_(new Data_memory_pool(10));
+shared_ptr< Data_memory_pool > memory_pool_(new Data_memory_pool(10));
 
 int main(int argc, char *argv[]) {
 #ifdef SFXC_PRINT_DEBUG
@@ -189,7 +189,7 @@ int main(int argc, char *argv[]) {
   Input_node_parameters param;
   get_input_node_parameters(param, data, filename);
 
-  boost::shared_ptr<Data_reader> reader(new Data_reader_file(filename));
+  shared_ptr<Data_reader> reader(new Data_reader_file(filename));
   VLBA_reader *vlba_reader = new VLBA_reader(reader, ref_time);
   vlba_reader->set_parameters(param);
 

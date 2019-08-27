@@ -13,7 +13,6 @@
 #ifndef INPUT_NODE_DATA_WRITER_H_INCLUDED
 #define INPUT_NODE_DATA_WRITER_H_INCLUDED
 
-#include <boost/shared_ptr.hpp>
 #include "data_writer.h"
 #include "utils.h"
 #include "thread.h"
@@ -33,7 +32,7 @@ class Input_node_data_writer : public Thread
 public:
   typedef Input_node_types::Channel_buffer          Input_buffer;
   typedef Input_node_types::Channel_buffer_element  Input_buffer_element;
-  typedef boost::shared_ptr<Input_buffer>           Input_buffer_ptr;
+  typedef shared_ptr<Input_buffer>                  Input_buffer_ptr;
 
   // The writer can, in principle, occur multiple times in the writer_queue
   // so we store the slice size in a separate integer and set

@@ -50,7 +50,7 @@ Single_data_reader_controller::process_event(MPI_Status &status) {
       }
       SFXC_ASSERT(sources.size() > 0);
 
-      boost::shared_ptr<Data_reader> reader(Data_reader_factory::get_reader(sources));
+      shared_ptr<Data_reader> reader(Data_reader_factory::get_reader(sources));
 
       set_data_reader(stream_nr, reader);
 
@@ -77,7 +77,7 @@ Single_data_reader_controller::process_event(MPI_Status &status) {
       int32_t stream_nr = ip_addr[0];
       uint64_t port = ip_addr[size-1];
 
-      boost::shared_ptr<Data_reader>
+      shared_ptr<Data_reader>
       reader(new Data_reader_tcp(ip_addr+1, size-2, port));
       set_data_reader(stream_nr, reader);
 
@@ -91,7 +91,7 @@ Single_data_reader_controller::process_event(MPI_Status &status) {
   return PROCESS_EVENT_STATUS_UNKNOWN;
 }
 
-boost::shared_ptr<Data_reader>
+shared_ptr<Data_reader>
 Single_data_reader_controller::get_data_reader(int reader) {
   SFXC_ASSERT(reader == 0);
   SFXC_ASSERT(reader_ != Data_reader_ptr() );

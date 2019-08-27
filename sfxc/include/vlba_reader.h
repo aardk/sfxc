@@ -15,7 +15,14 @@
 
 #include <fstream>
 #include <vector>
-#include <boost/shared_ptr.hpp>
+
+#if __cplusplus >= 201103L
+#include <memory>
+using std::shared_ptr;
+#else
+#include <tr1/memory>
+using std::tr1::shared_ptr;
+#endif
 
 #include "data_reader.h"
 #include "vlba_header.h"
@@ -32,7 +39,7 @@ class VLBA_reader : public Input_data_format_reader {
 public:
   typedef Input_data_format_reader::Data_frame            Data_frame;
 
-  VLBA_reader(boost::shared_ptr<Data_reader> data_reader, Time ref_date_);
+  VLBA_reader(shared_ptr<Data_reader> data_reader, Time ref_date_);
   virtual ~VLBA_reader();
 
   bool open_input_stream(Data_frame &data);

@@ -18,7 +18,14 @@
 
 #include <fstream>
 #include <vector>
-#include <boost/shared_ptr.hpp>
+
+#if __cplusplus >= 201103L
+#include <memory>
+using std::shared_ptr;
+#else
+#include <tr1/memory>
+using std::tr1::shared_ptr;
+#endif
 
 class Mark5b_reader : public Input_data_format_reader {
   enum Debug_level {
@@ -54,7 +61,7 @@ public:
 
   };
 
-  Mark5b_reader(boost::shared_ptr<Data_reader> data_reader,
+  Mark5b_reader(shared_ptr<Data_reader> data_reader,
                 Data_frame &data, Time ref_date);
   virtual ~Mark5b_reader();
 

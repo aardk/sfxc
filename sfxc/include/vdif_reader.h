@@ -18,7 +18,14 @@
 
 #include <fstream>
 #include <vector>
-#include <boost/shared_ptr.hpp>
+
+#if __cplusplus >= 201103L
+#include <memory>
+using std::shared_ptr;
+#else
+#include <tr1/memory>
+using std::tr1::shared_ptr;
+#endif
 
 // The number VDIF frames to be read is rounded to this number of bytes
 #define VDIF_FRAME_BUFFER_SIZE    32128
@@ -60,8 +67,8 @@ public:
     int32_t data_size() const;
   };
 
-  VDIF_reader(boost::shared_ptr<Data_reader> data_reader,
-                Data_frame &data, Time ref_time);
+  VDIF_reader(shared_ptr<Data_reader> data_reader,
+              Data_frame &data, Time ref_time);
   virtual ~VDIF_reader();
 
   bool open_input_stream(Data_frame &data);

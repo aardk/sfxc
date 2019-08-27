@@ -4,7 +4,7 @@
 #include "backtrace.h"
 
 VLBA_reader::
-VLBA_reader(boost::shared_ptr<Data_reader> data_reader, Time ref_date_)
+VLBA_reader(shared_ptr<Data_reader> data_reader, Time ref_date_)
     : Input_data_format_reader(data_reader),
       debug_level_(NO_CHECKS),
       block_count_(0), DATA_RATE_(0), N(0), track(-1), mask(0)

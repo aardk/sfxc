@@ -5,7 +5,7 @@
 #include "backtrace.h"
 
 Mark5a_reader::
-Mark5a_reader(boost::shared_ptr<Data_reader> data_reader,
+Mark5a_reader(shared_ptr<Data_reader> data_reader,
               Time ref_time_)
     : Input_data_format_reader(data_reader),
       debug_level_(NO_CHECKS),
@@ -338,7 +338,7 @@ void Mark5a_reader::generate_track_mask(){
   }
 }
 
-bool Mark5a_reader::find_start_of_header(boost::shared_ptr<Data_reader> reader,
+bool Mark5a_reader::find_start_of_header(shared_ptr<Data_reader> reader,
                                         Mark5a_reader::Data_frame &data) {
   const int max_read = 16 * SIZE_MK5A_FRAME;  // Amount of data to read before giving up
   int data_read = SIZE_MK5A_FRAME/2; // We start by reading half a block
