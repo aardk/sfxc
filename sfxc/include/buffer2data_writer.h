@@ -24,7 +24,7 @@ class Buffer2data_writer {
   typedef Buffer2data_writer<T> Self;
 
 public:
-  typedef boost::shared_ptr< Data_writer > Data_writer_ptr;
+  typedef shared_ptr< Data_writer >        Data_writer_ptr;
   typedef Threadsafe_queue<T>              Queue;
   typedef boost::shared_ptr<Queue>         Queue_ptr;
 
@@ -64,7 +64,7 @@ private:
   static void *start_writing(void *);
   void write();
 
-  boost::shared_ptr< Data_writer >         data_writer;
+  shared_ptr< Data_writer >         data_writer;
   boost::shared_ptr< Threadsafe_queue<T> > queue;
   State       state;
   pthread_t   redirect_thread;
@@ -88,7 +88,7 @@ Buffer2data_writer<T>::~Buffer2data_writer() {
 
 template <class T>
 void
-Buffer2data_writer<T>::set_data_writer(boost::shared_ptr< Data_writer > writer) {
+Buffer2data_writer<T>::set_data_writer(shared_ptr< Data_writer > writer) {
   SFXC_ASSERT(state != RUNNING);
   data_writer = writer;
 }
@@ -101,7 +101,7 @@ Buffer2data_writer<T>::set_queue(Queue_ptr queue_) {
 }
 
 template <class T>
-boost::shared_ptr< Data_writer >
+shared_ptr< Data_writer >
 Buffer2data_writer<T>::get_data_writer() {
   return data_writer;
 }

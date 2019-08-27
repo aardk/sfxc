@@ -45,9 +45,9 @@ public:
   Queue_ptr queue();
   void set_queue(Queue_ptr queue);
 
-  boost::shared_ptr<Data_writer> get_data_writer(int i);
+  shared_ptr<Data_writer> get_data_writer(int i);
 private:
-  void set_data_writer(int streamnr, boost::shared_ptr<Data_writer> writer);
+  void set_data_writer(int streamnr, shared_ptr<Data_writer> writer);
 
   Buffer2data_writer<value_type>                 buffer2writer;
 

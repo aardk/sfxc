@@ -171,7 +171,7 @@ Correlation_core::create_baselines(const Correlation_parameters &parameters){
 
 void
 Correlation_core::
-set_data_writer(boost::shared_ptr<Data_writer> writer_) {
+set_data_writer(shared_ptr<Data_writer> writer_) {
   writer = writer_;
 }
 
@@ -317,7 +317,7 @@ void Correlation_core::integration_write(std::vector<Complex_buffer> &integratio
   // Make sure that the input buffers are released
   // This is done by reference counting
 
-  SFXC_ASSERT(writer != boost::shared_ptr<Data_writer>());
+  SFXC_ASSERT(writer != shared_ptr<Data_writer>());
   SFXC_ASSERT(integration_buffer.size() == baselines.size());
 
   // Write the output file index

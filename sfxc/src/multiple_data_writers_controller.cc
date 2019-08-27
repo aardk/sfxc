@@ -51,7 +51,7 @@ get_listening_ip(std::vector<uint64_t>& ip_port) {
   }
 }
 
-boost::shared_ptr<Data_writer>
+shared_ptr<Data_writer>
 Multiple_data_writers_controller::get_data_writer(unsigned int i) {
   SFXC_ASSERT(i < data_writers.size());
   return data_writers[i];
@@ -97,7 +97,7 @@ Multiple_data_writers_controller::process_event(MPI_Status &status) {
       }
 
       if (cnx != NULL) {
-        boost::shared_ptr<Data_writer> reader(new Data_writer_socket(cnx));
+        shared_ptr<Data_writer> reader(new Data_writer_socket(cnx));
         add_data_writer(info[1], reader);
       } else {
         MTHROW("Unable to connect");
@@ -129,7 +129,7 @@ Multiple_data_writers_controller::process_event(MPI_Status &status) {
       Data_writer_tcp *data_writer = new Data_writer_tcp();
       data_writer->open_connection(tcp_connection);
 
-      boost::shared_ptr<Data_writer> writer(data_writer);
+      shared_ptr<Data_writer> writer(data_writer);
       add_data_writer(params[1], writer);
       //DEBUG_MSG("A data writer is created from: "<< params[0] << " to:" << params[2]);
 
@@ -169,7 +169,7 @@ Multiple_data_writers_controller::process_event(MPI_Status &status) {
 
       data_writer->open_connection(tcp_connection);
 
-      boost::shared_ptr<Data_writer> writer(data_writer);
+      shared_ptr<Data_writer> writer(data_writer);
       add_data_writer(ranks[0], writer);
 
       int32_t return_msg = 0;
@@ -198,8 +198,7 @@ Multiple_data_writers_controller::process_event(MPI_Status &status) {
       SFXC_ASSERT(status.MPI_SOURCE == status2.MPI_SOURCE);
       SFXC_ASSERT(status.MPI_TAG == status2.MPI_TAG);
 
-      boost::shared_ptr<Data_writer>
-	writer(new Data_writer_file(filename));
+      shared_ptr<Data_writer> writer(new Data_writer_file(filename));
       add_data_writer(stream_nr, writer);
 
       MPI_Send(&stream_nr, 1, MPI_INT32,
@@ -219,7 +218,7 @@ Multiple_data_writers_controller::ready() {
 
 void
 Multiple_data_writers_controller::
-add_data_writer(unsigned int i, boost::shared_ptr<Data_writer> writer) {
+add_data_writer(unsigned int i, shared_ptr<Data_writer> writer) {
   if (data_writers.size() <= i)
     data_writers.resize(i + 1);
   SFXC_ASSERT(i < data_writers.size());
