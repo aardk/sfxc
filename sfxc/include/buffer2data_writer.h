@@ -13,7 +13,13 @@
 #include "data_writer.h"
 #include "utils.h"
 
-#include <boost/shared_ptr.hpp>
+#if __cplusplus >= 201103L
+#include <memory>
+using std::shared_ptr;
+#else
+#include <tr1/memory>
+using std::tr1::shared_ptr;
+#endif
 
 #include <threadsafe_queue.h>
 
@@ -26,7 +32,7 @@ class Buffer2data_writer {
 public:
   typedef shared_ptr< Data_writer >        Data_writer_ptr;
   typedef Threadsafe_queue<T>              Queue;
-  typedef boost::shared_ptr<Queue>         Queue_ptr;
+  typedef shared_ptr<Queue>                Queue_ptr;
 
   enum State {
     STOPPED=0, ///< Not running, the additional thread is not active
@@ -65,7 +71,7 @@ private:
   void write();
 
   shared_ptr< Data_writer >         data_writer;
-  boost::shared_ptr< Threadsafe_queue<T> > queue;
+  shared_ptr< Threadsafe_queue<T> > queue;
   State       state;
   pthread_t   redirect_thread;
 };
