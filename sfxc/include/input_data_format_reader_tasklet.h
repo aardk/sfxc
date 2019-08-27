@@ -10,7 +10,13 @@
 #ifndef INPUT_DATA_FORMAT_READER_TASKLET_H
 #define INPUT_DATA_FORMAT_READER_TASKLET_H
 
-#include <boost/shared_ptr.hpp>
+#if __cplusplus >= 201103L
+#include <memory>
+using std::shared_ptr;
+#else
+#include <tr1/memory>
+using std::tr1::shared_ptr;
+#endif
 
 #include "tasklet/tasklet.h"
 #include "thread.h"
@@ -26,11 +32,11 @@
 
 class Input_data_format_reader_tasklet : public Tasklet, public Thread {
 public:
-  typedef boost::shared_ptr< Input_data_format_reader > Data_format_reader_ptr;
+  typedef shared_ptr< Input_data_format_reader >        Data_format_reader_ptr;
   typedef Input_data_format_reader::Data_frame          Data_frame;
   typedef Input_node_types::value_type                  value_type;
   typedef Input_node_types::Data_memory_pool            Input_memory_poolzor;
-  typedef boost::shared_ptr<Input_memory_poolzor>          Input_memory_pool_ptr;
+  typedef shared_ptr<Input_memory_poolzor>              Input_memory_pool_ptr;
   typedef Input_node_types::Input_data_frame            Input_element;
   typedef Input_node_types::Input_buffer                Output_buffer;
 //  typedef Input_node_types::Input_buffer_element        Output_buffer_element;

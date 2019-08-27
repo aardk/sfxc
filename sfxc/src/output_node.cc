@@ -330,14 +330,14 @@ Output_node::set_number_of_time_slices(int n_time_slices) {
  *  Input_stream
  */
 
-Output_node::Input_stream::Input_stream(boost::shared_ptr<Data_reader> reader)
+Output_node::Input_stream::Input_stream(shared_ptr<Data_reader> reader)
     : reader(reader) {
   reader->set_size_dataslice(0);
 }
 
 int
 Output_node::Input_stream::read_bytes(std::vector<char> &buffer) {
-  SFXC_ASSERT(reader != boost::shared_ptr<Data_reader>());
+  SFXC_ASSERT(reader != shared_ptr<Data_reader>());
   size_t nBytes = std::min(buffer.size(),
                            (size_t)reader->get_size_dataslice());
   nBytes = reader->get_bytes(nBytes, &buffer[offset]);

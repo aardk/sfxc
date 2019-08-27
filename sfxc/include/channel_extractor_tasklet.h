@@ -41,7 +41,7 @@ public:
   /// Data type of a data element in the input buffer
   typedef Input_buffer::value_type             Input_buffer_element;
   /// Pointer to an Input_buffer
-  typedef boost::shared_ptr<Input_buffer>      Input_buffer_ptr;
+  typedef shared_ptr<Input_buffer>             Input_buffer_ptr;
 
 
   /// Output memory pool for the dechannelized data
@@ -51,10 +51,9 @@ public:
   /// A data element of the Output_buffer
   typedef Types::Channel_buffer_element        Output_buffer_element;
   /// A pointer to the Output_buffer
-  typedef boost::shared_ptr<Output_buffer>     Output_buffer_ptr;
+  typedef shared_ptr<Output_buffer>            Output_buffer_ptr;
 
-  typedef boost::shared_ptr<Input_data_format_reader>
-                                               Data_format_reader_ptr;
+  typedef shared_ptr<Input_data_format_reader> Data_format_reader_ptr;
 
   Channel_extractor_tasklet(Data_format_reader_ptr reader);
 

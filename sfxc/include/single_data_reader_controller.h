@@ -27,8 +27,8 @@ public:
   typedef Reader2buffer::value_type                  value_type;
   typedef Reader2buffer::Queue_ptr                   Queue_ptr;
 
-  typedef boost::shared_ptr<Data_reader>            Data_reader_ptr;
-  typedef boost::shared_ptr<Reader2buffer>          Data_buffered_reader_ptr;
+  typedef shared_ptr<Data_reader>                    Data_reader_ptr;
+  typedef shared_ptr<Reader2buffer>                  Data_buffered_reader_ptr;
 
   Single_data_reader_controller(Node &node);
 

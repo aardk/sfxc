@@ -26,11 +26,11 @@ class Multiple_data_readers_controller : public Controller {
 public:
   typedef Memory_pool_fixed_size_element<char,5000>  data_type;
   typedef Data_reader2buffer<data_type>              Reader2buffer;
-  typedef boost::shared_ptr<Reader2buffer>        Reader2buffer_ptr;
+  typedef shared_ptr<Reader2buffer>                  Reader2buffer_ptr;
   typedef Data_reader_buffer<Reader2buffer>          Reader_buffer;
-  typedef boost::shared_ptr<Reader_buffer>        Reader_buffer_ptr;
+  typedef shared_ptr<Reader_buffer>                  Reader_buffer_ptr;
 
-  typedef boost::shared_ptr<Data_reader>          Data_reader_ptr;
+  typedef shared_ptr<Data_reader>                    Data_reader_ptr;
 
   typedef Reader2buffer::Reader_memory_pool          Reader_memory_pool;
   typedef Reader2buffer::value_type                  value_type;
@@ -64,7 +64,7 @@ public:
   void get_listening_ip(std::vector<uint64_t>& ip_port);
 
 private:
-  void add_data_reader(unsigned int i, boost::shared_ptr<Data_reader> reader);
+  void add_data_reader(unsigned int i, shared_ptr<Data_reader> reader);
 
   // These are pointers, because a resize of the vector will
   // copy construct all the elements and then destroy the old

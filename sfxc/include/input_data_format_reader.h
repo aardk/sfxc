@@ -15,7 +15,13 @@
 #include "input_node_types.h"
 #include "correlator_time.h"
 
-#include <boost/shared_ptr.hpp>
+#if __cplusplus >= 201103L
+#include <memory>
+using std::shared_ptr;
+#else
+#include <tr1/memory>
+using std::tr1::shared_ptr;
+#endif
 
 #define RESYNC_MAX_DATA_FRAMES  16
 
@@ -23,7 +29,7 @@ class Input_data_format_reader {
 public:
   typedef Input_node_types::Input_data_frame            Data_frame;
   typedef Input_node_types::value_type                  value_type;
-  Input_data_format_reader(boost::shared_ptr<Data_reader> data_reader);
+  Input_data_format_reader(shared_ptr<Data_reader> data_reader);
   virtual ~Input_data_format_reader();
 
   virtual bool open_input_stream(Data_frame &data) = 0;
@@ -52,7 +58,7 @@ public:
 
 protected:
   // Data reader: input stream
-  boost::shared_ptr<Data_reader> data_reader_;
+  shared_ptr<Data_reader> data_reader_;
   // Set to true if there is a valid header found in the data stream
   bool is_open_;
   // Time offset that is applied to all time stamps

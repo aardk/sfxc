@@ -18,7 +18,7 @@
 #include "mark5a_reader.h"
 
 typedef Input_node_types::Data_memory_pool Data_memory_pool;
-int find_start_of_header(boost::shared_ptr<Data_reader> reader,
+int find_start_of_header(shared_ptr<Data_reader> reader,
                          Mark5a_reader::Data_frame &data) {
   // We fill the "data" and then look for the header
   // if we don't find a header, read in another half block and continue.
@@ -99,7 +99,7 @@ void get_input_node_parameters(Input_node_parameters &param, Mark5a_reader::Data
   int n_tracks_8;
   bool header_correct=false;
   bool first_msg=true;
-  boost::shared_ptr<Data_reader> reader(new Data_reader_file(filename));
+  shared_ptr<Data_reader> reader(new Data_reader_file(filename));
   do{
     n_tracks_8 = find_start_of_header(reader, data);
     if(n_tracks_8 > 0){
@@ -161,7 +161,7 @@ void parse_arguments(int argc, char *argv[], char **filename, int *n_time_stamps
   *filename = argv[optind];
 }
 
-boost::shared_ptr< Data_memory_pool > memory_pool_(new Data_memory_pool(10));
+shared_ptr< Data_memory_pool > memory_pool_(new Data_memory_pool(10));
 
 int main(int argc, char *argv[]) {
 #ifdef SFXC_PRINT_DEBUG
@@ -185,7 +185,7 @@ int main(int argc, char *argv[]) {
   Input_node_parameters param;
   get_input_node_parameters(param, data, filename);
 
-  boost::shared_ptr<Data_reader> reader(new Data_reader_file(filename));
+  shared_ptr<Data_reader> reader(new Data_reader_file(filename));
   Mark5a_reader *mark5a_reader = new Mark5a_reader(reader, ref_time);
   mark5a_reader->set_parameters(param);
 

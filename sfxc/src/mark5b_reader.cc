@@ -6,7 +6,7 @@
 #define MAX_MARK5B_FRAME_NR 32768
 
 Mark5b_reader::
-Mark5b_reader(boost::shared_ptr<Data_reader> data_reader,
+Mark5b_reader(shared_ptr<Data_reader> data_reader,
               Data_frame &data, Time ref_date)
   : Input_data_format_reader(data_reader),
     debug_level_(CHECK_PERIODIC_HEADERS), N(SIZE_MK5B_WORD), frame_nr(-1),

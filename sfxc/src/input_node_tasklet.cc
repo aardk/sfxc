@@ -18,13 +18,14 @@
 #include "monitor.h"
 
 typedef Input_node_types::Data_memory_pool  Data_memory_pool;
-typedef boost::shared_ptr<Data_memory_pool> Data_memory_pool_ptr;
-typedef boost::shared_ptr<Data_reader>      Data_reader_ptr;
+typedef shared_ptr<Data_memory_pool>        Data_memory_pool_ptr;
+typedef shared_ptr<Data_reader>             Data_reader_ptr;
+
 Input_node_tasklet *
 get_input_node_tasklet_mark5a(Data_reader_ptr reader, Data_memory_pool_ptr memory_pool_,
                               Time ref_date) {
-  boost::shared_ptr<Mark5a_reader> mark5a_reader_ptr =
-    boost::shared_ptr<Mark5a_reader>( new Mark5a_reader(reader, ref_date) );
+  shared_ptr<Mark5a_reader> mark5a_reader_ptr =
+    shared_ptr<Mark5a_reader>( new Mark5a_reader(reader, ref_date) );
 
   return new Input_node_tasklet(mark5a_reader_ptr, memory_pool_);
 }
@@ -36,8 +37,8 @@ get_input_node_tasklet_vlba(Data_reader_ptr reader, Data_memory_pool_ptr memory_
   Input_data_format_reader::Data_frame data;
   data.buffer = memory_pool_->allocate();
 
-  boost::shared_ptr<VLBA_reader> vlba_reader_ptr =
-    boost::shared_ptr<VLBA_reader>( new VLBA_reader(reader, ref_date));
+  shared_ptr<VLBA_reader> vlba_reader_ptr =
+    shared_ptr<VLBA_reader>( new VLBA_reader(reader, ref_date));
 
   return new Input_node_tasklet(vlba_reader_ptr, memory_pool_);
 }
@@ -45,7 +46,7 @@ get_input_node_tasklet_vlba(Data_reader_ptr reader, Data_memory_pool_ptr memory_
 Input_node_tasklet *
 get_input_node_tasklet_mark5b(Data_reader_ptr reader, Data_memory_pool_ptr memory_pool_,
                               Time ref_date) {
-  typedef boost::shared_ptr<Input_data_format_reader> Input_reader_ptr;
+  typedef shared_ptr<Input_data_format_reader> Input_reader_ptr;
   Input_data_format_reader::Data_frame   data;
   data.buffer = memory_pool_->allocate();
 
@@ -57,7 +58,7 @@ get_input_node_tasklet_mark5b(Data_reader_ptr reader, Data_memory_pool_ptr memor
 Input_node_tasklet *
 get_input_node_tasklet_vdif(Data_reader_ptr reader, Data_memory_pool_ptr memory_pool_,
                             Time ref_date) {
-  typedef boost::shared_ptr<VDIF_reader> Input_reader_ptr;
+  typedef shared_ptr<VDIF_reader> Input_reader_ptr;
   Input_data_format_reader::Data_frame   data;
   data.buffer = memory_pool_->allocate();
 
@@ -67,10 +68,10 @@ get_input_node_tasklet_vdif(Data_reader_ptr reader, Data_memory_pool_ptr memory_
 
 
 Input_node_tasklet *
-get_input_node_tasklet(boost::shared_ptr<Data_reader> reader,
+get_input_node_tasklet(shared_ptr<Data_reader> reader,
                        TRANSPORT_TYPE type, Time ref_date) {
   SFXC_ASSERT(type != UNINITIALISED);
-  boost::shared_ptr<Data_memory_pool> memory_pool_(new Data_memory_pool(2 * 32 * 64));
+  shared_ptr<Data_memory_pool> memory_pool_(new Data_memory_pool(2 * 32 * 64));
 
   if (type == MARK5A) {
     return get_input_node_tasklet_mark5a(reader, memory_pool_, ref_date);

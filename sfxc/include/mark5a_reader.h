@@ -14,7 +14,14 @@
 
 #include <fstream>
 #include <vector>
-#include <boost/shared_ptr.hpp>
+
+#if __cplusplus >= 201103L
+#include <memory>
+using std::shared_ptr;
+#else
+#include <tr1/memory>
+using std::tr1::shared_ptr;
+#endif
 
 #include "data_reader.h"
 #include "mark5a_header.h"
@@ -31,7 +38,7 @@ class Mark5a_reader : public Input_data_format_reader {
 public:
   typedef Input_data_format_reader::Data_frame            Data_frame;
 
-  Mark5a_reader(boost::shared_ptr<Data_reader> data_reader,
+  Mark5a_reader(shared_ptr<Data_reader> data_reader,
                 Time ref_time_);
   virtual ~Mark5a_reader();
 
@@ -65,7 +72,7 @@ public:
   }
 
 private:
-  bool find_start_of_header(boost::shared_ptr<Data_reader> reader, Data_frame &data);
+  bool find_start_of_header(shared_ptr<Data_reader> reader, Data_frame &data);
 
   // format a time in miliseconds
   std::string time_to_string(int64_t time);

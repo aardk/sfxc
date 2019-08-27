@@ -11,7 +11,15 @@
 #define INPUT_NODE_TYPES_H
 
 #include <vector>
-#include <boost/shared_ptr.hpp>
+
+#if __cplusplus >= 201103L
+#include <memory>
+using std::shared_ptr;
+#else
+#include <tr1/memory>
+using std::tr1::shared_ptr;
+#endif
+
 #include <threadsafe_queue.h>
 #include "memory_pool.h"
 #include "correlator_time.h"
@@ -95,7 +103,7 @@ public:
   };
   /// Buffer for mark5 data frames
   typedef Threadsafe_queue<Input_data_frame>        Input_buffer;
-  typedef boost::shared_ptr<Input_buffer>           Input_buffer_ptr;
+  typedef shared_ptr<Input_buffer>                  Input_buffer_ptr;
 
   /// Buffer for fft buffers
   struct Channel_buffer_element_ {
@@ -111,7 +119,7 @@ public:
   };
   typedef Channel_buffer_element_                  Channel_buffer_element;
   typedef Threadsafe_queue<Channel_buffer_element> Channel_buffer;
-  typedef boost::shared_ptr<Channel_buffer>        Channel_buffer_ptr;
+  typedef shared_ptr<Channel_buffer>               Channel_buffer_ptr;
 
   Input_node_types() {}
 };

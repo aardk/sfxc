@@ -2,7 +2,14 @@
 #define OUTPUT_NODE_DATA_READER_TASKLET_H
 
 #include "tasklet/tasklet.h"
-#include <boost/shared_ptr.hpp>
+
+#if __cplusplus >= 201103L
+#include <memory>
+using std::shared_ptr;
+#else
+#include <tr1/memory>
+using std::tr1::shared_ptr;
+#endif
 
 #include "control_parameters.h"
 #include "correlator_node_types.h"
@@ -17,8 +24,8 @@ class Correlator_node_data_reader_tasklet : public Tasklet {
 public:
   typedef Correlator_node_types                     Types;
 
-  typedef boost::shared_ptr<Data_reader>            Data_reader_ptr;
-  typedef boost::shared_ptr<Data_reader_blocking>   Data_reader_blocking_ptr;
+  typedef shared_ptr<Data_reader>                   Data_reader_ptr;
+  typedef shared_ptr<Data_reader_blocking>          Data_reader_blocking_ptr;
 
   typedef Types::Channel_circular_input_buffer      Input_buffer;
   typedef Types::Channel_circular_input_buffer_ptr  Input_buffer_ptr;

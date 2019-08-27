@@ -1,7 +1,7 @@
 #include "data_reader_blocking.h"
 #include "vdif_reader.h"
 
-VDIF_reader::VDIF_reader(boost::shared_ptr<Data_reader> data_reader,
+VDIF_reader::VDIF_reader(shared_ptr<Data_reader> data_reader,
 			 Data_frame &data, Time ref_time)
   : Input_data_format_reader(data_reader),
     debug_level_(CHECK_PERIODIC_HEADERS),

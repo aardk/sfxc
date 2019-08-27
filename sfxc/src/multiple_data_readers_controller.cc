@@ -87,7 +87,7 @@ Multiple_data_readers_controller::process_event(MPI_Status &status) {
       }
 
       if (cnx != NULL) {
-        boost::shared_ptr<Data_reader> reader(new Data_reader_socket(cnx));
+        shared_ptr<Data_reader> reader(new Data_reader_socket(cnx));
         add_data_reader(info[3], reader);
       } else {
         MTHROW("Unable to connect");
@@ -119,7 +119,7 @@ Multiple_data_readers_controller::process_event(MPI_Status &status) {
       //DEBUG_MSG("Waiting for connexion between: "<< params[0] << " to:" << params[2]);
       Data_reader_socket *data_reader = new Data_reader_socket(tcp_connection.open_connection());
 
-      boost::shared_ptr<Data_reader> reader(data_reader);
+      shared_ptr<Data_reader> reader(data_reader);
       add_data_reader(params[3], reader);
       //DEBUG_MSG("A data reader is created from: "<< params[0] << " to:" << params[2]);
 
@@ -141,7 +141,7 @@ Multiple_data_readers_controller::process_event(MPI_Status &status) {
       int32_t stream_nr = ip_addr[0];
       uint64_t port = ip_addr[size - 1];
 
-      boost::shared_ptr<Data_reader>
+      shared_ptr<Data_reader>
       reader(new Data_reader_tcp(ip_addr + 1, size - 2, port));
       add_data_reader(stream_nr, reader);
 
@@ -181,7 +181,7 @@ Multiple_data_readers_controller::process_event(MPI_Status &status) {
       }
       SFXC_ASSERT(sources.size() > 0);
 
-      boost::shared_ptr<Data_reader>
+      shared_ptr<Data_reader>
 	reader(new Data_reader_file(sources));
       add_data_reader(stream_nr, reader);
 
@@ -254,7 +254,7 @@ size_t Multiple_data_readers_controller::number_of_data_readers() {
 
 void
 Multiple_data_readers_controller::
-add_data_reader(unsigned int i, boost::shared_ptr<Data_reader> reader) {
+add_data_reader(unsigned int i, shared_ptr<Data_reader> reader) {
   // This is false after the first call of get_vector_data_readers()
   if (readers.size() <= i)
     readers.resize(i + 1);
