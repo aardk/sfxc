@@ -6,12 +6,20 @@
  */
 #ifndef BIT_STATISTICS_H
 #define BIT_STATISTICS_H
+
 #include <vector>
-#include <boost/shared_ptr.hpp>
 #include "utils.h"
 
+#if __cplusplus >= 201103L
+#include <memory>
+using std::shared_ptr;
+#else
+#include <tr1/memory>
+using std::tr1::shared_ptr;
+#endif
+
 class bit_statistics;
-typedef boost::shared_ptr<bit_statistics>   bit_statistics_ptr;
+typedef shared_ptr<bit_statistics>   bit_statistics_ptr;
 
 class bit_statistics{
 public:
