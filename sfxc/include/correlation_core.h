@@ -45,12 +45,12 @@ public:
                               std::vector<std::vector<double> > &uvw,
                               int node_nr);
   void create_baselines(const Correlation_parameters &parameters);
-  void set_data_writer(boost::shared_ptr<Data_writer> writer);
+  void set_data_writer(shared_ptr<Data_writer> writer);
 
   int number_of_baselines() {
     return baselines.size();
   }
-  boost::shared_ptr<Data_writer> data_writer() {
+  shared_ptr<Data_writer> data_writer() {
     return writer;
   }
 
@@ -106,7 +106,7 @@ protected:
   std::vector< std::pair<size_t, size_t> >             baselines;
   int number_ffts_in_slice, number_ffts_in_sub_integration, current_fft, total_ffts;
 
-  boost::shared_ptr<Data_writer>                       writer;
+  shared_ptr<Data_writer>                              writer;
 
   Timer fft_timer;
 

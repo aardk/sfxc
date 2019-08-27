@@ -13,7 +13,14 @@
 #include <types.h>
 #include <stddef.h> // defines size_t
 #include <string>
-#include <boost/shared_ptr.hpp>
+
+#if __cplusplus >= 201103L
+#include <memory>
+using std::shared_ptr;
+#else
+#include <tr1/memory>
+using std::tr1::shared_ptr;
+#endif
 
 class Data_writer {
 public:
@@ -76,6 +83,6 @@ Data_writer& operator<<(Data_writer& dr, const std::string& str);
 Data_writer& operator<<(Data_writer& dr, uint32_t value);
 Data_writer& operator<<(Data_writer& dr, int32_t value);
 
-typedef boost::shared_ptr<Data_writer>       Data_writer_sptr;
+typedef shared_ptr<Data_writer>       Data_writer_sptr;
 
 #endif // DATA_WRITER_H
