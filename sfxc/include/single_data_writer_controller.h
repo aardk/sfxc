@@ -32,7 +32,7 @@ public:
     pool_type data;
   };
   typedef Threadsafe_queue<value_type>      Queue;
-  typedef boost::shared_ptr<Queue>       Queue_ptr;
+  typedef shared_ptr<Queue>                 Queue_ptr;
 
 	void stop();
 
