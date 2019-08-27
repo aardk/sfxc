@@ -42,7 +42,7 @@ public:
   typedef Memory_pool< Channel_memory_pool_data >         Channel_memory_pool;
   typedef Channel_memory_pool::Element                    Channel_memory_pool_element;
   typedef Threadsafe_queue<Channel_memory_pool_element>   Channel_queue;
-  typedef boost::shared_ptr<Channel_queue>                Channel_queue_ptr;
+  typedef shared_ptr<Channel_queue>                       Channel_queue_ptr;
 
   struct Delay_memory_pool_data {
     Delay_memory_pool_data(): stride(0) {}
@@ -53,6 +53,6 @@ public:
   typedef Memory_pool< Delay_memory_pool_data >         Delay_memory_pool;
   typedef Delay_memory_pool::Element                    Delay_memory_pool_element;
   typedef Threadsafe_queue<Delay_memory_pool_element>   Delay_queue;
-  typedef boost::shared_ptr<Delay_queue>                Delay_queue_ptr;
+  typedef shared_ptr<Delay_queue>                       Delay_queue_ptr;
 };
 #endif // CORRELATOR_NODE_TYPES_H

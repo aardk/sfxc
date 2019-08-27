@@ -25,7 +25,7 @@
 class Input_node_data_writer;
 
 /// A smart pointer to this object
-typedef boost::shared_ptr<Input_node_data_writer> Input_node_data_writer_sptr;
+typedef shared_ptr<Input_node_data_writer> Input_node_data_writer_sptr;
 
 class Input_node_data_writer : public Thread 
 {

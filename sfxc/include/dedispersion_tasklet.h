@@ -13,7 +13,7 @@
 class Dedispersion_tasklet{
 public:
   typedef Correlator_node_types::Delay_queue_ptr     Delay_queue_ptr;
-  typedef boost::shared_ptr<Coherent_dedispersion>   Coherent_dedispersion_ptr;
+  typedef shared_ptr<Coherent_dedispersion>          Coherent_dedispersion_ptr;
   typedef Pulsar_parameters::Pulsar                  Pulsar;
 
   Dedispersion_tasklet();
