@@ -10,7 +10,7 @@
 
 #ifndef DELAY_CORRECTION_H
 #define DELAY_CORRECTION_H
-#include <boost/shared_ptr.hpp>
+
 #include <complex>
 
 #include "delay_correction.h"
