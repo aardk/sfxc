@@ -375,24 +375,38 @@ void Manager_node::start_next_timeslice_on_node(int corr_node_nr) {
        input_node++) {
     int stream = corr_node_nr;
     int station_nr = station_map[input_node];
+    int stream_idx;
+
+    stream_idx = 0;
+    while ((stream_idx < correlation_parameters.station_streams.size()) &&
+	   (correlation_parameters.station_streams[stream_idx].station_stream != input_node))
+      stream_idx++;
+    SFXC_ASSERT(stream_idx != correlation_parameters.station_streams.size());
+
+    int64_t slice_samples = correlation_parameters.slice_size *
+      correlation_parameters.station_streams[stream_idx].sample_rate /
+      correlation_parameters.sample_rate;;
+
     if (ch_number_in_scan[current_channel][input_node] >= 0) {
       input_node_set_time_slice(input_node,
                                 ch_number_in_scan[current_channel][input_node],
-				stream,
+                                stream,
                                 correlation_parameters.slice_start,
-				correlation_parameters.slice_start +
-                                correlation_parameters.slice_time);
+                                correlation_parameters.slice_start +
+                                correlation_parameters.slice_time,
+                                slice_samples);
       stream += n_corr_nodes;
     }
 
     if (cross_channel != -1 &&
 	ch_number_in_scan[cross_channel][input_node] >= 0) {
       input_node_set_time_slice(input_node,
-				ch_number_in_scan[cross_channel][input_node],
-				stream,
-				correlation_parameters.slice_start,
-				correlation_parameters.slice_start +
-				correlation_parameters.slice_time);
+                                ch_number_in_scan[cross_channel][input_node],
+                                stream,
+                                correlation_parameters.slice_start,
+                                correlation_parameters.slice_start +
+                                correlation_parameters.slice_time,
+                                slice_samples);
     }
   }
 

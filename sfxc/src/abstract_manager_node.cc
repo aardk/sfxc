@@ -353,13 +353,15 @@ void
 Abstract_manager_node::
 input_node_set_time_slice(int input_node,
                           int32_t channel, int32_t stream_nr,
-                          Time start_time, Time stop_time) {
+                          Time start_time, Time stop_time,
+                          int64_t slice_samples) {
   int rank = input_node + 3;
   int64_t message[] = {channel,
                        stream_nr,
                        start_time.get_clock_ticks(),
-                       stop_time.get_clock_ticks()};
-  MPI_Send(&message, 4, MPI_INT64,
+                       stop_time.get_clock_ticks(),
+                       slice_samples};
+  MPI_Send(&message, 5, MPI_INT64,
            rank, MPI_TAG_INPUT_NODE_ADD_TIME_SLICE, MPI_COMM_WORLD);
 }
 

@@ -130,7 +130,8 @@ void Input_node::add_time_interval(Time start_time, Time stop_time,
 
 void Input_node::add_time_slice_to_stream(int channel, int stream,
 					  Time slice_start,
-                                          Time slice_stop) {
+					  Time slice_stop,
+					  int64_t slice_samples) {
   SFXC_ASSERT(data_writers_ctrl.get_data_writer(stream) !=
               Multiple_data_writers_controller::Data_writer_ptr());
 
@@ -139,7 +140,7 @@ void Input_node::add_time_slice_to_stream(int channel, int stream,
 
   input_node_tasklet->add_data_writer(channel,
                                   data_writers_ctrl.get_data_writer(stream),
-				  slice_start, slice_stop);
+                                  slice_start, slice_stop, slice_samples);
 }
 
 int Input_node::get_status() {

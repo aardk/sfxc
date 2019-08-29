@@ -70,7 +70,8 @@ public:
 
   /// Sets the output writer for channel i
   void add_data_writer(size_t i, Data_writer_sptr data_writer,
-		       Time slice_start, Time slice_stop);
+		       Time slice_start, Time slice_stop,
+		       int64_t slice_samples);
 
   /// Compute a list of delays, note we only store the times(+delay) 
   /// where the integer delay changes
