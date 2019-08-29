@@ -91,7 +91,8 @@ public:
   // Send a new time slice 
   void input_node_set_time_slice(int input_node, int32_t channel,
                                  int32_t stream_nr,
-                                 Time start_time, Time integr_time);
+                                 Time slice_start, Time slice_stop,
+                                 int64_t slice_samples);
 
   void output_node_set_global_header(char* header_msg, int size);
 
