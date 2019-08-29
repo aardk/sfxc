@@ -1792,6 +1792,7 @@ get_input_node_parameters(const std::string &mode_name,
   result.track_bit_rate = -1;
   result.frame_size = -1;
   result.offset = reader_offset(station_name);
+  result.overlap_time =  0;
   result.phasecal_integr_time = phasecal_integration_time();
   result.exit_on_empty_datastream = exit_on_empty_datastream();
 
@@ -1845,19 +1846,6 @@ get_input_node_parameters(const std::string &mode_name,
     SFXC_ASSERT(data_format(station_name, mode_name) == "Mark5B");
     get_mark5b_tracks(mode_name, station_name, result);
   }
-
-  // Set Channel offsets and dispersive delays 
-  const int64_t sample_rate_ = sample_rate(mode_name, setup_station());
-
-  result.overlap_time =  0;
-  int nfft = nr_correlation_ffts_per_integration(integration_time() / slices_per_integration(),
-                                                 sample_rate_, 
-                                                 fft_size_correlation());
-  result.slice_size = nfft * fft_size_correlation();
-  // Scale the slice size based on the sample rate.  This is important for
-  // "mixed bandwidth" correlation where we need to make sure that we
-  // send enough data to the correlator nodes.
-  result.slice_size *= sample_rate(mode_name, station_name) / sample_rate_; 
 
   if (!result.channels.empty()) {
     SFXC_ASSERT(!result.channels[0].tracks.empty());

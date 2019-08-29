@@ -50,8 +50,6 @@ public:
   uint64_t track_bit_rate; // in Ms/s
   // Frame size
   int32_t frame_size;
-  // Size of slice in number_of_samples
-  int32_t slice_size;
   /// Time offset for the data reader, used e.g. to compensate for formatter errors
   Time offset;
   /// Indicates if data modulation is used (p.6 of Mark4 memo 230A, Whitney 2005)
