@@ -145,11 +145,8 @@ Coherent_dedispersion::set_parameters(const Correlation_parameters &parameters)
   current_buffer = 0;
   fft_to_skip = (parameters.slice_start.diff(parameters.stream_start) * 
                  sample_rate()  + fft_dedisp_size() / 4) * 2 / fft_rot_size();
-  number_ffts_in_slice =
-    Control_parameters::nr_correlation_ffts_per_integration(
-      (int) parameters.slice_time.get_time_usec(),
-      parameters.sample_rate,
-      parameters.fft_size_correlation);
+  number_ffts_in_slice = parameters.slice_size /
+    parameters.fft_size_correlation;
 
   start_time = parameters.slice_start;
   // Initialize buffers
