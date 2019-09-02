@@ -131,11 +131,8 @@ Correlation_core::set_parameters(const Correlation_parameters &parameters,
 
 void
 Correlation_core::create_baselines(const Correlation_parameters &parameters){
-  number_ffts_in_slice =
-    Control_parameters::nr_correlation_ffts_per_integration(
-      (int) parameters.slice_time.get_time_usec(),
-      parameters.sample_rate,
-      parameters.fft_size_correlation); 
+  number_ffts_in_slice = parameters.slice_size /
+    parameters.fft_size_correlation;
   // One less because of the overlapping windows
   if ((parameters.window != SFXC_WINDOW_NONE) &&
       (parameters.window != SFXC_WINDOW_PFB))
