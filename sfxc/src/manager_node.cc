@@ -355,6 +355,16 @@ void Manager_node::start_next_timeslice_on_node(int corr_node_nr) {
     start_time + integration_time() * integration_nr;
   correlation_parameters.slice_start = correlation_parameters.integration_start +
     correlation_parameters.slice_time * slice_nr;
+  if (slice_nr == control_parameters.slices_per_integration() - 1) {
+    correlation_parameters.slice_time = 
+      correlation_parameters.integration_start +
+      correlation_parameters.integration_time -
+      correlation_parameters.slice_start;
+    int nfft = Control_parameters::nr_correlation_ffts_per_integration(correlation_parameters.slice_time,
+								       correlation_parameters.sample_rate,
+								       correlation_parameters.fft_size_correlation);
+    correlation_parameters.slice_size = correlation_parameters.fft_size_correlation * nfft;
+  }
   // stream_start <= slice_start ; needed for coherent dedispersion (place holder for now)
   correlation_parameters.stream_start = correlation_parameters.slice_start;
   correlation_parameters.integration_nr = integration_nr;
