@@ -2320,6 +2320,8 @@ get_correlation_parameters(const std::string &scan_name,
                                            corr_param.sample_rate,
                                            fft_size_correlation());
   corr_param.slice_size = fft_size_correlation() * nfft;
+  // Round slice time down to an integral number of FFTs
+  corr_param.slice_time = Time((1000000ULL * corr_param.slice_size) / corr_param.sample_rate);
 
   if (!corr_param.cross_polarize)
     return corr_param;
