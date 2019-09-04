@@ -384,8 +384,10 @@ Correlator_node::set_parameters() {
   // when the cross_polarize flag is set then the correlator node receives 2 polarizations
   int size_stats = nstreams * sizeof(Output_header_bitstatistics);
 
-  int band = parameters.frequency_nr << 1;
+  int band = parameters.frequency_nr << 2;
   if (parameters.sideband == 'U')
+    band |= 2;
+  if (parameters.polarisation == 'L')
     band |= 1;
 
   bool accum = true;
