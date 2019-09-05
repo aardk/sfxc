@@ -384,14 +384,14 @@ void Manager_node::start_next_timeslice_on_node(int corr_node_nr) {
   for (size_t input_node = 0; input_node < control_parameters.number_inputs();
        input_node++) {
     int stream = corr_node_nr;
-    int station_nr = station_map[input_node];
     int stream_idx;
 
     stream_idx = 0;
     while ((stream_idx < correlation_parameters.station_streams.size()) &&
 	   (correlation_parameters.station_streams[stream_idx].station_stream != input_node))
       stream_idx++;
-    SFXC_ASSERT(stream_idx != correlation_parameters.station_streams.size());
+    if (stream_idx == correlation_parameters.station_streams.size())
+      continue;
 
     int64_t slice_samples = correlation_parameters.slice_size *
       correlation_parameters.station_streams[stream_idx].sample_rate /
