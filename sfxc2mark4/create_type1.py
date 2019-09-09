@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 import sys
 import struct
 import argparse
@@ -13,12 +12,8 @@ from urlparse import urlparse
 from sfxcdata import SFXCData
 from experiment import experiment
 from stationmap import create_one_letter_mapping
+from ovex import create_rootfile, create_global_ovex, get_nbits
 from vex import Vex 
-
-def ensure_list(x):
-  if type(x) == list:
-    return x
-  return [x]
 
 def create_root_id(t):
   # rootid format changes after when the 'old' format with epoch in 1979 
@@ -103,209 +98,6 @@ def fix_vex_for_hopps(vex):
           scale *= 1e6
       ratesec = scale_string_float(rate[0], scale) 
       clock_early[3] = "{}".format(ratesec)
-
-def get_nbits(vex, mode, stations):
-  nbits = {}
-  for station in stations:
-    for das in vex['STATION'][station].getall('DAS'):
-      try:
-        rack_type = vex['DAS'][das]['electronics_rack_type']
-      except KeyError:
-        pass
-      try:
-        transport_type = vex['DAS'][das]['record_transport_type']
-      except KeyError:
-        pass
-    datatype = 'VDIF'
-    if (transport_type == 'Mark5A'):
-      datatype = 'Mark5A'
-    if (transport_type == 'Mark5B') and (rack_type not in ("DVP", "RDBE2", "WIDAR")):
-      datatype = 'Mark5B'
-
-    n = 0
-    if datatype == 'Mark5B': 
-      # Mark5B data
-      for x in vex['MODE'][mode].getall('BITSTREAMS'):
-        if station in x[1:]:
-          n = 1
-          for line in vex['BITSTREAMS'][x[0]].getall('stream_def'):
-            if line[1] == 'mag':
-              n = 2
-              break
-      if n == 0:
-        print 'Warning: No $BITSTREAMS section for station: "{}", trying $TRACKS section'.format(station)
-    elif datatype == 'VDIF':
-      # VDIF data
-      for x in vex['MODE'][mode].getall('THREADS'):
-        if station in x[1:]:
-          n = int(vex['THREADS'][x[0]]['thread'][5])
-          break
-      if n == 0:
-        print 'Error: No THREADS section for station: "{}", trying $TRACKS section (is it really VDIF?)'.format(station)
-    
-    if n == 0:
-      # Mark5A data or $BITSTREAMS/$THREADS not found
-      for x in vex['MODE'][mode].getall('TRACKS'):
-        if station in x[1:]:
-          n = 1
-          for line in vex['TRACKS'][x[0]].getall('fanout_def'):
-            if line[2] == 'mag':
-              n = 2
-              break
-    if n == 0:
-      print 'Error: No TRACKS section for station: "{}"'.format(station)
-      exit(1)
-    # store result for station
-    try:
-      nbits[n].append(station)
-    except KeyError:
-      nbits[n] = [station]
-  return nbits
-
-def create_root(vex, ctrl, scan, data, dirname):
-  rootname = dirname + '/' + data.source + '.' + ROOTID
-  f = open(rootname, 'w')
-  # $Head and $GLOBAL
-  f.write('$OVEX_REV;\nrev = 1.5;\n$GLOBAL;\n')
-  for i in ('EOP', 'EXPER'):
-    f.write('    ref ${} = {};\n'.format(i, vex['GLOBAL'][i]))
-  
-  # $EXPER
-  name = vex['GLOBAL']['EXPER']
-  f.write('*\n$EXPER;\n  def {};\n'.format(name))
-  for i in ('exper_name', 'exper_description', 'PI_name'):
-    f.write('    {} = {};\n'.format(i, vex['EXPER'][name][i]))
-  # Target correlator has to difx, otherwise HOPS assumes it is lagdata
-  f.write('    target_correlator = difx;\n  enddef;\n')
-
-  # $MODE
-  try:
-    setup_station = ctrl['setup_station']
-  except:
-    setup_station = ctrl['stations'][0]
-    pass
-  f.write('*\n$MODE;\n  def {};\n'.format(scan['mode']))
-  for x in vex['MODE'][scan['mode']].getall('FREQ'):
-    stations = set(x) - (set(x) - set(data.stations))
-    if len(stations) > 0:
-      f.write('    ref $FREQ = {}:{};\n'.format(x[0], ':'.join(stations)))
-    if setup_station in x[1:]:
-      freq = x[0]
-  for x in vex['MODE'][scan['mode']].getall('BBC'):
-    if setup_station in x[1:]:
-      bbc = x[0]
-  for x in vex['MODE'][scan['mode']].getall('IF'):
-    if setup_station in x[1:]:
-      if_ = x[0]
-  stationstring = ':'.join(data.stations)
-  f.write('    ref $BBC = {}:{};\n'.format(bbc, stationstring))
-  f.write('    ref $IF = {}:{};\n'.format(if_, stationstring))
-  nbits = get_nbits(vex, scan['mode'], data.stations)
-  for n in nbits:
-    f.write('    ref $TRACKS = tracks_{}bit:{};\n'.format(n, ":".join(nbits[n])))
-  f.write('  enddef;\n')
-
-  # STATION, SITE, ANTENNA, 'CLOCK', $TAPELOG_OBS, SOURCE
-  blocks = [('STATION', 'all', ['$SITE', '$ANTENNA', '$CLOCK'])]
-  blocks.append(('ANTENNA', 'all', ['antenna_diam', 'axis_type', 'axis_offset', 'pointing_sector']))
-  blocks.append(('SITE', 'all', ['site_type', 'site_name', 'site_ID', 'site_position', \
-                 'horizon_map_az', 'horizon_map_el', 'occupation_code', 'mk4_site_ID'])) 
-  blocks.append(('TAPELOG_OBS', 'all', ['VSN']))
-  blocks.append(('SOURCE', scan['source'], ['source_name', 'ra', 'dec', 'ref_coord_frame']))
-  blocks.append(('CLOCK', 'all', ['clock_early']))
-  blocks.append(('EOP', 'all', [])) # difx2mark4 leaves this empty
-  blocks.append(('BBC', bbc, ['BBC_assign']))
-  blocks.append(('IF', if_, ['if_def']))
-  fmt = {'BBC_assign': '    BBC_assign = &{} : {} : &{};\n'}
-  fmt['if_def'] = '    if_def = &{} : {} : {} : {} : {} : {} : {};\n'
-  fmt['pointing_sector'] = '    pointing_sector = &{} : {} :  {} : {} : {} : {} : {};\n'
-  for block, keys, items in blocks:
-    keys = [k for k in vex[block].iterkeys()] if keys == 'all' else ensure_list(keys)
-    f.write('*\n${};\n'.format(block))
-    for k in keys:
-      f.write('  def {};\n'.format(k))
-      for item in items:
-        pre = '    ref ' if item[0] == '$' else '    '
-        for m in vex[block][k].getall(item.lstrip('$')):
-          if item in fmt:
-            if item == 'if_def' and len(m) < 6:
-              m.append('0 MHz')
-              pass
-            if item == 'if_def' and len(m) < 7:
-              m.append('0 MHz')
-              pass
-            f.write(fmt[item].format(*ensure_list(m)))
-          else:
-            f.write(pre + '{} = {};\n'.format(item, ' : '.join(ensure_list(m))))
-      f.write('  enddef;\n')
-
-  # TRACKS
-  f.write('*\n$TRACKS;\n')
-  for n in nbits:
-    f.write('  def tracks_{}bit;\n    bits/sample = {};\n  enddef;\n'.format(n, n))
-  
-  # FREQ
-  f.write('*\n$FREQ;\n')
-  mode = scan['mode']
-  for x in vex['MODE'][mode].getall('FREQ'):
-    if setup_station in x[1:]:
-      setupfreq = x[0]
-      break
-  for x in vex['MODE'][mode].getall('FREQ'):
-    stations = list(set(x[1:]) - (set(x[1:]) - set(data.stations)))
-    if len(stations) == 0:
-      continue
-    f.write('  def {};\n'.format(x[0]))
-    for y in vex['FREQ'][setupfreq].getall('chan_def'):
-      setupch = scan['allfreq'][setup_station][y[4]]
-      sb = 0 if (setupch['sb'] == 'L') else 1
-      smin = setupch['freq'] + (sb - 1) * setupch['bw']
-      smax = setupch['freq'] + sb * setupch['bw']
-      spol = setupch['pol']
-      sid = setupch['freq_id']
-      for chname in scan['allfreq'][stations[0]]:
-        ch = scan['allfreq'][stations[0]][chname]
-        sb = 0 if (ch['sb'] == 'L') else 1
-        chmin = ch['freq'] + (sb - 1) * ch['bw']
-        chmax = ch['freq'] + sb * ch['bw']
-        chpol = ch['pol']
-        # 1. Match case where band from setup station is contained in this subband.
-        # 2. Match when this subband is contained in its entire in the setup station subband
-        if (spol == chpol) and (((smin >= chmin) and (smax <= chmax)) or \
-                                 (smin <= chmin) and (smax >= chmax)):
-          f.write('    chan_def = {} : : {} : {} : {} : &{} : &{};\n'.format(sid, *y[1:]))
-          break
-    f.write('    sample_rate = {};\n  enddef;\n'.format(vex['FREQ'][setupfreq]['sample_rate']))
-
-  # SCHED
-  name = scan['name']
-  sched = vex['SCHED'][name]
-  f.write('*\n$SCHED;\n scan {};\n'.format(name))
-  f.write('    start = {};\n'.format(sched['start']))
-  f.write('    mode = {};\n'.format(sched['mode']))
-  f.write('    source = {};\n'.format(sched['source']))
-  for x in sched.getall('station'):
-    if x[0] in data.stations:
-      f.write('    station = {} : {} : {} : {} : {} : &{} : {};\n'.format(*x))
-  f.write('  endscan;\n')
-  
-  # EVEX
-  evex = "*\n$EVEX_REV;\n  rev = 1.0;\n$EVEX;\n  def 1234_std;\n" +\
-         "    corr_exp#   = {};\n    ovex_file   = dummy;\n".format(BASENAME) +\
-         "    cvex_file   = dummy;\n    svex_file   = dummy;\n" +\
-         "    AP_length   = {:f} sec;\n    speedup_factor = 1.0;\n".format(ctrl["integr_time"]) +\
-         "    ref $CORR_CONFIG = CDUM;\n    ref $SU_CONFIG  = SDUM;\n" +\
-         "   enddef;\n"
-  f.write(evex)
-
-  # IVEX and LVEX
-  ivex = "$IVEX_REV;\n  rev = 1.0;\n$CORR_INIT;\n  def INIT_DUMMY;\n" +\
-         "    system_tempo = 1.00;\n    bocf_period =  8000000;\n" +\
-         "    ref $PBS_INIT = PBS_DUMMY;\n  enddef;\n" +\
-         "$PBS_INIT;\n  def PBS_DUMMY;\n  enddef;\n$LVEX_REV;\n" +\
-         "  rev = 1.0;\n$LOG;\n  def log_dummy;\n  enddef;\n"
-  f.write(ivex)
-  return rootname
 
 def hopsdate(t):
   yday = (t - datetime(t.year, 1, 1)).days + 1
@@ -472,7 +264,7 @@ def initialise_next_scan(vex, exper, ctrl, data):
   dirname = BASENAME + '/' + scan['name'].encode('ascii')
   if not os.path.exists(dirname):
     os.makedirs(dirname)
-  rootname = create_root(vex, ctrl, scan, data, dirname)
+  rootname = create_rootfile(vex, ctrl, scan['name'], data.stations, dirname, ROOTID)
   scale = create_scaling_factors(vex, scan, data)
   t1map = create_t1map(scan, data)
 
@@ -505,13 +297,18 @@ def parse_args():
   parser = argparse.ArgumentParser(description='Convert SFXC output to mark4 format')
   parser.add_argument("vexfile", help='vex file')
   parser.add_argument("ctrlfile", help='SFXC control file used in the correlation')
+  parser.add_argument('-c', "--create-ovex", help='Create toplevel ovex', action='store_true')
   parser.add_argument('-r', "--rootid", help='Manually specify rootid', default=create_root_id(CREATIONDATE))
   args = parser.parse_args()
   vex = Vex(args.vexfile)
   ctrl = json.load(open(args.ctrlfile, 'r'))
-  return vex, ctrl, args.rootid
+  if args.create_ovex:
+    ovexname = os.path.basename(args.vexfile).split('.')[0] + '.ovex'
+  else:
+    ovexname = ""
+  return vex, ctrl, args.rootid, ovexname
 
-def process_job(vex, ctrl, rootid, basename="1234"):
+def process_job(vex, ctrl, rootid, ovexname="", basename="1234"):
   global ROOTID, BASENAME, STATIONMAP
   exper = experiment(vex)
   ROOTID = rootid
@@ -536,6 +333,12 @@ def process_job(vex, ctrl, rootid, basename="1234"):
   data = SFXCData(output_file, stations, sources)
   STATIONMAP = create_one_letter_mapping(vex)
   fix_vex_for_hopps(vex)
+  if ovexname != "":
+    try:
+      setup_station = ctrl['setup_station']
+    except:
+      setup_station = ctrl['stations'][0]
+    create_global_ovex(vex, setup_station, ovexname, BASENAME)
 
   scan = {'stop': datetime(1,1,1)}
   outfiles = {}
@@ -559,5 +362,5 @@ def process_job(vex, ctrl, rootid, basename="1234"):
 ########################## MAIN #################################3
 ########
 if __name__ == "__main__":
-  vex, ctrl, rootid = parse_args()
-  process_job(vex, ctrl, rootid)
+  vex, ctrl, rootid, create_ovex = parse_args()
+  process_job(vex, ctrl, rootid, create_ovex)

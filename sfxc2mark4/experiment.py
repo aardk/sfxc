@@ -112,6 +112,9 @@ class experiment:
     secofday = 3600 * hour + 60 * minute + sec
     return datetime(year, 1, 1) + timedelta(yday-1, secofday) 
 
+  def get_freq(self, mode, station):
+    return self.modes[mode]['byname'][station]
+
   def get_scan(self, vex, ctrl, data):
     if 'scans' in ctrl:
       scans = ctrl["scans"]
