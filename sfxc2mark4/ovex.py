@@ -1,14 +1,21 @@
 #!/usr/bin/env python
 from experiment import experiment
+DEFAULT_EXPER_NUM = 16383
 
 def ensure_list(x):
   if hasattr(x, '__iter__'):
     return list(x)
   return [x]
 
-def create_global_ovex(vex, setup_station, ovexname, basename):
+def create_global_ovex(vex, setup_station):
   exper = experiment(vex)
-  outfile = open(basename + '/' + ovexname, 'w')
+  exp = vex['GLOBAL']['EXPER']
+  try:
+    exper_num = vex['EXPER'][exp]['exper_num']
+  except KeyError:
+    exper_num = DEFAULT_EXPER_NUM
+
+  outfile = open(str(exper_num)+'.ovex', 'w')
   scans = [scan for scan in vex['SCHED']]
   stations = [station for station in vex['STATION']]
   write_ovex(vex, setup_station, scans, stations, exper, outfile)
@@ -38,7 +45,7 @@ def write_ovex(vex, setup_station, scans, stations, exper, outfile):
   # $EXPER
   name = vex['GLOBAL']['EXPER']
   outfile.write('*\n$EXPER;\n  def {};\n'.format(name))
-  for i in ('exper_name', 'exper_description', 'PI_name'):
+  for i in ('exper_num', 'exper_name', 'exper_description', 'PI_name'):
     outfile.write('    {} = {};\n'.format(i, vex['EXPER'][name][i]))
   # Target correlator has to difx, otherwise HOPS assumes it is lagdata
   outfile.write('    target_correlator = difx;\n  enddef;\n')
