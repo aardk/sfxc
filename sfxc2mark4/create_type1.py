@@ -302,13 +302,9 @@ def parse_args():
   args = parser.parse_args()
   vex = Vex(args.vexfile)
   ctrl = json.load(open(args.ctrlfile, 'r'))
-  if args.create_ovex:
-    ovexname = os.path.basename(args.vexfile).split('.')[0] + '.ovex'
-  else:
-    ovexname = ""
-  return vex, ctrl, args.rootid, ovexname
+  return vex, ctrl, args.rootid, args.create_ovex
 
-def process_job(vex, ctrl, rootid, ovexname="", basename="1234"):
+def process_job(vex, ctrl, rootid, create_ovex, basename="1234"):
   global ROOTID, BASENAME, STATIONMAP
   exper = experiment(vex)
   ROOTID = rootid
@@ -333,12 +329,12 @@ def process_job(vex, ctrl, rootid, ovexname="", basename="1234"):
   data = SFXCData(output_file, stations, sources)
   STATIONMAP = create_one_letter_mapping(vex)
   fix_vex_for_hopps(vex)
-  if ovexname != "":
+  if create_ovex:
     try:
       setup_station = ctrl['setup_station']
     except:
       setup_station = ctrl['stations'][0]
-    create_global_ovex(vex, setup_station, ovexname, BASENAME)
+    create_global_ovex(vex, setup_station)
 
   scan = {'stop': datetime(1,1,1)}
   outfiles = {}
