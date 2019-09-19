@@ -13,10 +13,7 @@ def ensure_list(x):
 def create_global_ovex(vex, setup_station):
   exper = experiment(vex)
   exp = vex['GLOBAL']['EXPER']
-  try:
-    exper_num = vex['EXPER'][exp]['exper_num']
-  except KeyError:
-    exper_num = DEFAULT_EXPER_NUM
+  exper_num = vex['EXPER'][exp]['exper_num']
 
   outfile = open(str(exper_num)+'.ovex', 'w')
   scans = [scan for scan in vex['SCHED']]
@@ -260,9 +257,14 @@ def scale_string_float(value, scalefactor):
   fmt = "{:%dg}"%(predot + postdot)
   return fmt.format(float(value) * scalefactor)
 
-def fix_vex_for_hopps(vex):
+def fix_vex_for_hops(vex):
   # Fix the vex file to comply with HOPPS
   one_letter_codes = stationmap.one_letter_codes
+
+  # Ensure that the experiment number is set
+  exp = vex['GLOBAL']['EXPER']
+  if 'exper_num' not in vex['EXPER'][exp]:
+    vex['EXPER'][exp]['exper_num'] = DEFAULT_EXPER_NUM
 
   # Add mk4_site_ID to $SITE
   for key in vex['STATION']:
@@ -325,5 +327,5 @@ def parse_args():
 if __name__ == "__main__":
   vex, setup_station, codefile = parse_args()
   stationmap.create_one_letter_mapping(vex, codefile)
-  fix_vex_for_hopps(vex)
+  fix_vex_for_hops(vex)
   create_global_ovex(vex, setup_station)
