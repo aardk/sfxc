@@ -2,6 +2,7 @@
 import argparse
 from vex import Vex 
 from experiment import experiment
+import stationmap
 DEFAULT_EXPER_NUM = 16383
 
 def ensure_list(x):
@@ -248,20 +249,81 @@ def get_nbits(vex, mode, stations):
       nbits[n] = [station]
   return nbits
 
+def scale_string_float(value, scalefactor):
+  # Scale floating point number stored as string without changing the precision
+  n = len(value)
+  v = value.lower().partition('.')
+  expidx1 = v[0].find('e')
+  expidx2 = v[2].find('e')
+  predot = len(v[0][:expidx1])
+  postdot = len(v[2][:expidx2])
+  fmt = "{:%dg}"%(predot + postdot)
+  return fmt.format(float(value) * scalefactor)
+
+def fix_vex_for_hopps(vex):
+  # Fix the vex file to comply with HOPPS
+  one_letter_codes = stationmap.one_letter_codes
+
+  # Add mk4_site_ID to $SITE
+  for key in vex['STATION']:
+    site = vex['STATION'][key]['SITE']
+    st = vex['SITE'][site]['site_ID']
+    vex['SITE'][site]['mk4_site_ID'] = one_letter_codes[st]
+
+  # fix axis_offset in the $ANTENNA block (differs from the definition in vex 1.5)
+  for key in vex['ANTENNA']:
+    try:
+      axis_offset = vex['ANTENNA'][key]['axis_offset']
+
+      if type(axis_offset) != list:
+        vex['ANTENNA'][key].pop('axis_offset')
+        # difx2mark4 alway puts 'el' in the first field
+        vex['ANTENNA'][key]['axis_offset'] = ['el', axis_offset]
+    except KeyError:
+      # Should we add axis_offset if it is missing?
+      print 'No axis_offset for station', key
+      pass
+  
+  # Fix the units for the clock offsets
+  for key in vex['CLOCK']:
+    for clock_early in vex['CLOCK'][key].getall('clock_early'):
+      delay = clock_early[1].split()
+      if (len(delay) == 2) and delay[1] == 'sec':
+        delayusec = scale_string_float(delay[0], 1e6)
+        clock_early[1] = "{} usec".format(delayusec)
+      rate = clock_early[3].split()
+      if len(rate) == 1:
+        # SFXC defaults to usec / sec but HOPPS uses sec / sec
+        scale = 1e-6
+      else:
+        # convert units to sec / sec
+        unit = [x.strip() for x in ("".join(rate[1:])).split('/')]
+        if len(unit) != 2:
+          print 'Error, invalid unit for clock rate: "{}"'.format("".join(rate[1:]))
+          exit(1)
+        scale = 1e-6 if unit[0] == 'usec' else 1.
+        if unit[1] == 'usec':
+          scale *= 1e6
+      ratesec = scale_string_float(rate[0], scale) 
+      clock_early[3] = "{}".format(ratesec)
+
 def parse_args():
   parser = argparse.ArgumentParser(description='Converts a vex file to an ovex file.')
   parser.add_argument("vexfile", help='vex file')
   parser.add_argument("setup_station", help='Setup station for the experiment')
+  parser.add_argument('-c', "--code-file", help='JSON file containing one letter station codes')
   args = parser.parse_args()
   vex = Vex(args.vexfile)
   setup_station = args.setup_station
   if setup_station not in vex['STATION']:
     parser.error('Setup station is not in vex file')
-  return vex, setup_station
+  return vex, setup_station, args.code_file
 
 #########
 ########################## MAIN #################################3
 ########
 if __name__ == "__main__":
-  vex, setup_station = parse_args()
+  vex, setup_station, codefile = parse_args()
+  stationmap.create_one_letter_mapping(vex, codefile)
+  fix_vex_for_hopps(vex)
   create_global_ovex(vex, setup_station)

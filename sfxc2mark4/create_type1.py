@@ -12,7 +12,7 @@ from urlparse import urlparse
 from sfxcdata import SFXCData
 from experiment import experiment
 import stationmap
-from ovex import create_rootfile, create_global_ovex, get_nbits
+import ovex
 from vex import Vex 
 
 def create_root_id(t):
@@ -41,64 +41,6 @@ def create_root_id(t):
       result = chr('a' + dt%26) + result
       dt /= 26
   return result
-
-def scale_string_float(value, scalefactor):
-  # Scale floating point number stored as string without changing the precision
-  n = len(value)
-  v = value.lower().partition('.')
-  expidx1 = v[0].find('e')
-  expidx2 = v[2].find('e')
-  predot = len(v[0][:expidx1])
-  postdot = len(v[2][:expidx2])
-  fmt = "{:%dg}"%(predot + postdot)
-  return fmt.format(float(value) * scalefactor)
-
-def fix_vex_for_hopps(vex):
-  # Fix the vex file to comply with HOPPS
-  
-  # Add mk4_site_ID to $SITE
-  one_letter_codes = stationmap.one_letter_codes
-  for key in vex['STATION']:
-    site = vex['STATION'][key]['SITE']
-    st = vex['SITE'][site]['site_ID']
-    vex['SITE'][site]['mk4_site_ID'] = one_letter_codes[st]
-
-  # fix axis_offset in the $ANTENNA block (differs from the definition in vex 1.5)
-  for key in vex['ANTENNA']:
-    try:
-      axis_offset = vex['ANTENNA'][key]['axis_offset']
-
-      if type(axis_offset) != list:
-        vex['ANTENNA'][key].pop('axis_offset')
-        # difx2mark4 alway puts 'el' in the first field
-        vex['ANTENNA'][key]['axis_offset'] = ['el', axis_offset]
-    except KeyError:
-      # Should we add axis_offset if it is missing?
-      print 'No axis_offset for station', key
-      pass
-  
-  # Fix the units for the clock offsets
-  for key in vex['CLOCK']:
-    for clock_early in vex['CLOCK'][key].getall('clock_early'):
-      delay = clock_early[1].split()
-      if (len(delay) == 2) and delay[1] == 'sec':
-        delayusec = scale_string_float(delay[0], 1e6)
-        clock_early[1] = "{} usec".format(delayusec)
-      rate = clock_early[3].split()
-      if len(rate) == 1:
-        # SFXC defaults to usec / sec but HOPPS uses sec / sec
-        scale = 1e-6
-      else:
-        # convert units to sec / sec
-        unit = [x.strip() for x in ("".join(rate[1:])).split('/')]
-        if len(unit) != 2:
-          print 'Error, invalid unit for clock rate: "{}"'.format("".join(rate[1:]))
-          exit(1)
-        scale = 1e-6 if unit[0] == 'usec' else 1.
-        if unit[1] == 'usec':
-          scale *= 1e6
-      ratesec = scale_string_float(rate[0], scale) 
-      clock_early[3] = "{}".format(ratesec)
 
 def hopsdate(t):
   yday = (t - datetime(t.year, 1, 1)).days + 1
@@ -254,7 +196,7 @@ def create_t1map(scan, data):
 def create_scaling_factors(vex, scan, data):
   # sqrt (10000 * Van Vleck correction)
   factors = [1.25331e2, 1.06448e2]
-  nbits = get_nbits(vex, scan['mode'], data.stations)
+  nbits = ovex.get_nbits(vex, scan['mode'], data.stations)
   scalefactors = {}
   for n in nbits:
     stations = nbits[n]
@@ -268,7 +210,7 @@ def initialise_next_scan(vex, exper, ctrl, data):
   if not os.path.exists(dirname):
     os.makedirs(dirname)
   one_letter_codes = stationmap.one_letter_codes
-  rootname = create_rootfile(vex, ctrl, scan['name'], data.stations, dirname, ROOTID)
+  rootname = ovex.create_rootfile(vex, ctrl, scan['name'], data.stations, dirname, ROOTID)
   scale = create_scaling_factors(vex, scan, data)
   t1map = create_t1map(scan, data)
 
@@ -332,13 +274,13 @@ def process_job(vex, ctrl, rootid, create_ovex, basename="1234"):
   out_tuple = urlparse(ctrl['output_file'])
   output_file = out_tuple.netloc if out_tuple.path == '' else out_tuple.path
   data = SFXCData(output_file, stations, sources)
-  fix_vex_for_hopps(vex)
+  ovex.fix_vex_for_hopps(vex)
   if create_ovex:
     try:
       setup_station = ctrl['setup_station']
     except:
       setup_station = ctrl['stations'][0]
-    create_global_ovex(vex, setup_station)
+    ovex.create_global_ovex(vex, setup_station)
 
   scan = {'stop': datetime(1,1,1)}
   outfiles = {}
