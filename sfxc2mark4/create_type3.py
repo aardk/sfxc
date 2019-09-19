@@ -8,6 +8,7 @@ import struct
 import sys
 import time
 import urlparse
+import argparse
 
 import numpy as np
 import scipy as sp
@@ -15,7 +16,7 @@ from scipy import fftpack, signal
 
 from vex import Vex
 
-from stationmap import create_one_letter_mapping
+import stationmap
 
 os.environ['TZ'] = 'UTC'
 time.tzset()
@@ -32,7 +33,7 @@ class ScanInfo:
         self.station_name = str(station.upper())
         self.scan = scan
 
-        station_codes = create_one_letter_mapping(vex)
+        station_codes = stationmap.one_letter_codes
         self.station_code = station_codes[station]
 
         mode = vex['SCHED'][scan]['mode']
@@ -568,13 +569,19 @@ def process_job(vex, json_input, rootid, basename="1234", interval=120):
     return
 
 if __name__ == "__main__":
-    vex = Vex(sys.argv[1])
+    parser = argparse.ArgumentParser(description='Create mark4 type 3 files from SFXC output')
+    parser.add_argument("vexfile", help='vex file')
+    parser.add_argument("ctrlfile", help='SFXC control file used in the correlation')
+    parser.add_argument("rootid", help='The mark4 rootid')
+    parser.add_argument('-c', "--code-file", help='JSON file containing one letter station codes')
+    args = parser.parse_args()
 
+    vex = Vex(args.vexfile)
     fp = open(sys.argv[2], 'r')
     json_input = json.load(fp)
     fp.close()
 
-    rootid = sys.argv[3]
-
+    rootid = args.rootid
+    stationmap.create_one_letter_mapping(vex, args.code_file)
     process_job(vex, json_input, rootid)
     pass

@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from urlparse import urlparse
 from sfxcdata import SFXCData
 from experiment import experiment
-from stationmap import create_one_letter_mapping
+import stationmap
 from ovex import create_rootfile, create_global_ovex, get_nbits
 from vex import Vex 
 
@@ -57,10 +57,11 @@ def fix_vex_for_hopps(vex):
   # Fix the vex file to comply with HOPPS
   
   # Add mk4_site_ID to $SITE
+  one_letter_codes = stationmap.one_letter_codes
   for key in vex['STATION']:
     site = vex['STATION'][key]['SITE']
     st = vex['SITE'][site]['site_ID']
-    vex['SITE'][site]['mk4_site_ID'] = STATIONMAP[st]
+    vex['SITE'][site]['mk4_site_ID'] = one_letter_codes[st]
 
   # fix axis_offset in the $ANTENNA block (differs from the definition in vex 1.5)
   for key in vex['ANTENNA']:
@@ -145,7 +146,8 @@ def create_t100(f, bl, rootname, data):
   yday = (ctime - datetime(ctime.year, 1, 1)).days + 1
   f.write(struct.pack('!4hf', ctime.year, yday, ctime.hour, ctime.minute, ctime.second))
   # NB setting Percent done to 0.0
-  code = STATIONMAP[bl[0]] + STATIONMAP[bl[1]]
+  one_letter_codes = stationmap.one_letter_codes
+  code = one_letter_codes[bl[0]] + one_letter_codes[bl[1]]
   f.write(struct.pack('!2s34s2s6sf', code, rootname, '\0\0', 6*' ', 0.0))
   # start date
   t = hopsdate(data.current_time())
@@ -215,7 +217,8 @@ def write_t120s(data, scan, outfiles, t101_map, scalefactors, ap):
       scalefac = 10000.
     else:
       scalefac = scalefactors[bl[0]] * scalefactors[bl[1]]
-    blname = "{}{}".format(STATIONMAP[bl[0]], STATIONMAP[bl[1]])
+    one_letter_codes = stationmap.one_letter_codes
+    blname = "{}{}".format(one_letter_codes[bl[0]], one_letter_codes[bl[1]])
     f = outfiles[bl]['file']
     outfiles[bl]['nrec'] += len(data.vis[bl])
     for ch in data.vis[bl]:
@@ -264,6 +267,7 @@ def initialise_next_scan(vex, exper, ctrl, data):
   dirname = BASENAME + '/' + scan['name'].encode('ascii')
   if not os.path.exists(dirname):
     os.makedirs(dirname)
+  one_letter_codes = stationmap.one_letter_codes
   rootname = create_rootfile(vex, ctrl, scan['name'], data.stations, dirname, ROOTID)
   scale = create_scaling_factors(vex, scan, data)
   t1map = create_t1map(scan, data)
@@ -271,7 +275,7 @@ def initialise_next_scan(vex, exper, ctrl, data):
   # create type 1 files
   outfiles = {}
   for bl in data.vis:
-    code = STATIONMAP[bl[0]] + STATIONMAP[bl[1]]
+    code = one_letter_codes[bl[0]] + one_letter_codes[bl[1]]
     fname = dirname + '/' + code + '..' + ROOTID
     f = open(fname, 'w')
     outfiles[bl] = {'file': f, 'nrec': 0}
@@ -297,15 +301,16 @@ def parse_args():
   parser = argparse.ArgumentParser(description='Convert SFXC output to mark4 format')
   parser.add_argument("vexfile", help='vex file')
   parser.add_argument("ctrlfile", help='SFXC control file used in the correlation')
-  parser.add_argument('-c', "--create-ovex", help='Create toplevel ovex', action='store_true')
+  parser.add_argument('-O', "--create-ovex", help='Create toplevel ovex', action='store_true')
   parser.add_argument('-r', "--rootid", help='Manually specify rootid', default=create_root_id(CREATIONDATE))
+  parser.add_argument('-c', "--code-file", help='JSON file containing one letter station codes')
   args = parser.parse_args()
   vex = Vex(args.vexfile)
   ctrl = json.load(open(args.ctrlfile, 'r'))
-  return vex, ctrl, args.rootid, args.create_ovex
+  return vex, ctrl, args.rootid, args.create_ovex, args.code_file
 
 def process_job(vex, ctrl, rootid, create_ovex, basename="1234"):
-  global ROOTID, BASENAME, STATIONMAP
+  global ROOTID, BASENAME
   exper = experiment(vex)
   ROOTID = rootid
   BASENAME = basename
@@ -327,7 +332,6 @@ def process_job(vex, ctrl, rootid, create_ovex, basename="1234"):
   out_tuple = urlparse(ctrl['output_file'])
   output_file = out_tuple.netloc if out_tuple.path == '' else out_tuple.path
   data = SFXCData(output_file, stations, sources)
-  STATIONMAP = create_one_letter_mapping(vex)
   fix_vex_for_hopps(vex)
   if create_ovex:
     try:
@@ -358,5 +362,6 @@ def process_job(vex, ctrl, rootid, create_ovex, basename="1234"):
 ########################## MAIN #################################3
 ########
 if __name__ == "__main__":
-  vex, ctrl, rootid, create_ovex = parse_args()
+  vex, ctrl, rootid, create_ovex, codefile = parse_args()
+  stationmap.create_one_letter_mapping(vex, codefile)
   process_job(vex, ctrl, rootid, create_ovex)

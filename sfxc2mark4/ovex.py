@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+import argparse
+from vex import Vex 
 from experiment import experiment
 DEFAULT_EXPER_NUM = 16383
 
@@ -246,4 +248,20 @@ def get_nbits(vex, mode, stations):
       nbits[n] = [station]
   return nbits
 
+def parse_args():
+  parser = argparse.ArgumentParser(description='Converts a vex file to an ovex file.')
+  parser.add_argument("vexfile", help='vex file')
+  parser.add_argument("setup_station", help='Setup station for the experiment')
+  args = parser.parse_args()
+  vex = Vex(args.vexfile)
+  setup_station = args.setup_station
+  if setup_station not in vex['STATION']:
+    parser.error('Setup station is not in vex file')
+  return vex, setup_station
 
+#########
+########################## MAIN #################################3
+########
+if __name__ == "__main__":
+  vex, setup_station = parse_args()
+  create_global_ovex(vex, setup_station)
