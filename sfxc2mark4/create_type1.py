@@ -274,7 +274,7 @@ def process_job(vex, ctrl, rootid, create_ovex, basename="1234"):
   out_tuple = urlparse(ctrl['output_file'])
   output_file = out_tuple.netloc if out_tuple.path == '' else out_tuple.path
   data = SFXCData(output_file, stations, sources)
-  ovex.fix_vex_for_hopps(vex)
+  ovex.fix_vex_for_hops(vex)
   if create_ovex:
     try:
       setup_station = ctrl['setup_station']
