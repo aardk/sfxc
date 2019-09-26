@@ -104,9 +104,6 @@ private:
   /// Number of the slice for the output node
   int32_t output_slice_nr;
 
-  // A list of all scan names.
-  std::list<std::string> scans;
-
   // The current scan number
   size_t current_scan;
 
