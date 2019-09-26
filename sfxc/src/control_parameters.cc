@@ -992,20 +992,13 @@ Control_parameters::datastream(const std::string &mode,
 			       const std::string &station,
 			       const std::string &channel) const
 {
-  if (data_format(station, mode) == "VDIF") {
-    const std::string datastreams_name = get_vex().get_section("DATASTREAMS", mode, station);
-    if (get_vex().get_version() > 1.5 && datastreams_name == std::string()) {
-      std::cerr << "Cannot find $DATASTREAMS reference for " << station
-		<< " in mode" << mode << std::endl;
-      sfxc_abort();
-    }
-    if (datastreams_name != std::string()) {
-      Vex::Node::const_iterator datastreams = vex.get_root_node()["DATASTREAMS"][datastreams_name];
-      for (Vex::Node::const_iterator chan = datastreams->begin("channel");
-	   chan != datastreams->end("channel"); chan++) {
-	if (chan[2]->to_string() == channel)
-	  return chan[0]->to_string();
-      }
+  const std::string datastreams_name = get_vex().get_section("DATASTREAMS", mode, station);
+  if (get_vex().get_version() > 1.5 && datastreams_name != std::string()) {
+    Vex::Node::const_iterator datastreams = vex.get_root_node()["DATASTREAMS"][datastreams_name];
+    for (Vex::Node::const_iterator chan = datastreams->begin("channel");
+	 chan != datastreams->end("channel"); chan++) {
+      if (chan[2]->to_string() == channel)
+	return chan[0]->to_string();
     }
   }
 
