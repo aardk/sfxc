@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import sys
 import struct
 import numpy as np
 from datetime import datetime, timedelta
