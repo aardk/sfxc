@@ -468,18 +468,11 @@ Manager_node::initialise() {
       source_nr++;
     }
   }else if (control_parameters.only_autocorrelations()){
-    std::set<std::string> stations;
-    for(int i=0;i<control_parameters.number_stations();i++)
-      stations.insert(control_parameters.station(i));
-    
     std::string base_filename = control_parameters.get_output_file();
-    std::set<std::string>::iterator stations_it = stations.begin();
-    int nr = 0;
-    // Open one output file per pulsar bin
-    while(stations_it != stations.end()){
-      set_data_writer(RANK_OUTPUT_NODE, nr, base_filename + "_" + *stations_it);
-      nr++;
-      stations_it++;
+    for(int i = 0; i < control_parameters.number_stations(); i++) {
+      // Open one output file per pulsar bin
+      std::string station = control_parameters.station(i);
+      set_data_writer(RANK_OUTPUT_NODE, i, base_filename + "_" + station);
     }
   }else
     set_data_writer(RANK_OUTPUT_NODE, 0, control_parameters.get_output_file());
