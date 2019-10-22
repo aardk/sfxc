@@ -47,11 +47,12 @@ class experiment:
   def _get_BBCs(self, vex, mode):
     # Get all BBCs
     BBCs = {}
+    typeBBC = namedtuple('typeBBC', ['bbc_nr', 'if_'])
     for BBCmode in vex['MODE'][mode].getall('BBC'):
       BBC = {}
       BBCname = BBCmode[0]
       for line in vex['BBC'][BBCname].getall('BBC_assign'):
-        BBC[line[0]] = line[2]
+        BBC[line[0]] = typeBBC(int(line[1]), line[2])
       for station in BBCmode[1:]:
         BBCs[station] = BBC
     return BBCs
@@ -73,6 +74,7 @@ class experiment:
         continue
         
       freqs = []
+      station = FREQmode[1]
       for line in vex['FREQ'][FREQname].getall('chan_def'):
         f0 = float(line[1].split()[0])
         bw = float(line[3].split()[0])
@@ -83,10 +85,10 @@ class experiment:
         FREQ[ch]['sb'] = line[2]
         FREQ[ch]['bw'] = bw
         FREQ[ch]['bbc'] = line[5]
+        FREQ[ch]['bbc_nr'] = BBCs[station][line[5]].bbc_nr
         FREQ[ch]['name'] = ch
-        S = FREQmode[1]
-        IF = BBCs[S][line[5]]
-        FREQ[ch]['pol'] = IFs[S][IF]
+        IF = BBCs[station][line[5]].if_
+        FREQ[ch]['pol'] = IFs[station][IF]
       freqs = sorted(freqs)
       fprev = freqs[0][0]
       i = 0
