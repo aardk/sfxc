@@ -265,7 +265,7 @@ def plot_thread(job):
     st = bl[0]
     sb = 'lsb' if job["sb"] == 0 else 'usb'
     pol = 'rcp' if job["pol1"] == 0 else 'lcp'
-    data = abs(job["vis"])
+    data = abs(job["vis"]) / max(1, job["ap"])
     n = data.size
     # plot spectrum (amplitude)
     f0 = job["freq"]
@@ -293,7 +293,7 @@ def plot_thread(job):
     sb = 'lsb' if job["sb"] == 0 else 'usb'
     pol1 = 'rcp' if job["pol1"] == 0 else 'lcp'
     pol2 = 'rcp' if job["pol2"] == 0 else 'lcp'
-    data = abs(job["vis"])
+    data = abs(job["vis"]) / max(1, job["ap"])
     n = data.size
     basename = "{st1}_{pol1}_{st2}_{pol2}_freq{freq}_{sb}".format(st1=bl[0], st2=bl[1], pol1=pol1, pol2=pol2, freq=job["freqnr"], sb=sb)
     plot = {'basename': basename}
@@ -413,7 +413,7 @@ if __name__ == "__main__":
       for ch in data.stats[station]:
           st = data.stats[station][ch]
           n = float(sum(st))
-          stats[station][ch] += np.array(st) / n         
+          stats[station][ch] += np.array(st) / n
     for bl in data.vis:
       for ch in data.vis[bl]:
         integr[bl][ch] += data.vis[bl][ch].vis
