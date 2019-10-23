@@ -46,31 +46,22 @@ def write_html(vexfile, ctrl, scan, exper, global_header, integr, stats, tstart,
   plots = generate_plots(integr, channels, imgdir, ap, integr_time.total_seconds())
   
   # HTML HEAD
-  html.write("<html><head>\n" \
-    + "  <title>SFXC output - {} </title>\n".format(exper_name) \
-    + "  <style> BODY,TH,TD{font-size: 10pt } \n" \
-    + "#fimage {\n" \
-    + "position: fixed;\n" \
-    + "top: 50%;\n" \
-    + "border: 1px solid black;\n" \
-    + "margin-left: 7px;\n" \
-    + "}\n" \
-    + "</style>\n" \
+  html.write("<html><head>\n"
+    + "  <title>SFXC output - {} </title>\n".format(exper_name)
+    + "  <style> BODY,TH,TD{font-size: 10pt } \n"
+    + "    .popup_img a { position:relative; }\n"
+    + "    .popup_img a img { position:absolute; display:none; top:20; height:200; z-index:99;}\n"
+    + "    .popup_img a:hover img { display:block; }\n"
+    + "</style>\n"
     + "</head> <body>\n")
-  # Jay's code to make images float
-  html.write("<script language=\"JavaScript\"><!--\n" \
-    + "function show(imageSrc) {\n" \
-    + "  if (document.images) document.images['plot_image'].src = imageSrc;\n" \
-    + "}\n" \
-    + "//--></script>\n\n")
-
   # Print preamble
-  #html.write("<a href='{}'>Vex file</a> -- \n".format(imgdir + '/' + newvex) \
   html.write("<a href='{}'>Vex file</a> -- \n".format(os.path.basename(vexfile)) \
     + "Scan name = {}, total averaging time = {} sec<br>".format(scan["name"], (ap * integr_time).total_seconds()) \
     + "Timerange: {}-{}\n".format(tstart, (tstart + ap * integr_time).time()))
   
-  # Print table
+  # Give table horizontal scrollbar
+  #html.write("<div style=\"overflow-x:auto;\">\n")
+  html.write("<div class='popup_img'>\n")
   html.write("<table border=1 bgcolor='#dddddd' cellspacing=0>\n")
   # First row
   html.write("<tr>\n" \
@@ -84,14 +75,6 @@ def write_html(vexfile, ctrl, scan, exper, global_header, integr, stats, tstart,
     html.write("<th>{}</th>".format(station))
   for bl in baselines:
     html.write("<th>{}-{}</th>".format(*bl))
-  # floating image
-  bl = (stations[0], stations[0])
-  filename = plots[bl].values()[0]["basename"] + ".png"
-  html.write("<td rowspan=99><div id='fimage'>"
-    + '<img src="{}" name="plot_image">'.format(filename)
-    + '</div></td>\n'
-    + '</tr>\n')
-
   # Create sorted list of channels, sorting order polarizations: RCP-RCP, RCP-LCP, LCP-LCP, LCP-RCP
   def srt_chan(a,b):
     c = cmp(a[:-1], b[:-1])
@@ -127,8 +110,9 @@ def write_html(vexfile, ctrl, scan, exper, global_header, integr, stats, tstart,
         try:
           basename = plots[bl][ch]["basename"]
           html.write("  <td>" 
-            + "<a href = '{name}_large.png' OnMouseOver=\"show('{name}.png');\">".format(name=basename)
-            + "{}</a></td>\n".format(bbcs[station][channel1]))
+            + "<a href='{name}_large.png'>".format(name=basename)
+            + "<img src='{name}.png' />".format(name=basename)
+            + "{bbc_nr}</a></td>\n".format(bbc_nr=bbcs[station][channel1]))
         except KeyError:
           # Station didn't observe channel
           html.write("  <td> </td>\n")
@@ -154,11 +138,14 @@ def write_html(vexfile, ctrl, scan, exper, global_header, integr, stats, tstart,
           html.write("  <td bgcolor='{}'>".format(colour))
         else:
           html.write("  <td>" )
-        html.write("<a href = '{name}_lag_large.png' OnMouseOver=\"show('{name}_lag.png');\">".format(name=basename)
-            + "{:.1f}</a>".format(snr)
-          + "<a href = '{name}_ampl_large.png' OnMouseOver=\"show('{name}_ampl.png');\">".format(name=basename)
+        html.write("<a href='{name}_lag_large.png'>".format(name=basename)
+          + "<img src='{name}_lag.png' />".format(name=basename)
+          + "{:.1f}</a>".format(snr)
+          + "<a href='{name}_ampl_large.png' >".format(name=basename)
+          + "<img src='{name}_ampl.png' />".format(name=basename)
           + "A</a>"
-          + "<a href = '{name}_ph_large.png' OnMouseOver=\"show('{name}_ph.png');\">".format(name=basename)
+          + "<a href='{name}_ph_large.png' >".format(name=basename)
+          + "<img src='{name}_ph.png' />".format(name=basename)
           + "P</a><br><font size=-2>offset: {}</font>".format(offset)
           + "</td>\n")
       except KeyError:
@@ -166,6 +153,7 @@ def write_html(vexfile, ctrl, scan, exper, global_header, integr, stats, tstart,
         html.write("  <td> <br> </td>\n")
     html.write("</tr>\n")
   html.write("</table>\n")
+  html.write("</div>\n")
 
   # Sampler statistics
   html.write("<h1> Sampler statistics </h1><br>\n")
@@ -283,6 +271,7 @@ def plot_thread(job):
     pp.pgclos()
     pp.pgopen(job["outdir"] + '/' + name + '/png')
     pp.pgpap(5, 0.75)
+    pp.pgsch(2.0)
     pp.pgenv(0, n, min(data), max(data), 0, 1)
     pp.pglab('Channel', 'Amplitude', '{}'.format(bl[0]))
     pp.pgline(np.arange(n), data)
@@ -312,6 +301,7 @@ def plot_thread(job):
     pp.pgclos()
     pp.pgopen(job["outdir"] + '/' + name + '/png')
     pp.pgpap(5, 0.75)
+    pp.pgsch(2.0)
     pp.pgenv(0, n, min(data), max(data), 0, 1)
     pp.pglab('Channel', 'Amplitude', bl_str)
     pp.pgline(np.arange(n), data)
@@ -333,6 +323,7 @@ def plot_thread(job):
     pp.pgclos()
     pp.pgopen(job["outdir"] + '/' + name + '/png')
     pp.pgpap(5, 0.75)
+    pp.pgsch(2.0)
     pp.pgenv(0, n, min(phase), max(phase), 0, 1)
     pp.pglab('Channel', 'Phase', bl_str)
     pp.pgline(np.arange(n), phase)
@@ -364,6 +355,7 @@ def plot_thread(job):
     pp.pgclos()
     pp.pgopen(job["outdir"] + '/' + name + '/png')
     pp.pgpap(5, 0.75)
+    pp.pgsch(2.0)
     pp.pgenv(t[0], t[-1], min(lags), max(lags), 0, 0)
     pp.pglab('Lag', 'Ampl', bl_str)
     pp.pgline(t, lags)
