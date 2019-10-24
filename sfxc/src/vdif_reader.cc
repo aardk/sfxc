@@ -258,6 +258,9 @@ void VDIF_reader::set_parameters(const Input_node_parameters &param) {
     vdif_frames_per_block = 1;
   } else {
     vdif_frames_per_block = std::max(1, VDIF_FRAME_BUFFER_SIZE / frame_size);
+    uint64_t bits_per_second = param.sample_rate() * param.n_tracks;
+    while ((bits_per_second % (vdif_frames_per_block * frame_size * 8)) != 0 && vdif_frames_per_block > 1)
+      vdif_frames_per_block--;
     time_between_headers_ = Time(vdif_frames_per_block * frame_size * 8.e6 / (sample_rate * param.n_tracks));
     bits_per_complete_sample = param.n_tracks;
   }
