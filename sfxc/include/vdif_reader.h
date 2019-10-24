@@ -21,7 +21,7 @@
 #include <boost/shared_ptr.hpp>
 
 // The number VDIF frames to be read is rounded to this number of bytes
-#define VDIF_FRAME_BUFFER_SIZE    32128
+#define VDIF_FRAME_BUFFER_SIZE    (8192 * 5)
 
 class VDIF_reader : public Input_data_format_reader {
   enum Debug_level {

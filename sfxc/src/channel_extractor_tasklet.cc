@@ -259,24 +259,23 @@ Channel_extractor_tasklet::has_work() {
 
 void
 Channel_extractor_tasklet::
-set_parameters(const Input_node_parameters &input_node_param){
-  n_subbands = input_node_param.channels.size();
-  bits_per_sample = input_node_param.bits_per_sample();
-  fan_out    = bits_per_sample *
-               input_node_param.subsamples_per_sample();
+set_parameters(const Input_node_parameters &param){
+  n_subbands = param.channels.size();
+  bits_per_sample = param.bits_per_sample();
+  fan_out = bits_per_sample * param.subsamples_per_sample();
   N = reader_->bytes_per_input_word();
   samples_per_block = reader_->size_data_block() / N;
   std::vector< std::vector<int> > track_positions;
-  subband2track.resize(input_node_param.channels.size());
-  subbandmap.resize(input_node_param.channels.size());
-  memset(&subband2track[0], 0, input_node_param.channels.size() * sizeof(uint64_t));
+  subband2track.resize(param.channels.size());
+  subbandmap.resize(param.channels.size());
+  memset(&subband2track[0], 0, param.channels.size() * sizeof(uint64_t));
   
-  for(int i = 0; i < input_node_param.channels.size(); i++){
+  for(int i = 0; i < param.channels.size(); i++){
     bool isduplicate = false;
     // When correlating mixed-bandwidth experiments, some channels will
     // be duplicated. Make sure we don't decode them twice
     for (int j = 0; j < i; j++){
-      if (input_node_param.channels[i] == input_node_param.channels[j]){
+      if (param.channels[i] == param.channels[j]){
         isduplicate = true;
         subbandmap[i] = subbandmap[j];
         break;
@@ -284,17 +283,20 @@ set_parameters(const Input_node_parameters &input_node_param){
     }
     if (!isduplicate){
       subbandmap[i] = track_positions.size();
-      track_positions.push_back(input_node_param.channels[i].tracks);
-      int ntracks_channel = input_node_param.channels[i].tracks.size();
+      track_positions.push_back(param.channels[i].tracks);
+      int ntracks_channel = param.channels[i].tracks.size();
       for(int j = 0; j < ntracks_channel; j++){
-        int track = input_node_param.channels[i].tracks[j];
+        int track = param.channels[i].tracks[j];
         subband2track[i] |= (uint64_t)1 << track;
       }
     }
   }
-  if (input_node_param.frame_size != -1) {
-    int vdif_frames_per_block = std::max(1, VDIF_FRAME_BUFFER_SIZE / input_node_param.frame_size);
-    samples_per_block = vdif_frames_per_block * input_node_param.frame_size / N;
+  if (param.frame_size != -1) {
+    int vdif_frames_per_block = std::max(1, VDIF_FRAME_BUFFER_SIZE / param.frame_size);
+    uint64_t bits_per_second = param.sample_rate() * param.n_tracks;
+    while (bits_per_second % (vdif_frames_per_block * param.frame_size * 8) != 0 && vdif_frames_per_block > 1)
+      vdif_frames_per_block--;
+    samples_per_block = vdif_frames_per_block * param.frame_size / N;
   }
   ch_extractor->initialise(track_positions, N, samples_per_block, bits_per_sample);
 
