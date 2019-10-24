@@ -293,6 +293,9 @@ set_parameters(const Input_node_parameters &param){
   }
   if (param.frame_size != -1) {
     int vdif_frames_per_block = std::max(1, VDIF_FRAME_BUFFER_SIZE / param.frame_size);
+    uint64_t bits_per_second = param.sample_rate() * param.n_tracks;
+    while (bits_per_second % (vdif_frames_per_block * param.frame_size * 8) != 0 && vdif_frames_per_block > 1)
+      vdif_frames_per_block--;
     samples_per_block = vdif_frames_per_block * param.frame_size / N;
   }
   ch_extractor->initialise(track_positions, N, samples_per_block, bits_per_sample);
