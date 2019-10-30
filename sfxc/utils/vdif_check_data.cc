@@ -1,0 +1,381 @@
+/* Copyright (c) 2012 Joint Institute for VLBI in Europe (Netherlands)
+ * All rights reserved.
+ *
+ * Author(s): Aard Keimpema <keimpema@JIVE.nl>, 2012
+ *
+ */
+#include <iostream>
+#include <vector>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <getopt.h>
+#include "utils.h"
+#include "correlator_time.h"
+
+struct Header {
+  // Word 0
+  uint32_t      sec_from_epoch:30;
+  uint8_t       legacy_mode:1, invalid:1;
+  // Word 1
+  uint32_t      dataframe_in_second:24;
+  uint8_t       ref_epoch:6, unassiged:2;
+  // Word 2
+  uint32_t      dataframe_length:24;
+  uint8_t       log2_nchan:5, version:3;
+  // Word 3
+  uint16_t      station_id:16, thread_id:10;
+  uint8_t       bits_per_sample:5, data_type:1;
+  // Word 4
+  uint32_t      user_data1:24;
+  uint8_t       edv:8;
+  // Word 5-7
+  uint32_t      user_data2,user_data3,user_data4;
+};
+
+Time get_time(int ref_epoch, int sec_from_epoch){
+  Time time;
+  int ref_year = 2000+ref_epoch/2;
+  int ref_month = 1+6*(ref_epoch&1);
+  int ref_mjd = mjd(1,ref_month,ref_year);
+  time.set_time(ref_mjd, sec_from_epoch);
+  return time;
+}
+
+void usage(char *filename){
+  std::cout << "usage: " << filename << "[OPTIONS] <vdif-file>\n";
+  std::cout << "Options :\n";
+  std::cout << "  -s, --search         Search for NRAO 0xacabfeed syncword\n";
+  std::cout << "  -b, --skip-bytes=N   Skip the first N bytes.\n"; 
+  std::cout << "  -f, --skip-frames=N  Skip the first N frames.\n"; 
+  std::cout << "  -n, --nseconds=M    Only print the first M seconds.\n"; 
+  std::cout << "  -F, --frame-size=P   Override the frame size given in the VDIF headers..\n";
+}
+
+void get_options(int argc, char*argv[], char **filename, int &frame_size, 
+                 long &nskip_bytes, int &nskip_frames, int &nseconds, 
+                 bool &search){
+  int c, opt_index = 0;
+  static struct option long_options[] = {
+      {"help",    no_argument, 0, 'h'},
+      {"search",    no_argument, 0, 's'},
+      {"frame-size",    required_argument, 0, 'F'},
+      {"skip-bytes",    required_argument, 0, 'b'},
+      {"skip-frames",    required_argument, 0, 'f'},
+      {"nseconds",  required_argument, 0, 'n'},
+      {0, 0, 0, 0}
+  };
+  frame_size = 0;
+  nskip_bytes = 0;
+  nskip_frames = 0;
+  search = false;
+  nseconds = -1;
+  bool error = false;
+  while( (c = getopt_long (argc, argv, "qhsb:f:F:n:",  long_options, 
+                           &opt_index)) != -1){
+    int i;
+    switch (c){
+    case 'h':
+      usage(argv[0]);
+      exit(0);
+      break;
+    case 's':
+      search = true;
+      break;
+    case 'n':
+      i = sscanf(optarg, "%d", &nseconds);
+      error = (i == 0);
+      break;
+    case 'b':
+      i = sscanf(optarg, "%ld", &nskip_bytes);
+      error = (i == 0);
+      break;
+    case 'f':
+      i = sscanf(optarg, "%d", &nskip_frames);
+      error = (i == 0);
+      break;
+    case 'F':
+      i = sscanf(optarg, "%d", &frame_size);
+      error = (i == 0);
+      break;
+    default:
+      printf ("option %s", long_options[opt_index].name);
+      abort();
+    }
+    if (error){
+      printf("Bad argument to option %s\n", long_options[opt_index].name);
+      abort();
+    }
+  }
+  if ((argc-optind) != 1) {
+    std::cout << "Input file not specified\n";
+    usage(argv[0]);
+    exit(1);
+  }
+  if ((nskip_frames > 0) && (nskip_bytes > 0)){
+    std::cout << "Skip frames and skip bytes can't both be set\n";
+    exit(1);
+  }
+  if ((nskip_frames > 0) && (frame_size <= 0)){
+    std::cout << "Skip frames requires frame size to be give.\n";
+    exit(1);
+  }
+  *filename = argv[optind];
+}
+
+void print_header(Header &header) {
+  Time t = get_time(header.ref_epoch, header.sec_from_epoch);
+  int data_size = 8*header.dataframe_length;
+  int header_size = (16+16*(1-header.legacy_mode));
+  uint16_t s_id = header.station_id;
+  char *s = (char *)&s_id;
+  char station[3];
+  if (isalnum(s[0]) && isalnum(s[1])){
+    station[0] = s[1];
+    station[1] = s[0];
+    station[2] = 0;
+  }else{
+    station[0] = ' ';
+    station[1] = ' ';
+    station[2] = 0;
+  }
+  std::cout << t << " ,frame_nr = " << header.dataframe_in_second 
+            << ", thread_id = " << header.thread_id << ", nchan = " << (1 << header.log2_nchan)
+            << ", invalid = " << (int)header.invalid << ", legacy = " << (int)header.legacy_mode
+            << ", station = " << station
+            << ", bps-1 = " << (int) header.bits_per_sample
+            << ", data_size = " << data_size << "\n";
+}
+
+bool check_header(Header &header, Header &first_header) {
+  // Check if current header is valid by comparing again a previous valid header
+  // FIXME this can be done more efficient
+  if(header.legacy_mode != first_header.legacy_mode)
+    return false; 
+  if(header.ref_epoch != first_header.ref_epoch)
+    return false; 
+  if(header.dataframe_length != first_header.dataframe_length)
+    return false; 
+  if(header.log2_nchan != first_header.log2_nchan)
+    return false; 
+  if(header.version != first_header.version)
+    return false; 
+  if(header.station_id != first_header.station_id)
+    return false; 
+  if(header.bits_per_sample != first_header.bits_per_sample)
+    return false; 
+  if(header.data_type != first_header.data_type)
+    return false; 
+  return true;
+}
+
+int64_t find_next_valid_header(FILE *infile, Header &prev_header) {
+  // Move file pointer to where the current header was supposed to start
+  fseek(infile, -sizeof(Header), SEEK_CUR);
+
+  const int N = 1024;
+  const int hsize = sizeof(Header);
+  unsigned char buf[N];
+  size_t nBytes = fread(buf, 1, N, infile);
+  size_t total_bytes=0;
+  while (nBytes > 0){
+    int i;
+    for(i=0;i<N-hsize;i++){
+      Header *new_header = (Header *)&buf[i];
+      if (check_header(*new_header, prev_header)){
+        // Found new valid header
+        fseek(infile, -N+i, SEEK_CUR);
+        return total_bytes + i; 
+      }
+    }
+    memcpy(&buf[0], &buf[i], hsize);
+    nBytes = fread(&buf[hsize], 1, N-hsize, infile);
+    total_bytes += nBytes;
+  }
+  // EOF is reached
+  return 0;
+}
+
+void find_syncword(FILE *f){
+  long p = ftell(f);
+  long minpos = 5 * sizeof(int32_t); // Sync word is the 5th word
+  if(p < minpos)
+    fseek(f, minpos, SEEK_SET);
+  std::vector<char> buffer(1000);
+  int nBytes = fread(&buffer[0], 1, buffer.size(), f);
+  while(nBytes > 0){
+    for(int i=0; i<buffer.size()-sizeof(uint32_t); i++){
+      if(*((uint32_t *) &buffer[i]) == 0xacabfeed){
+        long newpos = -(buffer.size() - i + 5*sizeof(uint32_t));
+        std::cout << "Found start of header at byte " << ftell(f) + newpos << "\n";
+        fseek(f, newpos, SEEK_CUR);
+        return;
+      }
+    }
+    nBytes = fread(&buffer[0], 1, buffer.size(), f);
+  }
+  std::cout << "Could not find syncword in datafile\n";
+  exit(1);
+}
+
+void print_stats(std::vector<std::vector< std::vector<uint32_t> > > &stats, 
+                 Header &header, Header &start_header, int invalid_frames) {
+  for(int thread = 0; thread < stats.size(); thread++) {
+    for (int chan = 0; chan < stats[thread].size(); chan++) {
+      int total = 0;
+      for (int i = 0; i < stats[thread][chan].size(); i++) {
+        total += stats[thread][chan][i];
+      }
+      std::cout << "Thread " << thread << ", channel " << chan << ", sampler stats:";
+      for (int i = 0; i < stats[thread][chan].size(); i++) {
+        std::cout.precision(3);
+        std::cout << " " << i << " : " << stats[thread][chan][i] 
+                  << "(" <<stats[thread][chan][i] * 100. / total << "%)";
+      }
+      std::cout << "\n";
+    }
+  }
+  std::cout << "Total invalid frames = " << invalid_frames << "\n";
+}
+
+int main(int argc, char *argv[]) {
+  int frame_size, nskip_frames, nseconds=-1;
+  long nskip_bytes;
+  bool search;
+  char *filename;
+  get_options(argc, argv, &filename, frame_size, nskip_bytes, 
+              nskip_frames, nseconds, search);
+
+  FILE *infile = fopen(filename, "r");
+  if(infile == NULL){
+    std::cout << "Could not open " << filename << " for reading.\n";
+    return 1;
+  }
+  // Skip the first nskip frames
+  if(nskip_bytes > 0)
+    fseek(infile, nskip_bytes, SEEK_SET);
+  if(nskip_frames > 0)
+    fseek(infile, frame_size * nskip_frames, SEEK_SET);
+ 
+  if(search) 
+    find_syncword(infile);
+  bool eof = false;
+  int invalid_frames = 0;
+  int nsec = 0;
+  size_t data_size = 1, header_size = 0;
+  bool first_header = true;
+  std::vector<uint32_t> buffer;
+  std::vector<std::vector<std::vector<uint32_t> > > stats;
+  Header start_header, prev_header;
+  while ((nsec != nseconds) && (eof == false)) {
+    Header header;
+    unsigned char *header_buf = (unsigned char *) &header;
+    size_t nwords = fread(&header_buf[0],4,4,infile);
+    if (header.legacy_mode == 0)
+      nwords = fread(&header_buf[16],4,4,infile);
+    if (nwords == 4){
+      if (((uint32_t *)header_buf)[0] == 0x11223344 ||
+          ((uint32_t *)header_buf)[1] == 0x11223344 ||
+          ((uint32_t *)header_buf)[2] == 0x11223344 ||
+          ((uint32_t *)header_buf)[3] == 0x11223344){
+        invalid_frames++;
+      }else{
+        // We save the first header to be able to determine if a frame is valid or not
+        if (first_header){
+          first_header = false;
+          memcpy(&prev_header, header_buf, sizeof(Header));
+          memcpy(&start_header, header_buf, sizeof(Header));
+        }
+        if (check_header(header, prev_header)){
+          data_size = 8*header.dataframe_length;
+          header_size = (16+16*(1-header.legacy_mode));
+          if (header.thread_id >= stats.size()) {
+            int nchan = 1 << header.log2_nchan;
+            int oldsize = stats.size();
+            stats.resize(header.thread_id + 1);
+            for (int i = oldsize; i < stats.size(); i++) {
+              stats[i].resize(nchan); 
+              for (int j = 0; j < nchan; j++) {
+                // NB header.bits_per_sample containt the bits per sample - 1
+                stats[i][j].resize(1 << (header.bits_per_sample + 1));
+                for (int k = 0; k < stats[i][j].size(); k++)
+                  stats[i][j][k] = 0;
+              }
+            }
+          }
+          if (start_header.sec_from_epoch != header.sec_from_epoch) {
+            print_header(start_header);
+            print_stats(stats, header, start_header, invalid_frames);
+            nsec += 1;
+            memcpy(&start_header, header_buf, sizeof(Header));
+            // Clear stats
+            for (int i = 0; i < stats.size(); i++) {
+              for (int j = 0; j < stats[i].size(); j++) {
+                for (int k = 0; k < stats[i][j].size(); k++)
+                  stats[i][j][k] = 0;
+              }
+            }
+            invalid_frames = 0;
+          }
+          memcpy(&prev_header, header_buf, sizeof(Header));
+        } else {
+          int64_t nBytes = find_next_valid_header(infile, prev_header);
+          if (nBytes <=0){
+            std::cout << "INVALID HEADER found, no new valid header before EOF.\n";
+            exit(1);
+          }else{
+            std::cout << "INVALID HEADER found, found new header after " << nBytes << " bytes = ";
+            if (frame_size > 0)
+              std::cout << nBytes * 1. / frame_size << " frames\n";
+            else
+              std::cout << nBytes * 1. /data_size << " frames\n";
+            continue;
+          }
+        }
+      }
+      int toread = 0; 
+      if (frame_size > 0) {
+        // The frame size in the header is overridden
+        toread = frame_size-header_size;
+      } else {
+        toread = data_size-header_size;
+      }
+      buffer.resize(toread);
+      int bytes_read = fread(&buffer[0], 1, toread, infile);
+      if (bytes_read != toread) {
+        std::cout << "Unexpected end of file.\n";
+        exit(1);
+      }
+      int thread = header.thread_id;
+      int bps = header.bits_per_sample + 1;
+      int max_val = ((1 << bps) - 1);
+      int nchan = 1<< header.log2_nchan;
+      int nword = 1 + (nchan-1) / 32;
+      for (int i = 0; i < bytes_read / sizeof(uint32_t); i += nword) {
+        int chan = 0;
+        for (int j = 0; j < nword; j++) {
+          uint32_t val = buffer[i + j];
+          for (int k = 0; k < (32 / bps); k++) {
+            stats[thread][chan][(val >> k * bps) & max_val] += 1;
+            chan = (chan + 1) % nchan;
+          }
+        }
+      }
+    } else {
+      eof = true;
+      int total = 0;
+      for (int thread = 0; thread < stats.size(); thread++) {
+        for (int chan = 0; chan < stats[thread].size(); chan++) {
+          for (int i = 0; i < stats[thread][chan].size(); i++) {
+            total += stats[thread][chan][i];
+          }
+        }
+      }
+      if (total  > 0) {
+        print_header(start_header);
+        print_stats(stats, header, start_header, invalid_frames);
+      }
+    }
+  }
+  return 0;
+}
