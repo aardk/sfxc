@@ -10,6 +10,7 @@ pkginclude_HEADERS = *.h *.py
 
 bin_PROGRAMS = mark5a_print_headers \
                mark5b_print_headers \
+	       vdif_check_data \
                vdif_print_headers \
                vlba_print_headers \
                print_new_output_format \
@@ -56,6 +57,11 @@ mark5b_print_headers_SOURCES = \
 
 vdif_print_headers_SOURCES = \
   vdif_print_headers.cc \
+  ../src/utils.cc \
+  ../src/correlator_time.cc
+
+vdif_check_data_SOURCES = \
+  vdif_check_data.cc \
   ../src/utils.cc \
   ../src/correlator_time.cc
 
