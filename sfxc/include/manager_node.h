@@ -78,7 +78,14 @@ public:
 private:
   // Two dimensional array of dimensions [nchannels][nstations],
   // indicates per station which channels are to be correlated
-  std::vector<std::vector<int> > ch_number_in_scan;
+  std::vector<std::vector<int> > station_ch_number;
+
+  // List of channels present in current scan, in mixed bandwidth setups
+  // sometimes there are channels which no station in the present scan observed
+  std::vector<int> channels_in_scan;
+  // indicates if a certain channel is to be correlated in current scan
+  std::vector<bool> is_channel_in_scan;
+  
 
   std::string get_current_mode() const;
   void send_global_header();
@@ -111,7 +118,7 @@ private:
   std::set<std::string> sources;
 
   /// the current channel to correlate by a free correlator node
-  size_t current_channel;
+  size_t channel_idx;
   size_t current_correlator_node;
 
   int n_corr_nodes;
