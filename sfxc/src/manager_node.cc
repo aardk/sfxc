@@ -163,8 +163,8 @@ void Manager_node::start() {
         int ninputs_in_scan = 0;
         for (size_t input_node = 0; input_node < control_parameters.number_inputs();
              input_node++) {
-          for(int ch=0; ch<ch_number_in_scan.size(); ch++){
-            if (ch_number_in_scan[ch][input_node] >= 0){
+          for(int ch=0; ch<station_ch_number.size(); ch++){
+            if (station_ch_number[ch][input_node] >= 0){
 	      input_in_scan[input_node] = true;
               ninputs_in_scan++;
               break;
@@ -223,7 +223,7 @@ void Manager_node::start() {
         break;
       }
       case START_CORRELATION_TIME_SLICE: {
-        current_channel = 0;
+        channel_idx = 0;
         status = START_CORRELATOR_NODES_FOR_TIME_SLICE;
         break;
       }
@@ -246,7 +246,7 @@ void Manager_node::start() {
 #endif
 
         if (added_correlator_node) {
-          if (current_channel == control_parameters.number_frequency_channels()) {
+          if (channel_idx == channels_in_scan.size()) {
             status = GOTO_NEXT_TIMESLICE;
           }
         } else {
@@ -312,10 +312,13 @@ void Manager_node::terminate()
 }
 
 void Manager_node::start_next_timeslice_on_node(int corr_node_nr) {
+  int current_channel = channels_in_scan[channel_idx];
   int cross_channel = -1;
   if (control_parameters.cross_polarize()) {
     cross_channel = control_parameters.cross_channel(current_channel,
                     get_current_mode());
+    if (!is_channel_in_scan[cross_channel])
+      cross_channel = -1; 
     SFXC_ASSERT((cross_channel == -1) || (cross_channel > (int)current_channel));
   }
 
@@ -397,9 +400,9 @@ void Manager_node::start_next_timeslice_on_node(int corr_node_nr) {
       correlation_parameters.station_streams[stream_idx].sample_rate /
       correlation_parameters.sample_rate;;
 
-    if (ch_number_in_scan[current_channel][input_node] >= 0) {
+    if (station_ch_number[current_channel][input_node] >= 0) {
       input_node_set_time_slice(input_node,
-                                ch_number_in_scan[current_channel][input_node],
+                                station_ch_number[current_channel][input_node],
                                 stream,
                                 correlation_parameters.slice_start,
                                 correlation_parameters.slice_start +
@@ -409,9 +412,9 @@ void Manager_node::start_next_timeslice_on_node(int corr_node_nr) {
     }
 
     if (cross_channel != -1 &&
-	ch_number_in_scan[cross_channel][input_node] >= 0) {
+	station_ch_number[cross_channel][input_node] >= 0) {
       input_node_set_time_slice(input_node,
-                                ch_number_in_scan[cross_channel][input_node],
+                                station_ch_number[cross_channel][input_node],
                                 stream,
                                 correlation_parameters.slice_start,
                                 correlation_parameters.slice_start +
@@ -420,20 +423,16 @@ void Manager_node::start_next_timeslice_on_node(int corr_node_nr) {
     }
   }
 
-  current_channel++;
-  if (control_parameters.cross_polarize()) {
-    // Go to the next channel.
-    cross_channel =
-      control_parameters.cross_channel(current_channel,
-                                       get_current_mode());
-    while ((current_channel <
-            control_parameters.number_frequency_channels()) &&
-           (cross_channel >= 0) && (cross_channel < (int)current_channel)) {
-      current_channel++;
-      cross_channel =
-        control_parameters.cross_channel(current_channel,
-					 get_current_mode());
+  // Move to the next channel
+  channel_idx +=1;
+  while ((control_parameters.cross_polarize()) && (channel_idx < channels_in_scan.size())) {
+    current_channel = channels_in_scan[channel_idx];
+    cross_channel = control_parameters.cross_channel(current_channel,
+                                                       get_current_mode());
+    if ((cross_channel == -1) || (cross_channel > (int)current_channel)) {
+      break;
     }
+    channel_idx += 1;
   }
 #ifdef SFXC_DETERMINISTIC
   current_correlator_node = (current_correlator_node+1)%correlator_node_ready.size();
@@ -697,21 +696,33 @@ void Manager_node::initialise_scan(const std::string &scan) {
 
   // Determine for each station which channels are to be correlated
   std::vector<int> last_channel(control_parameters.number_inputs(), -1);
-  ch_number_in_scan.resize(control_parameters.number_frequency_channels());
-  for(int i = 0; i < ch_number_in_scan.size(); i++){
-    ch_number_in_scan[i].resize(control_parameters.number_inputs());
-    for(int input_node = 0; input_node < ch_number_in_scan[i].size(); input_node++){
+  std::set<int> channels_found;
+  station_ch_number.resize(control_parameters.number_frequency_channels());
+  for(int i = 0; i < station_ch_number.size(); i++){
+    station_ch_number[i].resize(control_parameters.number_inputs());
+    for(int input_node = 0; input_node < station_ch_number[i].size(); input_node++){
       std::string station_name = control_parameters.station(station_map[input_node]);
-      ch_number_in_scan[i][input_node] = -1;
+      station_ch_number[i][input_node] = -1;
       if (control_parameters.station_in_scan(scan, station_name)){
         std::string channel_name = control_parameters.frequency_channel(i, mode_name, station_name);
 	std::string datastream_name = control_parameters.datastream(mode_name, station_name, channel_name);
         if (!channel_name.empty() && datastream_name == datastream_map[input_node]) {
-          ch_number_in_scan[i][input_node] = last_channel[input_node] + 1;
+          channels_found.insert(i);
+          station_ch_number[i][input_node] = last_channel[input_node] + 1;
           last_channel[input_node] += 1;
         }
       }
     }
+  }
+
+  // Create list of all channels to be correlated in the current scan
+  is_channel_in_scan.resize(control_parameters.number_frequency_channels());
+  is_channel_in_scan.assign(is_channel_in_scan.size(), false);
+  for (std::set<int>::iterator it = channels_found.begin(); 
+       it != channels_found.end();
+       ++it) {
+    channels_in_scan.push_back(*it);
+    is_channel_in_scan[*it] = true;
   }
 }
 
