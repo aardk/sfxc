@@ -484,6 +484,8 @@ class progressDialog(QtGui.QDialog):
                     i += 1
                 if self.proc.poll() == None:
                     os.kill(self.proc.pid, signal.SIGKILL)
+                self.log_fp.write('ERROR: Watchdog timeout triggered!\n')
+
         self.proc.poll()
         if self.proc.returncode != None:
             self.t.stop()
