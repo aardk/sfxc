@@ -6,9 +6,7 @@ import json
 import time
 import os
 import numpy as np
-# NB: ppgplot also works with Giza which is preferred over classic PGPLOT, 
-# Giza uses the CAIRO backend produces which creates much nicer looking plots.
-import ppgplot as pp
+import gnuplotlib as pg
 from multiprocessing import Process, Pool
 from datetime import datetime, timedelta
 from urlparse import urlparse
@@ -28,10 +26,10 @@ def write_html(vexfile, ctrl, scan, exper, global_header, integr, stats, tstart,
 
   channels, bbcs = create_channel_mapping(exper, scan["mode"], setup_station)
   try:
-      dir_tuple = urlparse(ctrl['html_output'])
-      dirname = dir_tuple.netloc if dir_tuple.path == '' else dir_tuple.path
+    dir_tuple = urlparse(ctrl['html_output'])
+    dirname = dir_tuple.netloc + dir_tuple.path
   except KeyError:
-      dirname = '.'
+    dirname = '.'
   imgdir = dirname + '/' + scan["name"]
   if not os.path.exists(imgdir):
     os.makedirs(imgdir)
@@ -58,9 +56,7 @@ def write_html(vexfile, ctrl, scan, exper, global_header, integr, stats, tstart,
   html.write("<a href='{}'>Vex file</a> -- \n".format(os.path.basename(vexfile)) \
     + "Scan name = {}, total averaging time = {} sec<br>".format(scan["name"], (ap * integr_time).total_seconds()) \
     + "Timerange: {}-{}\n".format(tstart, (tstart + ap * integr_time).time()))
-  
-  # Give table horizontal scrollbar
-  #html.write("<div style=\"overflow-x:auto;\">\n")
+   
   html.write("<div class='popup_img'>\n")
   html.write("<table border=1 bgcolor='#dddddd' cellspacing=0>\n")
   # First row
@@ -180,7 +176,7 @@ def write_html(vexfile, ctrl, scan, exper, global_header, integr, stats, tstart,
                                              
 def create_channel_mapping(experiment, mode, setup_station):
   """ Create dict which gives the frequencies, and bandwidths for all
-  channels in the experiment. Als a dict is generated which contains which 
+  channels in the experiment. Also a dict is generated which contains which 
   BBC corresponds to each channel of the reference station."""
   channels = {}
   bbcs = {}
@@ -236,6 +232,7 @@ def generate_plots(integr, channels, outdir, ap, integr_time):
         job["pol2"] = ch.pol2
       jobs.append(job)
   results = pool.map(plot_thread, jobs)
+
   plots = {}
   i = 0
   for bl in integr:
@@ -245,95 +242,79 @@ def generate_plots(integr, channels, outdir, ap, integr_time):
       i += 1
   return plots
 
-#def plot_thread(bl, ch, freq, bw, vis, outdir, ap, integr_time):
+
 def plot_thread(job):
+  opts_small = {'terminal': 'png font ",9" size 300,200', '_with':'lines', 'unset': 'grid', '_set': 'format y "%1.0e"'}
+  opts_small_phase = opts_small.copy()
+  opts_small_phase['_set'] = 'format y "%3.0f"'
+  opts_large = {'terminal': 'png font ",12" size 1024,768', '_with':'lines'}
+
   bl = job["bl"]
+  if job["sb"] == 0: 
+    vis = job["vis"][-1::-1] # Flip band for lower sideband
+  else:
+    vis = job["vis"]
+  # frequencies
+  f0 = job["freq"] + (job['sb'] - 1) * job['bw']
+  f1 = f0 + job['bw']
+  n = vis.size
+  f = np.linspace(f0, f1, n)
+
   # auto-correlation
   if bl[0] == bl[1]:
     st = bl[0]
     sb = 'lsb' if job["sb"] == 0 else 'usb'
     pol = 'rcp' if job["pol1"] == 0 else 'lcp'
-    data = abs(job["vis"]) / max(1, job["ap"])
-    n = data.size
+    ampl = abs(vis) / max(1, job["ap"])
     # plot spectrum (amplitude)
-    f0 = job["freq"]
-    f = np.linspace(f0, f0 + job["bw"], n)
     basename = "{st}_{pol}_freq{freq}_{sb}".format(st=st, pol=pol, freq=job["freqnr"], sb=sb)
-    name = basename + '.png'
-    name_large = basename + '_large.png'
+    name = job["outdir"] + '/' + basename + '.png'
+    name_large = job["outdir"] + '/' + basename + '_large.png'
     plot = {'basename': basename}
-    label = "{st}-{st}-f{freq}-{sb}".format(st=st, freq=job["freqnr"], sb=sb)
-    pp.pgopen(job["outdir"] + '/' + name_large + '/png')
-    pp.pgpap(11, 0.75)
-    pp.pgenv(f[0], f[-1], min(data), max(data), 0, 1)
-    pp.pglab('Freq [MHz]', 'Amplitude', '{}'.format(bl[0]))
-    pp.pgline(f, data)
-    pp.pgclos()
-    pp.pgopen(job["outdir"] + '/' + name + '/png')
-    pp.pgpap(5, 0.75)
-    pp.pgsch(2.0)
-    pp.pgenv(0, n, min(data), max(data), 0, 1)
-    pp.pglab('Channel', 'Amplitude', '{}'.format(bl[0]))
-    pp.pgline(np.arange(n), data)
-    pp.pgclos()
+    p = pg.gnuplotlib(output=name_large, xlabel='Freq [MHz]', 
+                      ylabel='Amplitude', title=bl[0], **opts_large)
+    p.plot(f, ampl)
+    p = pg.gnuplotlib(output=name, xlabel='Channel', ylabel='Amplitude', 
+                      title=bl[0], **opts_small)
+    p.plot(ampl)
   else:
     # cross-correlations
     channel1 = (ch.freqnr, ch.sideband, ch.pol1)
     sb = 'lsb' if job["sb"] == 0 else 'usb'
     pol1 = 'rcp' if job["pol1"] == 0 else 'lcp'
     pol2 = 'rcp' if job["pol2"] == 0 else 'lcp'
-    data = abs(job["vis"]) / max(1, job["ap"])
-    n = data.size
+    ampl = abs(vis) / max(1, job["ap"])
     basename = "{st1}_{pol1}_{st2}_{pol2}_freq{freq}_{sb}".format(st1=bl[0], st2=bl[1], pol1=pol1, pol2=pol2, freq=job["freqnr"], sb=sb)
     plot = {'basename': basename}
     # plot spectrum (amplitude)
-    f0 = job["freq"]
-    f = np.linspace(f0, f0 + job["bw"], n)
-    name = basename + '_ampl.png'
-    name_large = basename + '_ampl_large.png'
+    name = job["outdir"] + '/' + basename + '_ampl.png'
+    name_large = job["outdir"] + '/' + basename + '_ampl_large.png'
     bl_str = "{}-{}".format(*bl)
-    label = "{st1}-{st2}-f{freq}-{sb}".format(st1=bl[0], st2=bl[1], freq=job["freqnr"], sb=sb)
-    pp.pgopen(job["outdir"] + '/' + name_large + '/png')
-    pp.pgpap(11, 0.75)
-    pp.pgenv(f[0], f[-1], min(data), max(data), 0, 1)
-    pp.pglab('Freq [MHz]', 'Amplitude', bl_str)
-    pp.pgline(f, data)
-    pp.pgclos()
-    pp.pgopen(job["outdir"] + '/' + name + '/png')
-    pp.pgpap(5, 0.75)
-    pp.pgsch(2.0)
-    pp.pgenv(0, n, min(data), max(data), 0, 1)
-    pp.pglab('Channel', 'Amplitude', bl_str)
-    pp.pgline(np.arange(n), data)
-    pp.pgclos()
+    p = pg.gnuplotlib(output=name_large, xlabel='Freq [MHz]', 
+                      ylabel='Amplitude', title=bl_str, **opts_large)
+    p.plot(f, ampl)
+    p = pg.gnuplotlib(output=name, xlabel='Channel', ylabel='Amplitude', 
+                      title=bl_str, **opts_small)
+    p.plot(ampl)
 
     # plot spectrum (phase)
     f0 = job["freq"]
     f = np.linspace(f0, f0 + job["bw"], n)
-    name = basename + '_ph.png'
-    name_large = basename + '_ph_large.png'
-    data = job["vis"]
-    phase = np.arctan2(np.imag(data), np.real(data)) * 180 / np.pi 
-    label = "{st1}-{st2}-f{freq}-{sb}".format(st1=bl[0], st2=bl[1], freq=job["freqnr"], sb=sb)
-    pp.pgopen(job["outdir"] + '/' + name_large + '/png')
-    pp.pgpap(11, 0.75)
-    pp.pgenv(f[0], f[-1], min(phase), max(phase), 0, 1)
-    pp.pglab('Freq [MHz]', 'Phase', bl_str)
-    pp.pgline(f, phase)
-    pp.pgclos()
-    pp.pgopen(job["outdir"] + '/' + name + '/png')
-    pp.pgpap(5, 0.75)
-    pp.pgsch(2.0)
-    pp.pgenv(0, n, min(phase), max(phase), 0, 1)
-    pp.pglab('Channel', 'Phase', bl_str)
-    pp.pgline(np.arange(n), phase)
-    pp.pgclos()
+    name = job["outdir"] + '/' + basename + '_ph.png'
+    name_large = job["outdir"] + '/' + basename + '_ph_large.png'
+    phase = np.arctan2(np.imag(vis), np.real(vis)) * 180 / np.pi 
+    p = pg.gnuplotlib(output=name_large, xlabel='Freq [MHz]', 
+                      ylabel='Phase', title=bl_str, **opts_large)
+    p.plot(f, phase)
+    p = pg.gnuplotlib(output=name, xlabel='Channel', 
+                      ylabel='Phase', title=bl_str, **opts_small_phase)
+    p.plot(phase)
 
     # plot fringe (lag spectrum)
     t = np.arange(-(n-1), n-1)
-    name = basename + '_lag.png'
-    name_large = basename + '_lag_large.png'
-    lags = abs(np.fft.fftshift(np.fft.irfft(data)))
+    name = job["outdir"] + '/' + basename + '_lag.png'
+    name_large = job["outdir"] + '/' + basename + '_lag_large.png'
+    lags = abs(np.fft.fftshift(np.fft.irfft(vis)))
     lag = lags.argmax() - n + 1
     plot["lag"] = lag
     # To estimate SNR compute theoreticalnoise in case of perfect sampler
@@ -346,24 +327,18 @@ def plot_thread(job):
     # factor 2 in denomenator accounts for window function
     noise = np.sqrt(ap) / (2 * 0.881 * np.sqrt(sample_rate * job["integr_time"] * lag_offset))
     plot["snr"] = lags.max() / noise
-    label = "{st1}-{st2}-f{freq}-{sb}".format(st1=bl[0], st2=bl[1], freq=job["freqnr"], sb=sb)
-    pp.pgopen(job["outdir"] + '/' + name_large + '/png')
-    pp.pgpap(11, 0.75)
-    pp.pgenv(t[0], t[-1], min(lags), max(lags), 0, 0)
-    pp.pglab('Lag', 'Ampl', bl_str)
-    pp.pgline(t, lags)
-    pp.pgclos()
-    pp.pgopen(job["outdir"] + '/' + name + '/png')
-    pp.pgpap(5, 0.75)
-    pp.pgsch(2.0)
-    pp.pgenv(t[0], t[-1], min(lags), max(lags), 0, 0)
-    pp.pglab('Lag', 'Ampl', bl_str)
-    pp.pgline(t, lags)
-    pp.pgclos()
+    p = pg.gnuplotlib(output=name_large, xlabel='Lag', ylabel='Ampl',
+                      xmin=-(n-1), xmax=(n-2),
+                      title=bl_str, **opts_large)
+    p.plot(t, lags)
+    p = pg.gnuplotlib(output=name, xlabel='Lag', ylabel='Ampl',
+                      xmin=-(n-1), xmax=(n-2),
+                      title=bl_str, **opts_small)
+    p.plot(t, lags)
   return plot
-  
+
 def parse_args():
-  parser = argparse.ArgumentParser(description='Convert SFXC output to mark4 format')
+  parser = argparse.ArgumentParser(description='Create diagnostic HTML plotpage from SFXC output')
   parser.add_argument("vexfile", help='vex file')
   parser.add_argument("ctrlfile", help='SFXC control file used in the correlation')
   args = parser.parse_args()
@@ -378,7 +353,7 @@ if __name__ == "__main__":
   vex, vexfilename, ctrl = parse_args()
   exper = experiment(vex)
   out_tuple = urlparse(ctrl['output_file'])
-  output_file = out_tuple.netloc if out_tuple.path == '' else out_tuple.path
+  output_file = out_tuple.netloc + out_tuple.path
   data = SFXCData(output_file)
   nchan = data.nchan
 
@@ -405,7 +380,7 @@ if __name__ == "__main__":
       for ch in data.stats[station]:
           st = data.stats[station][ch]
           n = float(sum(st))
-          stats[station][ch] += np.array(st) / n
+          stats[station][ch] += np.array(st) / n         
     for bl in data.vis:
       for ch in data.vis[bl]:
         integr[bl][ch] += data.vis[bl][ch].vis
