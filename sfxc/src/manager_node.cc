@@ -715,10 +715,11 @@ void Manager_node::initialise_scan(const std::string &scan) {
       }
     }
   }
-
+  
   // Create list of all channels to be correlated in the current scan
   is_channel_in_scan.resize(control_parameters.number_frequency_channels());
   is_channel_in_scan.assign(is_channel_in_scan.size(), false);
+  channels_in_scan.resize(0);
   for (std::set<int>::iterator it = channels_found.begin(); 
        it != channels_found.end();
        ++it) {
