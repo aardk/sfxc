@@ -102,7 +102,7 @@ void start_node() {
         DEBUG_MSG("Output node, pid = " << getpid());
       }
       if (PRINT_HOST) {
-        DEBUG_MSG("Output node, hostname = " << HOSTNAME_OF_NAME);
+        DEBUG_MSG("Output node, hostname = " << HOSTNAME_OF_NODE);
       }
       ID_OF_NODE = "Outputnode";
       Output_node node(rank);
