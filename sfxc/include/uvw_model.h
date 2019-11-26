@@ -41,6 +41,7 @@ public:
 
   //constructor, set default values
   Uvw_model();
+  Uvw_model(const Uvw_model &other);
 
   //destructor
   ~Uvw_model();
@@ -72,6 +73,7 @@ public:
   }
 
 private:
+  pthread_mutex_t *mutex;
   // First entry of the next scan
   int scan_nr;
   // Number of sources in the current scan

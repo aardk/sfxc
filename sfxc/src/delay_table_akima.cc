@@ -170,6 +170,8 @@ Delay_table::Delay_table()
   : scan_nr(0), clock_nr(0), n_sources_in_current_scan(0), n_padding(0) {
     // Add default clock offset
     set_clock_offset(0., 0., 0., 0.);
+    mutex = new pthread_mutex_t;
+    pthread_mutex_init(mutex, NULL);
 }
 
 // Copy constructor
@@ -186,11 +188,16 @@ Delay_table::Delay_table(const Delay_table &other)
   delays = other.delays;
   phases = other.phases;
   amplitudes = other.amplitudes;
+  mutex = new pthread_mutex_t;
+  pthread_mutex_init(mutex, NULL);
   initialise_next_scan();
 }
 
 // Destructor
-Delay_table::~Delay_table() {}
+Delay_table::~Delay_table() {
+  pthread_mutex_destroy(mutex);
+  delete mutex;
+}
 
 void Delay_table::operator=(const Delay_table &other) {
   scan_nr = 0;
@@ -395,8 +402,10 @@ void Delay_table::open(const char *delayTableName, const Time tstart, const Time
 void
 Delay_table::add_scans(const Delay_table &other)
 {
+  pthread_mutex_lock(mutex);
   if (scans.empty()) {
     *this = other;
+    pthread_mutex_unlock(mutex);
     return;
   }
 
@@ -424,6 +433,7 @@ Delay_table::add_scans(const Delay_table &other)
 		      other.clock_epochs.end());
   clock_rates.insert(clock_rates.end(), other.clock_rates.begin(),
 		      other.clock_rates.end());
+  pthread_mutex_unlock(mutex);
 }
 
 bool Delay_table::initialise_next_scan() {
@@ -450,6 +460,7 @@ bool Delay_table::initialise_next_scan() {
 
 Delay_table_akima
 Delay_table::create_akima_spline(const Time start_, const Time duration) {
+  pthread_mutex_lock(mutex);
   // Round begin and end time to integer second
   int mjd_start = (int)floor(start_.get_mjd());
   double seconds_start = floor(start_.get_time_usec() / 1000000);
@@ -522,6 +533,7 @@ Delay_table::create_akima_spline(const Time start_, const Time duration) {
   result.clock_epoch = clock_epochs[clock_nr];
   result.clock_offset = clock_offsets[clock_nr];
   result.clock_rate = clock_rates[clock_nr];
+  pthread_mutex_unlock(mutex);
   return result;
 }
 

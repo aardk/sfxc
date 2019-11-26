@@ -40,11 +40,24 @@
 //*****************************************************************************
 
 //default constructor, set default values
-Uvw_model::Uvw_model()
-    : scan_nr(0), n_sources_in_scan(0), n_padding(0) {}
+Uvw_model::Uvw_model(): scan_nr(0), n_sources_in_scan(0), n_padding(0) {
+  mutex = new pthread_mutex_t;
+  pthread_mutex_init(mutex, NULL);
+}
+
+//copy constructor
+Uvw_model::Uvw_model(const Uvw_model &other) {
+  mutex = new pthread_mutex_t;
+  pthread_mutex_init(mutex, NULL);
+  operator=(other);
+  SFXC_ASSERT(other.scans.size() == scans.size());
+}
 
 //destructor
-Uvw_model::~Uvw_model() {}
+Uvw_model::~Uvw_model() {
+  pthread_mutex_destroy(mutex);
+  delete mutex;
+}
 
 void Uvw_model::operator=(const Uvw_model &other) {
   scan_nr = 0;
@@ -55,6 +68,7 @@ void Uvw_model::operator=(const Uvw_model &other) {
   v = other.v;
   w = other.w;
   n_padding = other.n_padding;
+  n_sources_in_scan = 0;
   splineakima_u.resize(0);
   splineakima_v.resize(0);
   splineakima_w.resize(0);
@@ -233,11 +247,14 @@ int Uvw_model::open(const char *delayTableName, Time tstart, Time tstop, const s
 void
 Uvw_model::add_scans(const Uvw_model &other)
 {
+  pthread_mutex_lock(mutex);
+  SFXC_ASSERT(other.scans.size() > 0);
   if (scans.empty()) {
     *this = other;
+    SFXC_ASSERT(scans.size() >= other.scans.size());
+    pthread_mutex_unlock(mutex);
     return;
   }
-
   SFXC_ASSERT(u.size() == v.size());
   SFXC_ASSERT(u.size() == w.size());
   int prev_scans_size = scans.size();
@@ -253,13 +270,14 @@ Uvw_model::add_scans(const Uvw_model &other)
   u.insert(u.end(), other.u.begin(), other.u.end());
   v.insert(v.end(), other.v.begin(), other.v.end());
   w.insert(w.end(), other.w.begin(), other.w.end());
+  pthread_mutex_unlock(mutex);
 }
 
 bool Uvw_model::initialise_next_scan() {
   // Check if we are at the last scan
-  if (scan_nr >= (scans.size() - n_sources_in_scan))
+  if (scan_nr >= (scans.size() - n_sources_in_scan)) {
     return false;
-
+  }
   scan_nr += n_sources_in_scan;
 
   // Determine the number of sources in current scan
@@ -271,6 +289,7 @@ bool Uvw_model::initialise_next_scan() {
 }
 
 void Uvw_model::create_akima_spline(Time time_) {
+  pthread_mutex_lock(mutex);
   while (scans[scan_nr].end < time_){
       if (!initialise_next_scan()){
         std::string msg = "Premature ending of UVW model, time "  +  
@@ -287,7 +306,6 @@ void Uvw_model::create_akima_spline(Time time_) {
     gsl_interp_accel_free(acc_v[i]);
     gsl_interp_accel_free(acc_w[i]);
   }
-
   // Determine interpolation interval
   int mjd_start = (int) floor(time_.get_mjd());
   double seconds_start = floor(time_.get_time_usec() / 1000000);
@@ -337,6 +355,7 @@ void Uvw_model::create_akima_spline(Time time_) {
     gsl_spline_init(splineakima_v[i], &times[scan.times+idx], &v[scan.model_index+idx], n_pts);
     gsl_spline_init(splineakima_w[i], &times[scan.times+idx], &w[scan.model_index+idx], n_pts);
   }
+  pthread_mutex_unlock(mutex);
 }
 
 //calculates u,v, and w at time(microseconds)
