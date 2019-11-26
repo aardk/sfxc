@@ -56,7 +56,7 @@ OBJ=\
 
 sfxc_SOURCES = $(OBJ) $(FFT_SOURCES) sfxc.cc \
   node.cc manager_node.cc log_node.cc \
-  correlator_node.cc input_node.cc output_node.cc \
+  correlator_node.cc correlator_node_tasklet.cc input_node.cc output_node.cc \
   controller.cc input_node_controller.cc output_node_controller.cc \
   correlator_node_controller.cc manager_node_controller.cc \
   log_node_controller.cc \

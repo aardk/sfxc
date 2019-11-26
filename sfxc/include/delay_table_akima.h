@@ -129,6 +129,7 @@ public:
     return !scans.empty();
   }
 private:
+  pthread_mutex_t *mutex;
   int scan_nr;
   int clock_nr;
   int n_sources_in_current_scan;
