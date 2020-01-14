@@ -317,7 +317,7 @@ void Manager_node::start_next_timeslice_on_node(int corr_node_nr) {
   if (control_parameters.cross_polarize()) {
     cross_channel = control_parameters.cross_channel(current_channel,
                     get_current_mode());
-    if (!is_channel_in_scan[cross_channel])
+    if ((cross_channel < 0) || (!is_channel_in_scan[cross_channel]))
       cross_channel = -1; 
     SFXC_ASSERT((cross_channel == -1) || (cross_channel > (int)current_channel));
   }
