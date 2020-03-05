@@ -33,7 +33,7 @@ def write_html(vexfile, ctrl, scan, exper, global_header, integr, stats, tstart,
   imgdir = dirname + '/' + scan["name"]
   if not os.path.exists(imgdir):
     os.makedirs(imgdir)
-  htmlname = imgdir + "/{}_{}.html".format(exper_name, scan["name"])
+  htmlname = imgdir + "/index.html"
   html = open(htmlname, 'w')
   newvex = imgdir + "/" + os.path.basename(vexfile)
   copyfile(vexfile, newvex) 
