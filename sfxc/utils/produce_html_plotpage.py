@@ -18,7 +18,7 @@ from experiment import experiment
 
 NUMBER_THREADS = 8
 
-def write_html(vexfile, ctrl, scan, exper, global_header, integr, stats, tstart, ap):
+def write_html(vexfile, ctrl, scan, exper, global_header, integr, weights, stats, tstart, ap):
   stations = sorted(set([x[0] for x in integr.keys()]))
   baselines = sorted(filter(lambda x:x[0] != x[1], integr.keys()))
   setup_station = ctrl["setup_station"] if "setup_station" in ctrl else ctrl["stations"][0]
@@ -41,7 +41,7 @@ def write_html(vexfile, ctrl, scan, exper, global_header, integr, stats, tstart,
   integr_time =  timedelta(0, 
                            global_header.integr_time // 1000000, 
                            global_header.integr_time % 1000000)
-  plots = generate_plots(integr, channels, imgdir, ap, integr_time.total_seconds())
+  plots = generate_plots(integr, weights, channels, imgdir, ap, integr_time.total_seconds())
   
   # HTML HEAD
   html.write("<html><head>\n"
@@ -85,7 +85,6 @@ def write_html(vexfile, ctrl, scan, exper, global_header, integr, stats, tstart,
   for bl in baselines:
     for ch in integr[bl].keys():
       channels_in_data.add(ch)
-  print channels_in_data
   channels_in_data = sorted(channels_in_data, cmp=srt_chan)
 
   # print all (auto-) correlations
@@ -207,7 +206,7 @@ def create_channel_mapping(experiment, mode, setup_station):
           break
   return channels, bbcs
 
-def generate_plots(integr, channels, outdir, ap, integr_time):
+def generate_plots(integr, weights, channels, outdir, ap, integr_time):
   # Create sorted list of stations and baselines
   stations = sorted(set([x[0] for x in integr.keys()]))
   baselines = sorted(filter(lambda x:x[0] != x[1], integr.keys()))
@@ -223,7 +222,7 @@ def generate_plots(integr, channels, outdir, ap, integr_time):
       job["freq"] = channel["freq"]
       job["bw"] = channel["bw"]
       job["ap"] = ap
-      job["integr_time"] = integr_time
+      job["weight"] = weights[bl][ch]
       job["outdir"] = outdir
       if len(ch) == 3:
         job["pol1"] = ch.pol
@@ -325,8 +324,12 @@ def plot_thread(job):
     # correct for non-centered fringe
     lag_offset = 1. - abs(lag)/float(n-1) if (lag < n-1) else 1.
     # factor 2 in denomenator accounts for window function
-    noise = np.sqrt(ap) / (2 * 0.881 * np.sqrt(sample_rate * job["integr_time"] * lag_offset))
-    plot["snr"] = lags.max() / noise
+    #noise = np.sqrt(job["ap"]) / (2 * 0.881 * np.sqrt(sample_rate * job["integr_time"] * lag_offset))
+    if job["weight"] > 0:
+      noise = job["ap"] / (2 * 0.881 * np.sqrt(job["weight"] * lag_offset))
+      plot["snr"] = lags.max() / noise
+    else:
+      plot["snr"] = 0
     p = pg.gnuplotlib(output=name_large, xlabel='Lag', ylabel='Ampl',
                       xmin=-(n-1), xmax=(n-2),
                       title=bl_str, **opts_large)
@@ -364,13 +367,15 @@ if __name__ == "__main__":
     # Check if we need to move to next scan
     if data.current_time() >= scan["stop"]:
       if ap > 0:
-        write_html(vexfilename, ctrl, scan, exper, data.global_header, integr, stats, tstart, ap)
+        write_html(vexfilename, ctrl, scan, exper, data.global_header, integr, weights, stats, tstart, ap)
       # initialise scan
       scan = exper.get_scan(vex, ctrl, data)
       tstart = data.current_time()
       integr = {}
+      weights = {}
       for bl in data.vis:
         integr[bl] = {ch:np.zeros(nchan+1, dtype='c16') for ch in data.vis[bl]}
+        weights[bl] = {ch:0 for ch in data.vis[bl]}
       stats = {}
       for station in data.stats:
         stats[station] = {ch:np.zeros(5, dtype=float) for ch in data.stats[station]}
@@ -384,11 +389,12 @@ if __name__ == "__main__":
     for bl in data.vis:
       for ch in data.vis[bl]:
         integr[bl][ch] += data.vis[bl][ch].vis
+        weights[bl][ch] += data.vis[bl][ch].weight
     ap += 1
 
     if not data.next_integration():
       break
   # write final scan
   if ap > 0:
-    write_html(vexfilename, ctrl, scan, exper, data.global_header, integr, stats, tstart, ap)
+    write_html(vexfilename, ctrl, scan, exper, data.global_header, integr, weights, stats, tstart, ap)
 
