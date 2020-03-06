@@ -259,8 +259,8 @@ set_new_parameters(const Correlation_parameters &parameters, Delay_table_akima &
     delay_table.delay(parameters.stream_start) * new_parameters.sample_rate;
 
   new_parameters.n_ffts_per_integration =
-     (new_parameters.sample_rate / new_parameters.base_sample_rate) *
-     parameters.slice_size / parameters.fft_size_delaycor;
+     (int64_t) new_parameters.sample_rate * parameters.slice_size / 
+     ((int64_t) new_parameters.base_sample_rate * parameters.fft_size_delaycor);
 
   have_new_parameters=true;
 }

@@ -275,8 +275,8 @@ Delay_correction::set_parameters(const Correlation_parameters &parameters, Delay
 
   SFXC_ASSERT(parameters.fft_size_correlation >= parameters.fft_size_delaycor);
   n_ffts_per_integration =
-    (parameters.station_streams[stream_idx].sample_rate / parameters.sample_rate) *
-        parameters.slice_size / parameters.fft_size_delaycor;
+    (int64_t) parameters.station_streams[stream_idx].sample_rate * parameters.slice_size /
+     ((int64_t) parameters.sample_rate * parameters.fft_size_delaycor);
 
   LO_offset = parameters.station_streams[stream_idx].LO_offset;
   double dt = current_time.diff(parameters.experiment_start);
