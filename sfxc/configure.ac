@@ -1,9 +1,9 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT(JIVE software correlator, 0.0.6)
+AC_INIT(SFXC, 3.5.0)
 AC_CONFIG_AUX_DIR(config)
 AM_CONFIG_HEADER(config.h)
 AC_CONFIG_MACRO_DIR(m4)
-AM_INIT_AUTOMAKE(sfxc, 0.0.6)
+AM_INIT_AUTOMAKE()
 
 dnl backup of generic flags
 CXXFLAGS_IN=$CXXFLAGS
@@ -28,8 +28,9 @@ dnl Needed for the optimized channel extractor
 AC_CHECK_LIB(dl, dlopen)
 
 dnl setting flags for sfxc
-SFXC_CXXFLAGS='-I${top_srcdir}/include'
+SFXC_CXXFLAGS='-I${top_srcdir}/include -std=gnu++03'
 SFXC_LDADD=' '
+UTILS_CXXFLAGS='-std=gnu++03'
 
 AC_CHECK_FUNCS(sincos)
 
@@ -114,6 +115,7 @@ if test $USE_DOUBLE = "yes" ; then
 fi
 
 if test $USE_IPP = "yes"; then
+  USE_FFTW3="no"
   AC_DEFINE([USE_IPP], [1], [Use the Intel Performance Primitives])
   AC_CHECK_LIB(ippsem64t, ippsGetLibVersion, [OLD_IPP=1], [OLD_IPP=0], [-L$IPP_PATH/sharedlib -Wl,-no-as-needed])
   if test $OLD_IPP == 1; then
@@ -140,6 +142,7 @@ if test $USE_IPP = "yes"; then
     FFT_LDADD_FLOAT="$FFT_LDADD"
   fi
 else
+  USE_FFTW3="yes"
   AC_CHECK_LIB(fftw3f, fftwf_execute, [], [
         echo "Couldn't find fftw3f library."
         exit -1
@@ -186,17 +189,10 @@ dnl setting gsl
 dnl first check gslcblas
 if test $USE_GSL = "yes"; then
   AC_CHECK_LIB([gslcblas],[cblas_dgemm])
-  AC_CHECK_LIB([gsl],[gsl_blas_dgemm],
+  AC_CHECK_LIB([gsl],[gsl_blas_dgemm])
   dnl found gsl, use the global version
   GSL_CXXFLAGS=''
   GSL_LDADD='-lgsl -lgslcblas'
-  HAS_GSL='yes'
-  ,
-  dnl gsl not found, install a local copy
-  GSL_CXXFLAGS='-I${top_srcdir}/lib/gsl/install/include '
-  GSL_LDADD='-L${top_srcdir}/lib/gsl/install/lib -lgsl -lgslcblas'
-  HAS_GSL='no'
-  )
 fi
 
 WITH_SFXC="no"
@@ -259,7 +255,6 @@ AC_SUBST(BASE_CXXFLAGS)
 AC_SUBST(BASE_LDADD)
 AC_SUBST(GSL_CXXFLAGS)
 AC_SUBST(GSL_LDADD)
-AC_SUBST(HAS_GSL)
 
 AC_SUBST(CFLAGS)
 AC_SUBST(CXXFLAGS)
@@ -303,7 +298,6 @@ AC_OUTPUT(Makefile
           lib/netlib/Makefile
           lib/testunit/Makefile
           lib/jsoncpp/Makefile
-          lib/gsl/Makefile
           lib/vex_parser/Makefile
           src/Makefile
           include/Makefile
@@ -316,6 +310,7 @@ AC_OUTPUT(Makefile
 echo "=================== compilation summary =================="
 echo "Use mpi: $USE_MPI"
 echo "Use fftw3: $USE_FFTW3"
+echo "Use ipp: $USE_IPP"
 echo "Use gsl: $USE_GSL"
 echo "Compile sfxc with: $SFXC_CXXFLAGS $CXXFLAGS"
 echo "Compile utils with: $UTILS_CXXFLAGS $CXXFLAGS"
