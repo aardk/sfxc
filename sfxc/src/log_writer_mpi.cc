@@ -83,7 +83,7 @@ void Log_writer_mpi_buffer::put_buffer() {
       struct timeval time_struct;
       gettimeofday(&time_struct,NULL);
       struct tm *tm_struct = localtime(&time_struct.tv_sec);
-      snprintf(buffer, 20, "%02dh%02dm%02d.%03ds, %02d, ",
+      snprintf(buffer, 20, "%02dh%02dm%02d.%03lds, %02d, ",
                tm_struct->tm_hour, tm_struct->tm_min, tm_struct->tm_sec,
                (time_struct.tv_usec+500)/1000, rank);
       SFXC_ASSERT(strlen(buffer) == 19);
