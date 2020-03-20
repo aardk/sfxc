@@ -20,6 +20,8 @@
 #include "log_writer_mpi.h"
 #include "correlation_core.h"
 #include "correlation_core_pulsar.h"
+#include "correlation_core_phased.h"
+#include "correlation_core_filterbank.h"
 #include "dedispersion_tasklet.h"
 #include "delay_correction.h"
 #include "windowing.h"
@@ -28,6 +30,12 @@
 
 #include "monitor.h"
 #include "eventor_poll.h"
+
+// The types of correlator nodes supported
+#define CORRELATOR_NODE_NORMAL 0
+#define CORRELATOR_NODE_PULSAR_BINNING 1
+#define CORRELATOR_NODE_PHASED 2
+#define CORRELATOR_NODE_FILTERBANK 3
 
 // Declare the correlator controller:
 class Correlator_node;
@@ -80,7 +88,7 @@ public:
     END_CORRELATING
   };
 
-  Correlator_node(int rank, int nr_corr_node, bool psr_binning, bool phased_array);
+  Correlator_node(int rank, int nr_corr_node, int correlator_node_type_);
   ~Correlator_node();
 
   /// The the main_loop of the correlator node.
@@ -243,9 +251,8 @@ private:
   void purge(); // Clear all inter-thread queues
   void main_loop();
 
-  bool pulsar_binning; // Set to true if pulsar binning is enabled
+  int correlator_node_type;
   bool coherent_dedispersion; //Set to true if coherent dedispersion is enabled
-  bool phased_array; // Set to true if in phased array mode
   Correlator_node_controller       correlator_node_ctrl;
 
   /// The correlator node is connected to each of the input nodes.
@@ -265,6 +272,7 @@ private:
   std::vector<Windowing_ptr>              windowing;
   Dedispersion_tasklet                    dedispersion_tasklet;
   Correlation_core *correlation_core, *correlation_core_normal;
+  Correlation_core_filterbank *correlation_core_filterbank;
   Correlation_core_pulsar *correlation_core_pulsar;
 
   std::queue<Correlation_parameters>          integration_slices_queue;

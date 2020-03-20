@@ -39,6 +39,7 @@ OBJ=\
   log_writer.cc log_writer_cout.cc \
   log_writer_file.cc \
   correlation_core.cc \
+  correlation_core_filterbank.cc \
   correlation_core_phased.cc \
   correlation_core_pulsar.cc \
   delay_correction.cc \
@@ -86,5 +87,5 @@ svn_version.cc: update_svn_version
 
 update_svn_version:
 	echo "const char *SVN_VERSION=\"`svnversion -nc ..`\";" > svn_version.cc
-	echo "const char *SVN_BRANCH=\"PHASED-ARRAY\";" >> svn_version.cc
+	echo "const char *SVN_BRANCH=\"NO-OFFSET\";" >> svn_version.cc
 	$(CXX) $(CXXFLAGS) -c svn_version.cc

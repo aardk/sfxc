@@ -114,6 +114,9 @@ start_correlator_node(int rank) {
   if(control_parameters.pulsar_binning())
     MPI_Send(&correlator_node_nr, 1, MPI_INT32, rank,
              MPI_TAG_SET_CORRELATOR_NODE_PSR_BINNING, MPI_COMM_WORLD);
+  else if(control_parameters.filterbank())
+    MPI_Send(&correlator_node_nr, 1, MPI_INT32, rank,
+             MPI_TAG_SET_CORRELATOR_NODE_FILTERBANK, MPI_COMM_WORLD);
   else if(control_parameters.phased_array())
     MPI_Send(&correlator_node_nr, 1, MPI_INT32, rank,
              MPI_TAG_SET_CORRELATOR_NODE_PHASED, MPI_COMM_WORLD);

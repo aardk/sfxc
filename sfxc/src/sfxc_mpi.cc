@@ -106,6 +106,7 @@ void start_node() {
       break;
     }
   case MPI_TAG_SET_CORRELATOR_NODE_PHASED:
+  case MPI_TAG_SET_CORRELATOR_NODE_FILTERBANK:
   case MPI_TAG_SET_CORRELATOR_NODE_PSR_BINNING:
   case MPI_TAG_SET_CORRELATOR_NODE: {
       int32_t corr_nr;
@@ -122,9 +123,24 @@ void start_node() {
       }
 
       // Start correlator node
-      bool binning = status.MPI_TAG == MPI_TAG_SET_CORRELATOR_NODE_PSR_BINNING;
-      bool phased = status.MPI_TAG == MPI_TAG_SET_CORRELATOR_NODE_PHASED;
-      Correlator_node node(rank, corr_nr, binning, phased);
+      int correlator_node_type;
+      switch(status.MPI_TAG) {
+         case MPI_TAG_SET_CORRELATOR_NODE:
+           correlator_node_type = CORRELATOR_NODE_NORMAL; 
+           break;
+         case MPI_TAG_SET_CORRELATOR_NODE_PHASED:
+           correlator_node_type = CORRELATOR_NODE_PHASED; 
+           break;
+         case MPI_TAG_SET_CORRELATOR_NODE_FILTERBANK:
+           correlator_node_type = CORRELATOR_NODE_FILTERBANK; 
+           break;
+         case MPI_TAG_SET_CORRELATOR_NODE_PSR_BINNING:
+           correlator_node_type = CORRELATOR_NODE_PULSAR_BINNING;
+           break;
+         default:
+           sfxc_abort("Invalid correlator node type received, are you mixing diffent SFXC versions?");
+      }
+      Correlator_node node(rank, corr_nr, correlator_node_type);
       node.start();
       break;
     }

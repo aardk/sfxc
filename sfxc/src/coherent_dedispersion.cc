@@ -9,7 +9,7 @@ Coherent_dedispersion::Coherent_dedispersion(int stream_nr_,
       stream_nr(stream_nr_), output_memory_pool(2, NO_RESIZE), 
       current_buffer(0), fft(fft_), filter(filter_), 
       dedispersion_buffer(dedispersion_buffer_),
-      zeropad_buffer(zeropad_buffer_) {
+      zeropad_buffer(zeropad_buffer_), n_fft_dedispersion(0) {
 }
 
 Coherent_dedispersion::~Coherent_dedispersion(){
@@ -53,6 +53,7 @@ Coherent_dedispersion::do_task(){
     overlap_add();
     current_buffer = 1 - current_buffer;
     current_time.inc_samples(fft_size_dedispersion);
+    current_fft += 1;
   }
   if((RANK_OF_NODE == -10) && (stream_nr == 0)) 
     std::cerr<<"now = " <<current_time << ", start = " << start_time
@@ -61,6 +62,16 @@ Coherent_dedispersion::do_task(){
   if(out_pos > 0){
     cur_output->data.resize(out_pos);
     output_queue->push(cur_output);
+    // Push last fft
+    if (current_fft == n_fft_dedispersion) {
+      memset(&time_buffer[current_buffer][0], 0, time_buffer[current_buffer].size()*sizeof(FLOAT));
+      allocate_element(n_input_fft*fft_size_dedispersion/fft_size_correlation);
+      overlap_add();
+      if (out_pos > 0) {
+        cur_output->data.resize(out_pos);
+        output_queue->push(cur_output);
+      }
+    }
   }
 }
 
@@ -77,7 +88,7 @@ Coherent_dedispersion::overlap_add(){
   const int step_size = fft_size_correlation / 2;
   int nstep=fft_size_dedispersion/step_size;
   // First time only fft_size_dedispersion/2 of data is send
-  if(current_fft==0) 
+  if ((current_fft==0) || (current_fft == n_fft_dedispersion))
     nstep /= 2;
 
   for(int n=0; (n < nstep); n++){
@@ -99,8 +110,6 @@ Coherent_dedispersion::overlap_add(){
                &data[out_pos],
                step_size);
     out_pos += step_size;
-    if(out_pos % fft_size_correlation == 0)
-      current_fft += 1;
   }
 }
 
@@ -146,6 +155,7 @@ Coherent_dedispersion::set_parameters(const Correlation_parameters &parameters)
 
   fft_size_dedispersion = parameters.fft_size_dedispersion;
   fft_size_correlation = parameters.fft_size_correlation;
+  n_fft_dedispersion = parameters.slice_size / fft_size_dedispersion;
   sample_rate = parameters.sample_rate;
   start_time = parameters.integration_start;
   stop_time = parameters.integration_start + parameters.integration_time; 
@@ -163,6 +173,8 @@ Coherent_dedispersion::set_parameters(const Correlation_parameters &parameters)
   current_fft = 0;
 
   // Initialize buffers
-  time_buffer[0].resize(2*fft_size_dedispersion);
-  time_buffer[1].resize(2*fft_size_dedispersion);
+  for (int i=0; i<2; i++) {
+    time_buffer[i].resize(2*fft_size_dedispersion);
+    memset(&time_buffer[i][0], 0, time_buffer[current_buffer].size()*sizeof(FLOAT));
+  }
 }

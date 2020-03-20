@@ -56,11 +56,11 @@ Correlator_node_controller::process_event(MPI_Status &status) {
                status.MPI_TAG, MPI_COMM_WORLD, &status2);
       if (status.MPI_TAG == MPI_TAG_BP_TABLE){
         node.correlation_core_normal->add_bp_table(table);
-        if(node.pulsar_binning)
+        if(node.correlator_node_type == CORRELATOR_NODE_PULSAR_BINNING)
           node.correlation_core_pulsar->add_bp_table(table);
       }else{
         node.correlation_core_normal->add_cl_table(table);
-        if(node.pulsar_binning)
+        if(node.correlator_node_type == CORRELATOR_NODE_PULSAR_BINNING)
           node.correlation_core_pulsar->add_cl_table(table);
       }
       return PROCESS_EVENT_STATUS_SUCCEEDED;

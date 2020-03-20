@@ -9,7 +9,6 @@
  */
 
 #include "correlator_node.h"
-#include "correlation_core_phased.h"
 #include "data_reader_buffer.h"
 #include "data_writer.h"
 #include "utils.h"
@@ -18,7 +17,7 @@
 #include <ippcore.h>
 #endif
 
-Correlator_node::Correlator_node(int rank, int nr_corr_node, bool pulsar_binning_, bool phased_array_)
+Correlator_node::Correlator_node(int rank, int nr_corr_node, int correlator_node_type_)
     : Node(rank),
     correlator_node_ctrl(*this),
     data_readers_ctrl(*this),
@@ -27,24 +26,33 @@ Correlator_node::Correlator_node(int rank, int nr_corr_node, bool pulsar_binning
     isinitialized_(false),
     nr_corr_node(nr_corr_node), 
     pulsar_parameters(get_log_writer()),
-    pulsar_binning(pulsar_binning_),
-    bit2float_thread_(phased_array_),
-    phased_array(phased_array_), n_streams(0),
+    correlator_node_type(correlator_node_type_),
+    bit2float_thread_(),
+    n_streams(0),
     coherent_dedispersion(false){
   #ifdef USE_IPP
   ippSetNumThreads(1);
   #endif
   get_log_writer()(1) << "Correlator_node(" << nr_corr_node << ")" << std::endl;
-  if (phased_array){
-    correlation_core_normal = new Correlation_core_phased();
-    correlation_core = correlation_core_normal;
-  }else{
-    correlation_core_normal = new Correlation_core();
-    if(pulsar_binning){
+  switch(correlator_node_type) {
+    case CORRELATOR_NODE_NORMAL:
+      correlation_core_normal = new Correlation_core();
+      correlation_core = correlation_core_normal;
+      break;
+    case CORRELATOR_NODE_PHASED:
+      correlation_core_normal = new Correlation_core_phased();
+      correlation_core = correlation_core_normal;
+      break;
+    case CORRELATOR_NODE_FILTERBANK:
+      correlation_core_filterbank = new Correlation_core_filterbank();
+      correlation_core_normal = correlation_core_filterbank;
+      correlation_core = correlation_core_filterbank;
+      break;
+    case CORRELATOR_NODE_PULSAR_BINNING:
+      correlation_core_normal = new Correlation_core();
       correlation_core_pulsar = new Correlation_core_pulsar();
       correlation_core = correlation_core_pulsar;
-    }else
-      correlation_core = correlation_core_normal;
+      break;
   }
   add_controller(&correlator_node_ctrl);
   add_controller(&data_readers_ctrl);
@@ -249,14 +257,19 @@ void Correlator_node::hook_added_data_reader(size_t stream_nr) {
                                       windowing[stream_nr]->get_output_buffer());
   correlation_core_normal->connect_to(stream_nr, statistics, 
                                       bit2float_thread_.get_invalid(stream_nr));
-  if(phased_array || pulsar_binning){
+  if (correlator_node_type != CORRELATOR_NODE_NORMAL) {
     dedispersion_tasklet.connect_to(delay_modules[stream_nr]->get_output_buffer(), stream_nr);
   }
-  if(pulsar_binning){
+  if (correlator_node_type == CORRELATOR_NODE_PULSAR_BINNING) {
     correlation_core_pulsar->connect_to(stream_nr,
                                         windowing[stream_nr]->get_output_buffer());
     correlation_core_pulsar->connect_to(stream_nr, statistics,
                                       bit2float_thread_.get_invalid(stream_nr));
+  } else if (correlator_node_type == CORRELATOR_NODE_FILTERBANK) {
+    correlation_core_filterbank->connect_to(stream_nr,
+                                 windowing[stream_nr]->get_output_buffer());
+    correlation_core_filterbank->connect_to(stream_nr, statistics,
+                                 bit2float_thread_.get_invalid(stream_nr));
   }
 }
 
@@ -264,8 +277,11 @@ void Correlator_node::hook_added_data_writer(size_t i) {
   SFXC_ASSERT(i == 0);
 
   correlation_core_normal->set_data_writer(data_writer_ctrl.get_data_writer(0));
-  if(pulsar_binning)
+  if (correlator_node_type == CORRELATOR_NODE_PULSAR_BINNING) {
     correlation_core_pulsar->set_data_writer(data_writer_ctrl.get_data_writer(0));
+  } else if (correlator_node_type == CORRELATOR_NODE_FILTERBANK) {
+    correlation_core_filterbank->set_data_writer(data_writer_ctrl.get_data_writer(0));
+  }
 }
 
 int Correlator_node::get_correlate_node_number() {
@@ -370,10 +386,11 @@ Correlator_node::set_parameters() {
   for(int i=0;i<parameters.station_streams.size();i++){
     int stream = parameters.station_streams[i].station_stream;
     int index = delay_index[stream];
+    double interval = parameters.slice_size / double(parameters.sample_rate);
     SFXC_ASSERT(index != -1);
     akima_tables[stream] = 
        delay_tables[index].create_akima_spline(parameters.stream_start,
-                                               parameters.integration_time);
+                                               Time(1e6 * interval));
     if(stream < uvw.size()){
       uvw[stream].resize(parameters.n_phase_centers*3);
       for(int j=0;j<parameters.n_phase_centers;j++){
@@ -384,70 +401,57 @@ Correlator_node::set_parameters() {
   }
   int nBins=1;
   coherent_dedispersion = false;
-  if(pulsar_binning){
-    std::map<std::string, Pulsar_parameters::Pulsar>::iterator cur_pulsar_it =
-                           pulsar_parameters.pulsars.find(std::string(&parameters.source[0]));
-    if(cur_pulsar_it == pulsar_parameters.pulsars.end()){
-      // Current source is not a pulsar
-      nBins = 1;
-      for(int stream_nr = 0 ; stream_nr < delay_modules.size() ; stream_nr++)
-        windowing[stream_nr]->connect_to(
-                                 delay_modules[stream_nr]->get_output_buffer());
-      correlation_core = correlation_core_normal;
-      correlation_core->set_parameters(parameters, akima_tables, uvw, get_correlate_node_number());
-    }else{
-      Pulsar_parameters::Pulsar &pulsar = cur_pulsar_it->second;
-      coherent_dedispersion = pulsar.coherent_dedispersion;
-      nBins = pulsar.nbins + 1; // One extra for off-pulse data
-      if (coherent_dedispersion)
-        dedispersion_tasklet.set_parameters(parameters, pulsar);
-      // Select the correct read queue 
-      for(int stream_nr = 0 ; stream_nr < delay_modules.size() ; stream_nr++){
-        if (coherent_dedispersion){
-          windowing[stream_nr]->connect_to(
-                        dedispersion_tasklet.get_output_buffer(stream_nr));
-        }else{ 
-          windowing[stream_nr]->connect_to(
-                                delay_modules[stream_nr]->get_output_buffer());
-        }
-      }
-      correlation_core = correlation_core_pulsar;
-      correlation_core_pulsar->set_parameters(parameters, pulsar, akima_tables, uvw, get_correlate_node_number());
-    }
-  }else if(phased_array){
-    if (parameters.only_autocorrelations)
-      nBins = parameters.station_streams.size();
-    else
-      nBins = parameters.n_phase_centers;
-    std::map<std::string, Pulsar_parameters::Pulsar>::iterator cur_pulsar_it =
-                           pulsar_parameters.pulsars.find(std::string(&parameters.source[0]));
-    if(cur_pulsar_it == pulsar_parameters.pulsars.end()){
-      // Current source is not a pulsar
-      for(int stream_nr = 0 ; stream_nr < delay_modules.size() ; stream_nr++)
-        windowing[stream_nr]->connect_to(
-                                 delay_modules[stream_nr]->get_output_buffer());
-      correlation_core = correlation_core_normal;
-      correlation_core->set_parameters(parameters, akima_tables, uvw, get_correlate_node_number());
-    }else{
-      Pulsar_parameters::Pulsar &pulsar = cur_pulsar_it->second;
-      coherent_dedispersion = pulsar.coherent_dedispersion;
-      if (coherent_dedispersion)
-        dedispersion_tasklet.set_parameters(parameters, pulsar);
-      // Select the correct read queue 
-      for(int stream_nr = 0 ; stream_nr < delay_modules.size() ; stream_nr++){
-        if (coherent_dedispersion){
-          windowing[stream_nr]->connect_to(
-                        dedispersion_tasklet.get_output_buffer(stream_nr));
-        }else{ 
-          windowing[stream_nr]->connect_to(
-                                delay_modules[stream_nr]->get_output_buffer());
-        }
-      }
-      correlation_core->set_parameters(parameters, akima_tables, uvw, get_correlate_node_number());
-    }
-  }else{
+  if (correlator_node_type == CORRELATOR_NODE_NORMAL) {
     nBins = parameters.n_phase_centers;
     correlation_core->set_parameters(parameters, akima_tables, uvw, get_correlate_node_number());
+  } else {
+    std::map<std::string, Pulsar_parameters::Pulsar>::iterator cur_pulsar_it =
+                           pulsar_parameters.pulsars.find(std::string(&parameters.source[0]));
+    bool is_pulsar = (cur_pulsar_it != pulsar_parameters.pulsars.end());
+    if (is_pulsar) {
+      Pulsar_parameters::Pulsar &pulsar = cur_pulsar_it->second;
+      coherent_dedispersion = pulsar.coherent_dedispersion;
+      dedispersion_tasklet.set_parameters(parameters, pulsar);
+    }
+    // select the correct input queue
+    for(int stream_nr = 0 ; stream_nr < delay_modules.size() ; stream_nr++) {
+      if (coherent_dedispersion) {
+        windowing[stream_nr]->connect_to(
+                      dedispersion_tasklet.get_output_buffer(stream_nr));
+      } else { 
+        windowing[stream_nr]->connect_to(
+                              delay_modules[stream_nr]->get_output_buffer());
+      }
+    }
+    if (correlator_node_type == CORRELATOR_NODE_PULSAR_BINNING) {
+      if (is_pulsar) { 
+        Pulsar_parameters::Pulsar &pulsar = cur_pulsar_it->second;
+        nBins = pulsar.nbins + 1; // One extra for off-pulse data
+        correlation_core = correlation_core_pulsar;
+        correlation_core_pulsar->set_parameters(parameters, pulsar, akima_tables, uvw, get_correlate_node_number());
+      } else {
+        // Current source is not a pulsar
+        nBins = 1;
+        correlation_core = correlation_core_normal;
+        correlation_core->set_parameters(parameters, akima_tables, uvw, get_correlate_node_number());
+     }
+    } else if(correlator_node_type == CORRELATOR_NODE_PHASED) {
+      correlation_core = correlation_core_normal;
+      nBins = parameters.n_phase_centers;
+      correlation_core->set_parameters(parameters, akima_tables, uvw, get_correlate_node_number());
+    } else if(correlator_node_type == CORRELATOR_NODE_FILTERBANK) {
+      correlation_core = correlation_core_filterbank;
+      double DM = 0;
+      bool no_intra_channel_dedispersion = false;
+      if (is_pulsar) {
+        Pulsar_parameters::Pulsar &pulsar = cur_pulsar_it->second;
+        if (coherent_dedispersion) {
+          DM = pulsar.polyco_params[0].DM;
+          no_intra_channel_dedispersion = pulsar.no_intra_channel_dedispersion;
+        }
+      }
+      correlation_core_filterbank->set_parameters(parameters, akima_tables, uvw, get_correlate_node_number(), DM, no_intra_channel_dedispersion);
+    }
   }
 
   for (size_t i=0; i<delay_modules.size(); i++) {
@@ -471,11 +475,12 @@ Correlator_node::set_parameters() {
   if (parameters.cross_polarize)
     nstations /= 2;
   int nBaselines, size_of_one_baseline;
-  if (phased_array){
+  if ((correlator_node_type == CORRELATOR_NODE_FILTERBANK) ||
+      (correlator_node_type == CORRELATOR_NODE_PHASED)) {
     size_of_one_baseline = sizeof(FLOAT) * (parameters.number_channels + 1);
     nBaselines = ceil(parameters.integration_time / 
                       parameters.sub_integration_time);
-  }else{
+  } else {
     size_of_one_baseline = sizeof(std::complex<FLOAT>) * 
                            (parameters.number_channels + 1);
     nBaselines = correlation_core->number_of_baselines();
@@ -487,7 +492,7 @@ Correlator_node::set_parameters() {
   int slice_size;
   slice_size = nBins * ( sizeof(int32_t) + sizeof(Output_header_timeslice) + size_uvw + size_stats +
                nBaselines * ( size_of_one_baseline + sizeof(Output_header_baseline)));
-  if(RANK_OF_NODE == 10)
+  if(RANK_OF_NODE == -7)
     std::cout << "slice_nr = " << parameters.slice_nr << ", slice_offset = " << parameters.slice_offset 
               << ", nBins = " << nBins << ", slice_size = " << slice_size 
               << ", size baseline = " << size_of_one_baseline

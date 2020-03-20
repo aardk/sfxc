@@ -36,7 +36,7 @@ public:
   // Invalid data
   typedef Correlator_node_types::Invalid            Invalid;
 
-  Bit2float_worker(int stream_nr, bit_statistics_ptr statistics_, bool phased_array_);
+  Bit2float_worker(int stream_nr, bit_statistics_ptr statistics_);
   ~Bit2float_worker() {
     while (!output_buffer_->empty())
       sleep(1);
@@ -80,7 +80,7 @@ public:
   // Stop processing
   void stop();
 
-  static Bit2float_worker_sptr new_sptr(int stream_nr_, bit_statistics_ptr statistics_, bool phased_array_);
+  static Bit2float_worker_sptr new_sptr(int stream_nr_, bit_statistics_ptr statistics_);
     bit_statistics_ptr get_bit_statistics(){
       return statistics;
     }
@@ -92,7 +92,6 @@ private:
   void allocate_element(); // Allocate a new output packet
   Output_pool_element out_element; // The current output packet
   int out_index; // Current index in the data buffer of out_element
-  bool phased_array;
   bool isRunning;
 
   Input_buffer_ptr    input_buffer_;

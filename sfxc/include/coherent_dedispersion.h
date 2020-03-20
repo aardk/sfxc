@@ -38,6 +38,7 @@ private:
   int current_fft, current_buffer;
   int fft_size_dedispersion, fft_size_correlation;
   int total_input_fft; // FIXME debug info
+  int n_fft_dedispersion;
   double sample_rate;
   Time current_time, start_time, stop_time;
   Memory_pool_vector_element<std::complex<FLOAT> > &filter, &dedispersion_buffer;

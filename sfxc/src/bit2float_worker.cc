@@ -9,7 +9,7 @@ const FLOAT sample_value_m[]  = {
                                   -5, 5
                                 };
 
-Bit2float_worker::Bit2float_worker(int stream_nr_, bit_statistics_ptr statistics_, bool phased_array_)
+Bit2float_worker::Bit2float_worker(int stream_nr_, bit_statistics_ptr statistics_)
   : output_buffer_(new Output_queue()),
     fft_size(-1),
     bits_per_sample(-1),
@@ -17,7 +17,7 @@ Bit2float_worker::Bit2float_worker(int stream_nr_, bit_statistics_ptr statistics
     memory_pool_(4, NO_RESIZE), 
     have_new_parameters(false), stream_nr(stream_nr_),
     n_ffts_per_integration(0), current_fft(0), state(IDLE),
-    phased_array(phased_array_), statistics(statistics_), 
+    statistics(statistics_), 
     isRunning(true)
     /**/
 {
@@ -342,8 +342,8 @@ void Bit2float_worker::empty_output_queue() {
 }
 
 Bit2float_worker_sptr
-Bit2float_worker::new_sptr(int stream_nr_, bit_statistics_ptr statistics_, bool phased_array){
-  return Bit2float_worker_sptr(new Bit2float_worker(stream_nr_, statistics_, phased_array));
+Bit2float_worker::new_sptr(int stream_nr_, bit_statistics_ptr statistics_){
+  return Bit2float_worker_sptr(new Bit2float_worker(stream_nr_, statistics_));
 }
 
 int 

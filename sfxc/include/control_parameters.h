@@ -98,6 +98,7 @@ public:
     char name[11];
     int32_t nbins;
     bool coherent_dedispersion;
+    bool no_intra_channel_dedispersion;
     struct Interval{double start; double stop;} interval;
     std::vector<Polyco_params> polyco_params;
   };
@@ -184,7 +185,6 @@ public:
   char source[11];              // name of the source under observation
   int32_t n_phase_centers;      // The number of phase centers in the current scan
   int32_t pulsar_binning;
-  bool only_autocorrelations;
   double dedispersion_ref_frequency; // The reference frequency to which the coherent dedispersion is applied
   Mask_parameters *mask_parameters;
 };
@@ -245,7 +245,7 @@ public:
 
   bool phased_array() const;
   bool pulsar_binning() const;
-  bool only_autocorrelations() const;
+  bool filterbank() const;
   bool multi_phase_center() const;
   double LO_offset(const std::string &station) const;
   bool exit_on_empty_datastream() const;

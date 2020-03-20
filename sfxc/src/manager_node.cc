@@ -467,7 +467,7 @@ Manager_node::initialise() {
       sources_it++;
       source_nr++;
     }
-  }else if (control_parameters.only_autocorrelations()){
+  }else if (control_parameters.filterbank()){
     std::string base_filename = control_parameters.get_output_file();
     for(int i = 0; i < control_parameters.number_stations(); i++) {
       // Open one output file per pulsar bin
@@ -477,11 +477,10 @@ Manager_node::initialise() {
   }else
     set_data_writer(RANK_OUTPUT_NODE, 0, control_parameters.get_output_file());
 
-  if(control_parameters.phased_array()){ 
+  if (control_parameters.phased_array() || control_parameters.filterbank()) { 
     Pulsar_parameters &pulsar_parameters = control_parameters.get_pulsar_parameters();
     correlator_node_set_all(pulsar_parameters);
   }
-
 
   {
     std::string filename = control_parameters.get_phasecal_file();
@@ -706,7 +705,10 @@ void Manager_node::send_global_header(){
     output_header.number_channels = control_parameters.number_channels();  // Number of frequency channels
     Time int_time = control_parameters.integration_time();// Integration time: microseconds
     output_header.integration_time = (int)int_time.get_time_usec();
-    output_header.output_format_version = control_parameters.phased_array()? OUTPUT_FORMAT_VERSION_PHASED : OUTPUT_FORMAT_VERSION;
+    if (control_parameters.phased_array() || control_parameters.filterbank())
+      output_header.output_format_version = OUTPUT_FORMAT_VERSION_PHASED;
+    else
+      output_header.output_format_version = OUTPUT_FORMAT_VERSION;
     
     const char *svn_version = SVN_VERSION;
     if (strchr(svn_version, ':'))

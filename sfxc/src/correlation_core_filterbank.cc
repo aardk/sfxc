@@ -1,17 +1,18 @@
-#include "correlation_core_phased.h"
+#include "correlation_core_filterbank.h"
 #include "output_header.h"
 #include "bandpass.h"
 #include "utils.h"
 #include <set>
 
-Correlation_core_phased::Correlation_core_phased()
+Correlation_core_filterbank::Correlation_core_filterbank(): 
+     DM(0), no_intra_channel_dedispersion(false)
 {
 }
 
-Correlation_core_phased::~Correlation_core_phased() {
+Correlation_core_filterbank::~Correlation_core_filterbank() {
 }
 
-void Correlation_core_phased::do_task() {
+void Correlation_core_filterbank::do_task() {
   SFXC_ASSERT(has_work());
   if (current_fft % 1000 == 0) {
     PROGRESS_MSG("node " << node_nr_ << ", "
@@ -33,67 +34,56 @@ void Correlation_core_phased::do_task() {
   const int stride = input_buffers[first_stream]->front()->stride;
   const int nbuffer = std::min((size_t)number_ffts_in_integration - current_fft,
                                input_buffers[first_stream]->front()->data.size() / stride);
-  //Time ttt = Time(55870, 79405.0);
-  Time ttt = Time(55870, 0.);
-  if((RANK_OF_NODE==-10)&&(correlation_parameters.integration_start >= ttt)) 
-      std::cout <<"subint : nbuffer = " << nbuffer << ", fft="<< current_fft << "/" <<number_ffts_in_integration<< "\n";
   // Process the data from the current fft buffer
-  int buf_idx=0;
-  while((buf_idx < nbuffer) && (current_fft < number_ffts_in_integration)){
-    int n = std::min(next_sub_integration*number_ffts_in_sub_integration - current_fft,
-                     nbuffer - buf_idx);
-    integration_step(accumulation_buffers, buf_idx, buf_idx+n, stride);
-    current_fft += n;
-    buf_idx += n;
+  for (int buf_idx=0; (buf_idx < nbuffer) && (current_fft < number_ffts_in_integration); buf_idx++) {
+    integration_step(accumulation_buffers, buf_idx * stride);
+    current_fft++;
     if (current_fft == number_ffts_in_integration) {
       PROGRESS_MSG("node " << node_nr_ << ", "
                    << current_fft << " of " << number_ffts_in_integration);
 
-      if((RANK_OF_NODE==-10)&&(correlation_parameters.integration_start >= ttt)) 
-        std::cerr <<"subint : "<< next_sub_integration <<"; fft = "<<current_fft<<" / "<<number_ffts_in_integration<< "\n";
       sub_integration();
       for(int i = 0 ; i < phase_centers.size(); i++){
         int source_nr;
         int pcenter = 0;
-        if(split_output){
-            source_nr = sources[delay_tables[0].get_source(i)];
-            pcenter = i;
-        }else{
-          source_nr = 0;
-        }
+        source_nr = streams_in_scan[i];
         integration_write_headers(pcenter, source_nr);
         integration_write_subints(phase_centers[i]);
       }
       current_integration++;
     }else if(current_fft >= next_sub_integration*number_ffts_in_sub_integration){
-      if((RANK_OF_NODE==-10)&&(correlation_parameters.integration_start >= ttt)) 
-        std::cerr <<"subint : "<< next_sub_integration << "; fft = " <<current_fft<<" / "<<number_ffts_in_integration<< "\n";
       sub_integration();
       next_sub_integration++;
+    } else if(no_intra_channel_dedispersion) {
+      sub_integration();
     }
   }
   for (size_t i=0, nstreams=number_input_streams_in_use(); i<nstreams; i++){
     int stream = streams_in_scan[i];
     input_buffers[stream]->pop();
   }
- 
 }
 
 void
-Correlation_core_phased::set_parameters(const Correlation_parameters &parameters,
-                                        std::vector<Delay_table_akima> &delays,
-                                        std::vector<std::vector<double> > &uvw,
-					int node_nr)
+Correlation_core_filterbank::set_parameters(
+                                  const Correlation_parameters &parameters,
+                                  std::vector<Delay_table_akima> &delays,
+                                  std::vector<std::vector<double> > &uvw,
+                                  int node_nr, double DM_, 
+                                  bool no_intra_channel_dedispersion_)
 {
   node_nr_ = node_nr;
   current_integration = 0;
   current_fft = 0;
   delay_tables = delays;
   uvw_table = uvw;
-
+  DM = DM_;
+  no_intra_channel_dedispersion = no_intra_channel_dedispersion_;
   correlation_parameters = parameters;
 
   create_baselines(parameters);
+  // NB: we overide the value from create_baselines
+  number_ffts_in_integration = parameters.slice_size / parameters.fft_size_correlation;
   if (input_elements.size() != number_input_streams_in_use()) {
     input_elements.resize(number_input_streams_in_use());
   }
@@ -110,17 +100,16 @@ Correlation_core_phased::set_parameters(const Correlation_parameters &parameters
   }
   n_flagged.resize(baselines.size());
   get_input_streams();
+  create_channel_offsets();
 }
 
-void Correlation_core_phased::integration_initialise() {
-  number_output_products =
-    ceil(number_ffts_in_integration / number_ffts_in_sub_integration);
+void Correlation_core_filterbank::integration_initialise() {
+  number_output_products = ceil(correlation_parameters.integration_time / correlation_parameters.sub_integration_time);
   previous_fft = 0;
 
-  int n_phase_centers = correlation_parameters.n_phase_centers;
-
-  if(phase_centers.size() != n_phase_centers)
-    phase_centers.resize(n_phase_centers);
+  int nstreams = streams_in_scan.size();
+  if(phase_centers.size() != nstreams)
+    phase_centers.resize(nstreams);
 
   for(int i = 0 ; i < phase_centers.size() ; i++){
     if (phase_centers[i].size() != number_output_products){
@@ -156,34 +145,27 @@ void Correlation_core_phased::integration_initialise() {
   next_sub_integration = 1;
 }
 
-void Correlation_core_phased::
+void Correlation_core_filterbank::
 integration_step(std::vector<Complex_buffer> &integration_buffer, 
-                 int first, int last, int stride) 
+                 int buf_idx) 
 {
   for (size_t i = 0; i < number_input_streams_in_use(); i++) {
-    for (size_t buf_idx = first*stride; 
-         buf_idx < last * stride; 
-         buf_idx += stride) {
-      // get the complex conjugates of the input
-      SFXC_CONJ_FC(&input_elements[i][buf_idx], &input_conj_buffers[i][buf_idx], 
-                   fft_size() + 1);
-    }
+    // get the complex conjugates of the input
+    SFXC_CONJ_FC(&input_elements[i][buf_idx], &input_conj_buffers[i][buf_idx], 
+                 fft_size() + 1);
   }
-  for (size_t i = number_input_streams_in_use(); i < baselines.size(); i++) {
-    for (size_t buf_idx = first*stride; 
-         buf_idx < last * stride; 
-         buf_idx += stride) {
-      // Cross correlations
-      std::pair<size_t,size_t> &stations = baselines[i];
-      //SFXC_ASSERT(stations.first != stations.second);
-      SFXC_ADD_PRODUCT_FC(/* in1 */ &input_elements[stations.first][buf_idx], 
-			  /* in2 */ &input_conj_buffers[stations.second][buf_idx],
-			  /* out */ &integration_buffer[i][0], fft_size() + 1);
-    }
+  
+  for (size_t i = 0; i < number_input_streams_in_use(); i++) {
+    // Cross correlations
+    std::pair<size_t,size_t> &stations = baselines[i];
+    //SFXC_ASSERT(stations.first == stations.second);
+    SFXC_ADD_PRODUCT_FC(/* in1 */ &input_elements[stations.first][buf_idx], 
+                    /* in2 */ &input_conj_buffers[stations.second][buf_idx],
+                    /* out */ &integration_buffer[i][0], fft_size() + 1);
   }
 }
 
-void Correlation_core_phased::integration_write_subints(std::vector<Complex_buffer> &integration_buffer) {
+void Correlation_core_filterbank::integration_write_subints(std::vector<Complex_buffer> &integration_buffer) {
   SFXC_ASSERT(accumulation_buffers.size() == baselines.size());
 
   int polarisation = (correlation_parameters.polarisation == 'R')? 0 : 1;
@@ -235,45 +217,39 @@ void Correlation_core_phased::integration_write_subints(std::vector<Complex_buff
 }
 
 void 
-Correlation_core_phased::sub_integration(){
+Correlation_core_filterbank::sub_integration(){
   Time tfft(0., correlation_parameters.sample_rate); 
   tfft.inc_samples(fft_size());
-  // Apply calibration
-  const Time tmid = correlation_parameters.integration_start + 
-                    tfft*(previous_fft+(current_fft-previous_fft)/2.); 
-  calibrate(accumulation_buffers, tmid); 
+  //const Time tmid = correlation_parameters.stream_start + 
+  //                  tfft*(current_fft + 0.5); 
+  //calibrate(accumulation_buffers, tmid); 
 
+  Time tstart = correlation_parameters.stream_start - 
+                 correlation_parameters.integration_start;
+  double tmid = (tstart +
+                 tfft*(previous_fft+(current_fft-previous_fft)/2.)).get_time_usec();
+  double sub_integration_time = correlation_parameters.sub_integration_time.get_time_usec();
   const int n_fft = fft_size() + 1;
   const int n_phase_centers = phase_centers.size();
   const int n_station = number_input_streams_in_use();
   const int n_baseline = accumulation_buffers.size();
-  if((RANK_OF_NODE ==-10) && (next_sub_integration >= 15624))
+  if((RANK_OF_NODE == -5) && (next_sub_integration >= 15624))
                          std::cout << "nbaseline = " << n_baseline
                                    << ", subint = " << next_sub_integration-1
                                    << " / " << phase_centers[0].size()
                                    << "fft = " << current_fft
                                    << ", nfft_per_sub="<< number_ffts_in_sub_integration
-                                   << ", tmid = " << (int64_t)tmid.get_time_usec()
+                                   << ", tmid = " << (int64_t)tmid
                                    << "\n";
-  for(int i = n_station; i < n_baseline; i++){
+  for(int i = 0 ; i < n_station ; i++){
     std::pair<size_t,size_t> &inputs = baselines[i];
     int station1 = streams_in_scan[inputs.first];
     int station2 = streams_in_scan[inputs.second];
 
-    // The pointing center
-    SFXC_ADD_FC(&accumulation_buffers[i][0], 
-                &phase_centers[0][next_sub_integration-1][0],
-                n_fft);
-    // UV shift the additional phase centers
-    for(int j = 1; j < n_phase_centers; j++){
-      double delay1 = delay_tables[station1].delay(tmid);
-      double delay2 = delay_tables[station2].delay(tmid);
-      double ddelay1 = delay_tables[station1].delay(tmid, j)-delay1;
-      double ddelay2 = delay_tables[station2].delay(tmid, j)-delay2;
-      double rate1 = delay_tables[station1].rate(tmid);
-      double rate2 = delay_tables[station2].rate(tmid);
-      uvshift(accumulation_buffers[i], phase_centers[j][next_sub_integration-1], 
-              ddelay1, ddelay2, rate1, rate2);
+    for (int j = 0; j <= fft_size(); j++) {
+      int bin = floor((tmid + offsets[j]) / sub_integration_time);
+      if ((bin >= 0) and (bin < number_output_products))
+          phase_centers[i][bin][j] += accumulation_buffers[i][j];
     }
   }
   // Clear the accumulation buffers
@@ -285,3 +261,29 @@ Correlation_core_phased::sub_integration(){
   previous_fft = current_fft;
 }
 
+void
+Correlation_core_filterbank::create_channel_offsets() {
+  offsets.resize(fft_size());
+  if (!no_intra_channel_dedispersion) {
+    for (int i = 0; i < offsets.size(); i++)
+      offsets[i] = 0;
+    return;
+  }
+  int m = fft_size() / number_channels();
+  // Find the time offsets between frequency components
+  int sb = correlation_parameters.sideband == 'L' ? -1 : 1;
+  double base_freq = correlation_parameters.channel_freq*1e-6; // [MHz]
+  double fmid = (correlation_parameters.channel_freq + sb * correlation_parameters.bandwidth / 2) * 1e-6; // [MHz]
+  for (int i = 0; i <= number_channels(); i++) {
+    double f_i = base_freq + sb * i * 1e-6 * correlation_parameters.bandwidth / number_channels();
+    for (int j = 0; j < m; j++) {
+      int k = i * m + j;
+      if (k <= fft_size()) {
+        offsets[k] = 4.148808e9 * DM * ( 1. / (f_i * f_i) - 1. / (fmid*fmid));
+        std::cerr.precision(16);
+        if (RANK_OF_NODE == -5)
+          std::cerr << "offsets[" << k << "] = " << offsets[k] << " ;f_" <<i << " = " << f_i << ", fmid = " << fmid<< "\n";
+      }
+    }
+  }
+}

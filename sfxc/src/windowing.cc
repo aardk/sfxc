@@ -109,9 +109,11 @@ Windowing::set_parameters(const Correlation_parameters &parameters){
   integration_start = parameters.integration_start;
   current_time = parameters.stream_start;
   current_time.set_sample_rate(parameters.station_streams[stream_idx].sample_rate);
-  samples_to_skip = (int)round((integration_start-current_time).get_time_usec() * 
-                               (parameters.station_streams[stream_idx].sample_rate * 1e-6));
-  if(RANK_OF_NODE == 12){
+  //samples_to_skip = (int)round((integration_start-current_time).get_time_usec() * 
+  //                             (parameters.station_streams[stream_idx].sample_rate * 1e-6));
+  // NB: for re-dispersed data we skip no samples
+  samples_to_skip = 0;
+  if(RANK_OF_NODE == 5){
   std::cout.precision(16);
   std::cout << RANK_OF_NODE << " : fft_rot_size = " << fft_rot_size << "\n";
   std::cout << RANK_OF_NODE << " : current_time = " << current_time
@@ -124,11 +126,12 @@ Windowing::set_parameters(const Correlation_parameters &parameters){
   current_fft = 0;
   index = 0;
 
-  nffts_per_integration =
-      Control_parameters::nr_ffts_to_output_node(
-        parameters.integration_time,
-        parameters.sample_rate,
-        parameters.fft_size_correlation);
+  // NB: for re-dispersed data send all data to correlation_core
+  nffts_per_integration = parameters.slice_size / parameters.fft_size_correlation;
+//      Control_parameters::nr_ffts_to_output_node(
+//        parameters.integration_time,
+//        parameters.sample_rate,
+//        parameters.fft_size_correlation);
   if (window_func != SFXC_WINDOW_NONE)
     nffts_per_integration -= 1;
   output_stride = parameters.fft_size_correlation + 4; // ensure 8 bytes allignment

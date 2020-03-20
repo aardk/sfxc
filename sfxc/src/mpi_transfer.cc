@@ -534,7 +534,7 @@ MPI_Transfer::send(Pulsar_parameters &pulsar_param, int rank) {
   size += sizeof(int32_t);
   std::map<std::string, Pulsar_parameters::Pulsar>::iterator it = pulsar_param.pulsars.begin();
   while(it!=pulsar_param.pulsars.end()){
-    size += 11*sizeof(char) + 2*sizeof(int32_t)+2*sizeof(double);
+    size += 11*sizeof(char) + 3*sizeof(int32_t)+2*sizeof(double);
     size += sizeof(int32_t); // because we send the number of polyco tables
     std::vector<Pulsar_parameters::Polyco_params>::iterator poly = it->second.polyco_params.begin();
     while(poly != it->second.polyco_params.end()){
@@ -556,6 +556,8 @@ MPI_Transfer::send(Pulsar_parameters &pulsar_param, int rank) {
     MPI_Pack(&cur.nbins, 1, MPI_INT32, message_buffer, size, &position, MPI_COMM_WORLD);
     int coherent_dedispersion = cur.coherent_dedispersion ? 1 : 0;
     MPI_Pack(&coherent_dedispersion, 1, MPI_INT32, message_buffer, size, &position, MPI_COMM_WORLD);
+    int no_intra_channel_dedispersion= cur.no_intra_channel_dedispersion? 1 : 0;
+    MPI_Pack(&no_intra_channel_dedispersion, 1, MPI_INT32, message_buffer, size, &position, MPI_COMM_WORLD);
     MPI_Pack(&cur.interval.start, 1, MPI_DOUBLE, message_buffer, size, &position, MPI_COMM_WORLD);
     MPI_Pack(&cur.interval.stop, 1, MPI_DOUBLE, message_buffer, size, &position, MPI_COMM_WORLD);
     int32_t npolyco = cur.polyco_params.size();
@@ -613,6 +615,9 @@ MPI_Transfer::receive(MPI_Status &status, Pulsar_parameters &pulsar_param) {
     int coherent_dedispersion;
     MPI_Unpack(buffer, size, &position, &coherent_dedispersion, 1, MPI_INT32, MPI_COMM_WORLD);
     newPulsar.coherent_dedispersion = (coherent_dedispersion == 1);
+    int no_intra_channel_dedispersion;
+    MPI_Unpack(buffer, size, &position, &no_intra_channel_dedispersion, 1, MPI_INT32, MPI_COMM_WORLD);
+    newPulsar.no_intra_channel_dedispersion = (no_intra_channel_dedispersion == 1);
     MPI_Unpack(buffer, size, &position, &newPulsar.interval.start, 1, MPI_DOUBLE, MPI_COMM_WORLD);
     MPI_Unpack(buffer, size, &position, &newPulsar.interval.stop,  1, MPI_DOUBLE, MPI_COMM_WORLD);
     int32_t npolyco;
@@ -872,7 +877,7 @@ void
 MPI_Transfer::send(Correlation_parameters &corr_param, int rank) {
   int size = 0;
   size =
-    5*sizeof(int64_t) + 2*sizeof(double) + 16*sizeof(int32_t) + sizeof(int64_t) +
+    5*sizeof(int64_t) + 2*sizeof(double) + 15*sizeof(int32_t) + sizeof(int64_t) +
     3*sizeof(char) + corr_param.station_streams.size() * (5 * sizeof(int32_t) + 3 * sizeof(int64_t) + sizeof(char) + sizeof(double)) +
     11*sizeof(char);
   int position = 0;
@@ -944,9 +949,6 @@ MPI_Transfer::send(Correlation_parameters &corr_param, int rank) {
   MPI_Pack(&corr_param.pulsar_binning, 1, MPI_INT32,
            message_buffer, size, &position, MPI_COMM_WORLD);
   MPI_Pack(&corr_param.source[0], 11, MPI_CHAR,
-           message_buffer, size, &position, MPI_COMM_WORLD);
-  int only_auto = corr_param.only_autocorrelations ? 1 : 0;
-  MPI_Pack(&only_auto, 1, MPI_INT32,
            message_buffer, size, &position, MPI_COMM_WORLD);
   MPI_Pack(&corr_param.dedispersion_ref_frequency, 1, MPI_DOUBLE,
            message_buffer, size, &position, MPI_COMM_WORLD);
@@ -1087,10 +1089,6 @@ MPI_Transfer::receive(MPI_Status &status, Correlation_parameters &corr_param) {
              &corr_param.pulsar_binning, 1, MPI_INT32, MPI_COMM_WORLD);
   MPI_Unpack(buffer, size, &position,
                &corr_param.source[0], 11, MPI_CHAR, MPI_COMM_WORLD);
-  int32_t only_auto;
-  MPI_Unpack(buffer, size, &position,
-             &only_auto, 1, MPI_INT32, MPI_COMM_WORLD);
-  corr_param.only_autocorrelations = only_auto == 1;
   MPI_Unpack(buffer, size, &position,
              &corr_param.dedispersion_ref_frequency, 1, MPI_DOUBLE,
              MPI_COMM_WORLD);

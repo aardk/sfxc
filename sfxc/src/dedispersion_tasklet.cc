@@ -96,6 +96,8 @@ Dedispersion_tasklet::set_parameters(const Correlation_parameters &parameters, P
 
   // Initialize the FFT's
   fft.resize(2*fft_size_dedispersion);
+  if (RANK_OF_NODE == 5)
+    std::cerr << "fft_size_dedispersion = " << fft_size_dedispersion << "\n";
   create_dedispersion_filter();
 
   // Apply parameters to modules

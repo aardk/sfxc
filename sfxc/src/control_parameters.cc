@@ -122,13 +122,19 @@ initialise(const char *ctrl_file, const char *vex_file,
   if (ctrl["phased_array"] == Json::Value())
     ctrl["phased_array"] = false;
 
-  if(ctrl["only_autocorrelations"] == Json::Value()) {
-    ctrl["only_autocorrelations"] = false;
+  // For backward compatibility
+  if(ctrl["only_autocorrelations"] != Json::Value()) {
+    if (ctrl["phased_array"].asBool() && ctrl["only_autocorrelations"].asBool()) {
+      ctrl["phased_array"] = false;
+      ctrl["filterbank"] = true;
+    }
   }
+  if (ctrl["filterbank"] == Json::Value())
+    ctrl["filterbank"] = false;
 
   if (ctrl["multi_phase_center"] == Json::Value()){
     ctrl["multi_phase_center"] = false;
-    if(!ctrl["pulsar_binning"].asBool() && !ctrl["only_autocorrelations"].asBool()){
+    if(!ctrl["pulsar_binning"].asBool() && !ctrl["filterbank"].asBool()){
       Vex::Node::const_iterator it = vex.get_root_node()["SCHED"]->begin();
       while(it != vex.get_root_node()["SCHED"]->end()){
         int n_sources = 0;
@@ -150,10 +156,15 @@ initialise(const char *ctrl_file, const char *vex_file,
     std::cout << "Pulsar binning cannot be used together with multiple phase centers\n";
     return false;
   }
+  // No phased array and filterbank modes at the same time 
+  if (ctrl["phased_array"].asBool() && ctrl["filterbank"].asBool()) {
+    std::cout << "Cannot enable phased array and filterbank modes simultaneously\n";
+    return false;
+  }
   // No phased array in pulsar binning mode
-  if ((ctrl["phased_array"].asBool() == true) &&
-      (ctrl["pulsar_binning"].asBool() == true)){
-    std::cout << "Pulsar binning cannot be used in phase array mode\n";
+  if ((ctrl["phased_array"].asBool() || ctrl["filterbank"].asBool()) &&
+      ctrl["pulsar_binning"].asBool()) {
+    std::cout << "Pulsar binning cannot be used with phased array or filterbank modes\n";
     return false;
   }
   // Set default windowing function, if necessary
@@ -448,7 +459,7 @@ Control_parameters::check(std::ostream &writer) const {
     }
   }
   // If phased array mode is activated, check for calibration tables
-  if ((ctrl["phased_array"].asBool()) && (!ctrl["only_autocorrelations"].asBool())){
+  if (ctrl["phased_array"].asBool()) { 
     if(ctrl["cl_table"] == Json::Value()){
       writer << "Phased array mode requires \"cl_table\" to be specified" << std::endl;
       ok = false;
@@ -458,8 +469,8 @@ Control_parameters::check(std::ostream &writer) const {
       ok = false;
     }
   }
-  if (ctrl["multi_phase_center"].asBool() && ctrl["only_autocorrelations"].asBool()){
-    writer << "Multiple phase centers cannot be set when \"only_autocorrelations\" is enabled.\n";
+  if (ctrl["multi_phase_center"].asBool() && ctrl["filterbank"].asBool()){
+    writer << "Multiple phase centers cannot be set when \"filterbank\" mode is enabled.\n";
     ok = false;
   }
   // Check pulsar binning
@@ -731,8 +742,8 @@ bool Control_parameters::pulsar_binning() const{
   return ctrl["pulsar_binning"].asBool();
 }
 
-bool Control_parameters::only_autocorrelations() const{
-  return ctrl["only_autocorrelations"].asBool();
+bool Control_parameters::filterbank() const{
+  return ctrl["filterbank"].asBool();
 }
 
 bool Control_parameters::multi_phase_center() const{
@@ -759,6 +770,11 @@ Control_parameters::read_pulsar_parameters(){
       newPulsar.coherent_dedispersion = false;
     else
       newPulsar.coherent_dedispersion = (*it)["coherent_dedispersion"].asBool();
+    // Check if intra-channel de-dispersion is disabled
+    if ((*it)["no_intra_channel_dedispersion"] == Json::Value())
+      newPulsar.no_intra_channel_dedispersion = false;
+    else
+      newPulsar.no_intra_channel_dedispersion = (*it)["no_intra_channel_dedispersion"].asBool();
     unsigned int zero=0, one=1; //needed to prevent compiler error
     newPulsar.interval.start = (*it)["interval"][zero].asDouble();
     newPulsar.interval.stop  = (*it)["interval"][one].asDouble();
@@ -1631,7 +1647,7 @@ Control_parameters::get_dedispersion_parameters(const std::string &scan) const{
   dedispersion_parameters.ref_frequency = 0.;
 
   // check for coherent dedispersion
-  if(pulsar_binning() || phased_array()){
+  if(pulsar_binning() || phased_array() || filterbank()){
     std::string source = scan_source(scan);
     // See if current source is a pulsar and if coherent dedispersion is requested
     std::map<std::string, Pulsar_parameters::Pulsar>::const_iterator it = 
@@ -1667,7 +1683,11 @@ Control_parameters::get_dedispersion_parameters(const std::string &scan) const{
         double bw = channels[ch].bw;
         double band_edge = base_freq + sb * bw;
         double dt = sb * dispersive_delay(base_freq, band_edge, DM);
-        double offset = dispersive_delay(base_freq + sb*bw/2, max_freq, DM);
+        double offset;
+        if (it->second.no_intra_channel_dedispersion)
+          offset = 0;
+        else
+          offset = dispersive_delay(base_freq + sb*bw/2, max_freq, DM);
         max_dt = std::max(dt, max_dt);
         // FIXME Due to bug/limitation in Input_node_data_writer the offset has to be an integer microsecond
         dedispersion_parameters.channel_offset[std::make_pair(freq_nr, sb_label)] = round(offset);
@@ -2041,7 +2061,6 @@ get_correlation_parameters(const std::string &scan_name,
   corr_param.window = window_function();  
   corr_param.slice_offset =
     number_correlation_cores_per_timeslice(mode_name);
-  corr_param.only_autocorrelations = ctrl["only_autocorrelations"].asBool();
   corr_param.sample_rate = sample_rate(mode_name, station_name);
 
   corr_param.sideband = ' ';
