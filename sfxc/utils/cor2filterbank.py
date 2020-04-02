@@ -5,13 +5,16 @@ import datetime
 import vex
 import re
 from numpy import *
-
+from Queue import Queue
+from time import sleep
+import signal
+from threading import Thread
+from multiprocessing import Pool
 timeslice_header_size = 16
 uvw_header_size = 32
 stat_header_size = 24
 baseline_header_size = 8
 nskip = 0
-OLDBYTE = 300
 
 def get_configuration(vexfile, corfile, setup_station):
   # TODO: This should also determine which subbands have been correlated
@@ -139,7 +142,6 @@ def get_freq(vexfile, start_time, setup_station):
   print 'bw = ', bw
   return nsubband, maxfreq, bw
 
-
 def get_scan(vexfile, start_time):
   for scan in vexfile['SCHED'].iteritems():
     t = scan[1]['start']
@@ -169,53 +171,6 @@ def print_global_header(infile):
   second = global_header[4]%60
   n = global_header[1].index('\0')
   print "Experiment %s, SFXC version = %s, date = %dy%dd%dh%dm%ds, nchan = %d, int_time = %d"%(global_header[1][:n], global_header[8], global_header[2], global_header[3], hour, minute, second, global_header[5], global_header[6])
-
-def read_autocorrelations(infile, data, cfg, polarization):
-  nchan = cfg['nchan']
-  nsubband = cfg['nsubband']
-  baseline_header = infile.read(baseline_header_size) 
-  baseline = fromfile(infile, count=(nchan+1), dtype='float32')
-  nbaseline = data.shape[0]
-
-  index = 0
-  b = 0
-  while (b < nbaseline) and (baseline.size== (nchan+1)):
-    bheader = struct.unpack('i4B', baseline_header)
-    weight = bheader[0]
-    station1 = bheader[1]
-    station2 = bheader[2]
-    if (station1 != 0) or (station2 != 0):
-      print "(station1, station2) = ", station1, station2
-    byte = bheader[3]
-    pol = byte&3
-    sideband = (byte>>2)&1
-    freq_nr = byte>>3
-    channel_nr = 2*freq_nr + sideband
-    global OLDBYTE
-    if OLDBYTE != bheader[3]:
-      OLDBYTE = bheader[3]
-      print 'Changed freq : baseline = ',b, ', pol =', int(pol), 'freq_nr = ', freq_nr,', sideband = ', int(sideband), ', ch_nr = ', channel_nr
-    #print integration, bheader
-    if (station1 == station2) and ((int(pol)/2+1)&polarization != 0):
-      if sideband == 0: 
-        vreal = baseline[1:(nchan+1)]
-      else:
-        vreal = baseline[nchan-1::-1]
-      if isnan(vreal).any()==False:
-        # We write data in order of decreasing frequency
-        inv_ch = nsubband - channel_nr - 1
-        data[b, (inv_ch*nchan):((inv_ch+1)*nchan)] += vreal
-      else:
-        print "b=("+`station1`+", "+`station2`+"), freq_nr = "+`freq_nr`+",sb="+`sideband`+",pol="+`pol`
-        print "invalid data (not a number)"
-        pdb.set_trace()
-    elif (station1 != station2):
-      print 'station1(',station1,') != station2(',station2
-    b += 1
-    if b < nbaseline:
-      baseline_header = infile.read(baseline_header_size) 
-      baseline = fromfile(infile, count=(nchan+1), dtype='float32')
-  return b
 
 def parse_args():
   usage = "Usage : %prog [OPTIONS] <vex file> <cor file 1> ... <cor file N> <output_file>"
@@ -276,20 +231,20 @@ def get_time(year, day, seconds):
   t += datetime.timedelta(seconds = seconds)
   return t
 
-def read_integration(infile, cfg, polarization):
+def read_integration(infile, cfg):
   nchan = cfg['nchan']
   nsubband = cfg['nsubband']
   nsubint = cfg['nsubint']
   npol = cfg['npol']
-
+  results = []
   tsheader_buf = infile.read(timeslice_header_size)
-  data = zeros([nsubint, nsubband * nchan], dtype=float32)
   if len(tsheader_buf) != timeslice_header_size:
-    return data, 0
+    return results
   #get timeslice header
   timeslice_header = struct.unpack('4i', tsheader_buf)
   current_slice = timeslice_header[0]
   channel = 0
+  nread = 0
   while (len(tsheader_buf)==timeslice_header_size) and (channel < nsubband*npol):
     # Read UVW  
     nuvw = timeslice_header[2]
@@ -302,20 +257,57 @@ def read_integration(infile, cfg, polarization):
     if nbaseline != nsubint:
       print 'Error : invalid number of baseline in corfile (should be equal to the number of subints)'
       sys.exit(1)
-    subints_written = read_autocorrelations(infile, data, cfg, polarization)
+    slice_size = nbaseline * (baseline_header_size + (nchan + 1) * 4)
+    data = infile.read(slice_size)
+    if len(data) != slice_size:
+        return []
+    results.append((timeslice_header, data))
     # Get next time slice header
     channel += 1
     if channel < nsubband*npol:
       tsheader_buf = infile.read(timeslice_header_size)
       if len(tsheader_buf) == timeslice_header_size:
         timeslice_header = struct.unpack('4i', tsheader_buf)
-  # Do bandpass correction
-  #for station in stations:
-  #  d = data[station]
-  #  band = d[:integration].sum(axis=0) / integration + 1
-  #  # Normalize the data by average power
-  #  d /= band 
-  return data, subints_written 
+  return results 
+
+def parse_integration(indata, cfg, polarization):
+  nchan = cfg['nchan']
+  nsubband = cfg['nsubband']
+  nsubint = cfg['nsubint']
+
+  data = zeros([nsubint, nsubband * nchan], dtype=float32)
+  for time_slice_header, time_slice in indata:
+      size_slice = nsubint * (baseline_header_size + (nchan + 1) * 4)
+      if len(time_slice) != size_slice:
+          break
+
+      index = 0
+      for b in range(nsubint):
+        bheader = struct.unpack('i4B', time_slice[index:index+8])
+        index += baseline_header_size
+        baseline = frombuffer(time_slice, count=(nchan+1), offset=index, dtype='float32')
+        index += (nchan + 1) * 4
+        weight, station1, station2, byte = bheader[:4]
+        pol = byte&3
+        sideband = (byte>>2)&1
+        freq_nr = byte>>3
+        channel_nr = 2*freq_nr + sideband
+        #print integration, bheader
+        if (station1 == station2) and ((int(pol)/2+1)&polarization != 0):
+          if sideband == 0: 
+            vreal = baseline[1:(nchan+1)]
+          else:
+            vreal = baseline[nchan-1::-1]
+          if isnan(vreal).any()==False:
+            # We write data in order of decreasing frequency
+            inv_ch = nsubband - channel_nr - 1
+            data[b, (inv_ch*nchan):((inv_ch+1)*nchan)] += vreal
+          else:
+            print "b=("+`station1`+", "+`station2`+"), freq_nr = "+`freq_nr`+",sb="+`sideband`+",pol="+`pol`
+            print "invalid data (not a number)"
+        elif (station1 != station2):
+          print 'station1(',station1,') != station2(',station2
+  return data
 
 def pad_zeros(outfile, npad, nsubint, nchan):
   pad = zeros([nsubint, nchan*nsubband],dtype=float32)
@@ -325,7 +317,8 @@ def pad_zeros(outfile, npad, nsubint, nchan):
 def get_bandpass(infile, cfg, polarization):
     # First determine the size of one subint
     infile.seek(global_header_size)
-    data, nsubint = read_integration(infile, cfg, polarization)
+    time_slice_buffer = read_integration(infile, cfg)
+    data = parse_integration(time_slice_buffer, cfg, polarization)
     pos = infile.tell()
     size = pos - global_header_size
     infile.seek(0, 2)
@@ -348,10 +341,12 @@ def get_bandpass(infile, cfg, polarization):
 
     # Make the bandpass
     infile.seek(global_header_size + start*size)
-    data, nsubint = read_integration(infile, cfg, polarization)
+    time_slice_buffer = read_integration(infile, cfg)
+    data = parse_integration(time_slice_buffer, cfg, polarization)
     bandpass = data.sum(axis=0)
     for i in range(1, toread):
-        data, nsubint = read_integration(infile, cfg, polarization)
+        time_slice_buffer = read_integration(infile, cfg)
+        data = parse_integration(time_slice_buffer, cfg, polarization)
         bandpass += data.sum(axis=0)
     
     # Now normalize the bandpass per IF using median and smoothing RFI lines
@@ -367,90 +362,158 @@ def get_bandpass(infile, cfg, polarization):
 
     return bandpass
 
+def start_next_input(infile, cfg, decimate, nwritten):
+    decimate_frac = 2 if decimate else 1
+    infile.seek(0)
+    global_header_size = struct.unpack('i', infiles[0].read(4))[0]
+    infile.seek(0)
+    gheader_buf = infile.read(global_header_size)
+    global_header = struct.unpack('i32s2h5i4c',gheader_buf[:64])
+    nchan = global_header[5]
+    inttime = global_header[6] / 1000000
+    start_time = get_time(global_header[2], global_header[3], global_header[4])
+    tsheader_buf = infile.read(timeslice_header_size)
+    timeslice_header = struct.unpack('4i', tsheader_buf)
+    nsubint = timeslice_header[1]
+    if total_written > 0:
+      # Check input and pad gap beteen scans with zeros
+      error = False 
+      if cfg["nchan"] != nchan:
+        print 'Error: number of channels not constant between files'
+        error = True
+      if cfg["nsubint"] != nsubint:
+        print 'Error: number of subints per integration differs between files'
+        error = True
+      if cfg["inttime"] != inttime:
+        print 'Error : interation time differs between files'
+        error = True
+      if start_time <= old_start_time:
+        print 'Error : Inout files not in ascending time order'
+        error = True
+      else:
+        dt = start_time - old_start_time
+        diff = dt.days*86400 + dt.seconds
+        if (diff % inttime) != 0:
+          print 'Error: consequtive input files have to be an integer number of integration times appart'
+          error = True
+      if error:
+        print 'Current file :', infile.name
+        sys.exit(1)
+      npad = diff / inttime - nwritten + nskip 
+      print 'padding ', npad, 'integrations'
+      print 'diff, inttime,nwritten,nskip = ', diff, inttime, nwritten, nskip
+      pad_zeros(outfile, npad, nsubint, nchan / decimate_frac)
+    else:
+      npad = 0
+    return start_time, npad
+
+def reader_thread(inqueue, infile, cfg):
+  timeslice_buffer = read_integration(infile, cfg)
+  while len(timeslice_buffer) > 0:
+      inqueue.put(timeslice_buffer)
+      timeslice_buffer = read_integration(infile, cfg)
+  inqueue.put([])
+
+def worker_thread(indata, cfg, polarization, zerodm=False, bandpass=[]):
+    data = parse_integration(indata, cfg, polarization)
+    nchan = cfg["nchan"]
+    if len(bandpass) > 0:
+        # Don't blow up band edges too much
+        bp = [x if x > 1e-2 else 1. for x in bandpass]
+        data /= bp
+    if zerodm:
+        for i in range(start/nchan, end/nchan):
+            cdata = data[:, i*nchan:(i+1)*nchan]
+            for j in range(data.shape[0]):
+                cdata[j] -= cdata[j].sum() / nchan
+    return data
+
+def writer_thread(outqueue, outfile, cfg, bif, eif, decimate_frac):
+    nchan = cfg["nchan"]
+    # NB: we ordered subbands in reverse order
+    start = (cfg["nsubband"] - eif - 1) * nchan
+    end = (cfg["nsubband"] - bif) * nchan
+    data = outqueue.get()
+    while len(data) > 0:
+        data[:, start:end:decimate_frac].tofile(outfile)
+        data = outqueue.get()
+
 #########
 ############################### Main program ##########################
 #########
-vexfile, infiles, outfile, bif, eif, pol, setup_station, zerodm, dobp, decimate = parse_args()
+if __name__ == "__main__":
+    vexfile, infiles, outfile, bif, eif, pol, setup_station, zerodm, dobp, decimate = parse_args()
+    nthreads = 8 # For now hardcode the number of converter threads
 
-# Read global header
-global_header_size = struct.unpack('i', infiles[0].read(4))[0]
-cfg = get_configuration(vexfile, infiles[0], setup_station)
-if eif == -1:
-  eif = cfg["nsubband"] - 1
-start_time = cfg["start_time"]
-# Write filterbank header
-write_header(cfg, outfile, decimate)
-total_written = 0
-for infile in infiles:
-  print_global_header(infile)
-  infile.seek(0)
-  gheader_buf = infile.read(global_header_size)
-  global_header = struct.unpack('i32s2h5i4c',gheader_buf[:64])
-  new_nchan = global_header[5]
-  new_inttime = global_header[6] / 1000000
-  new_start_time = get_time(global_header[2], global_header[3], global_header[4])
-  if zerodm or dobp:
-      bandpass = get_bandpass(infile, cfg, pol)
-  infile.seek(global_header_size)
-  tsheader_buf = infile.read(timeslice_header_size)
-  timeslice_header = struct.unpack('4i', tsheader_buf)
-  new_nsubint = timeslice_header[1]
-  decimate_frac = 2 if decimate else 1
-  if total_written > 0:
-    # Check input and pad gap beteen scans with zeros
-    error = False 
-    if cfg["nchan"] != new_nchan:
-      print 'Error: number of channels not constant between files'
-      error = True
-    if cfg["nsubint"] != new_nsubint:
-      print 'Error: number of subints per integration differs between files'
-      error = True
-    if cfg["inttime"] != new_inttime:
-      print 'Error : interation time differs between files'
-      error = True
-    if new_start_time <= start_time:
-      print 'Error : Inout files not in ascending time order'
-      error = True
-    else:
-      dt = new_start_time - start_time
-      diff = dt.days*86400 + dt.seconds
-      if (diff % inttime) != 0:
-        print 'Error: consequtive input files have to be an integer number of integration times appart'
-        error = True
-    if error:
-      print 'Current file :', infile.name
-      sys.exit(1)
-    npad = diff / inttime - nwritten + nskip 
-    total_written += npad
-    print 'padding ', npad, 'integrations'
-    print 'diff, inttime,nwritten,nskip = ', diff, inttime,nwritten,nskip
-    pad_zeros(outfile, npad, nsubint, nchan / decimate_frac)
-  start_time = new_start_time
-  nwritten = 0
-  nchan = cfg["nchan"]
-  infile.seek(global_header_size)
-  data, nread = read_integration(infile, cfg, pol)
-  while nread == cfg["nsubint"]:
-    #Write data
-    if (nwritten >= nskip) and (nread > 0):
-      # NB: we ordered subbands in reverse order
-      start = (cfg["nsubband"] - eif - 1) * nchan
-      end = (cfg["nsubband"] - bif) * nchan
-      if dobp:
-          # Don't blow up band edges too much
-          bp = [x if x > 1e-2 else 1. for x in bandpass]
-          data /= bp
-      if zerodm:
-          print 'The range =', start/nchan, ', to', end/nchan
-          for i in range(start/cfg["nchan"], end/cfg["nchan"]):
-              cdata = data[:, i*nchan:(i+1)*nchan]
-              for j in range(data.shape[0]):
-                  cdata[j] -= cdata[j].sum() / nchan
-      data[:, start:end:decimate_frac].tofile(outfile)
-      dlen = data[:, start:end:decimate_frac].size * 1. / cfg["nsubint"]
-      print 'subint ', total_written, ' : Wrote ', nread, ' sub-integrations, dlen = ', dlen
-    else:
-      print 'Skipped subint ', nwritten
-    nwritten += 1
-    total_written += 1
-    data, nread = read_integration(infile, cfg, pol)
+    # Read global header
+    global_header_size = struct.unpack('i', infiles[0].read(4))[0]
+    cfg = get_configuration(vexfile, infiles[0], setup_station)
+    if eif == -1:
+      eif = cfg["nsubband"] - 1
+    start_time = cfg["start_time"]
+    # Write filterbank header
+    write_header(cfg, outfile, decimate)
+
+    nwritten = 0
+    total_written = 0
+    for infile in infiles:
+      print_global_header(infile)
+      # Check next input and pad zeros if necessary
+      start_time, npad = start_next_input(infile, cfg, decimate, nwritten)
+      total_written += npad
+      if zerodm or dobp:
+          bandpass = get_bandpass(infile, cfg, pol)
+      else:
+          bandpass = []
+      nwritten = 0
+      nchan = cfg["nchan"]
+      infile.seek(global_header_size)
+      # Start reader thread
+      inqueue = Queue(nthreads)
+      reader = Thread(target=reader_thread, args=(inqueue, infile, cfg))
+      reader.daemon = True
+      reader.start()
+      # Start output thread
+      outqueue = Queue()
+      decimate_frac = 2 if decimate else 1
+      writer = Thread(target=writer_thread, args=(outqueue, outfile, cfg, bif, eif, decimate_frac))
+      writer.start()
+      # Pool of worker threads (Multiprocessing module)
+      oldsignal = signal.signal(signal.SIGINT, signal.SIG_IGN)
+      workers = Pool(processes=nthreads) 
+      signal.signal(signal.SIGINT, oldsignal)
+      indata = inqueue.get()
+      results = []
+      try:
+        while (len(indata) != 0) or (len(results) > 0):
+          #Write data
+          if (nwritten >= nskip):
+            if (len(indata) != 0) and (len(results) < nthreads):
+              results.append(workers.apply_async(worker_thread, (indata, cfg, pol, zerodm, bandpass)))
+              indata = inqueue.get()
+            else:
+              # use sleep rather than a blocking .get() to keep ctrl-c responsive
+              sleep(1)
+            while (len(results) > 0) and results[0].ready():
+              outqueue.put(results[0].get())
+              results = results[1:]
+              nwritten += 1
+              total_written += 1
+              print 'written time slice ', nwritten
+          else:
+            nwritten += 1
+            total_written += 1
+            print('skipped time slice ', nwritten)
+            indata = inqueue.get()
+      except KeyboardInterrupt:
+        print 'Keyboard interrupt'
+        workers.terminate()
+        while not outqueue.empty():
+          outqueue.get()
+        outqueue.put([])
+        exit(1)
+      # close threads
+      workers.close()
+      outqueue.put([])
+      writer.join()
+      reader.join()
