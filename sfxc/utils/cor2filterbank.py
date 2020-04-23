@@ -196,7 +196,7 @@ def parse_args():
   parser.add_option("-d", "--decimate-freq", dest='decimate', default=False, action="store_true",
                   help='Compensate for zeropadding by removing the odd numbered frequency points, default=no')
   parser.add_option("-p", "--pol", dest='pol', type='string', default='I',
-                  help='Which polarization to use: R, L, I (=R+L) or F(=R, L, Re(RL), Im(RL)), default=I')
+                  help='Which polarization to use: R, L, I (=R+L), or F(=R, Re(RL), Im(RL), L), default=I')
   (opts, args) = parser.parse_args()
 
   if opts.ifs == None:
