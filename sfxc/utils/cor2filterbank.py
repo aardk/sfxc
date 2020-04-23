@@ -24,13 +24,20 @@ def get_configuration(vexfile, corfile, setup_station):
   cfg = {}
   cfg["nchan"] = global_header[5]
   cfg["inttime"] = global_header[6] / 1000000.
-  cfg["npol"] = 1 if (global_header[9] < 2) else 2
+  if global_header[9] < 2:
+    cfg["npol"] = 1
+  elif global_header[9] == 2:
+    cfg["npol"] = 2
+  else:
+    cfg["npol"] = 4
   #FIXME This should include nskip
   cfg["start_time"] = get_time(global_header[2], global_header[3], global_header[4])
 
   tsheader_buf = corfile.read(timeslice_header_size)
   timeslice_header = struct.unpack('4i', tsheader_buf)
   nsubint = timeslice_header[1]
+  if cfg["npol"] == 4:
+    nsubint /= 4
   cfg["nsubint"] = nsubint
   print global_header[6]/nsubint, nsubint
   if nsubint * (global_header[6]/nsubint) !=  global_header[6]:
@@ -50,7 +57,7 @@ def get_configuration(vexfile, corfile, setup_station):
   print "jday=", cfg["mjd"], ", year = ", global_header[2], ", day=", global_header[3], ", sec = ", global_header[4]
   return cfg
 
-def write_header(cfg, outfile, decimate):
+def write_header(cfg, outfile, npol_out, decimate):
   nchan = cfg["nchan"] / 2 if decimate else cfg["nchan"]
   bw = cfg["bandwidth"]
   nsubband = cfg["nsubband"]
@@ -94,7 +101,7 @@ def write_header(cfg, outfile, decimate):
   header.append(['tstart', h])
   h = struct.pack('d', cfg["inttime"] / cfg["nsubint"])
   header.append(['tsamp', h])
-  h = struct.pack('i', 1)
+  h = struct.pack('i', npol_out)
   header.append(['nifs', h])
   header.append(["HEADER_END"])
 
@@ -165,12 +172,12 @@ def mjd(year, day_of_year, sec_of_day):
 def print_global_header(infile):
   infile.seek(0)
   gheader_buf = infile.read(global_header_size)
-  global_header = struct.unpack('i32s2h5i4c',gheader_buf[:64])
+  global_header = struct.unpack('i32s2h5i4b',gheader_buf[:64])
   hour = global_header[4] / (60*60)
   minute = (global_header[4]%(60*60))/60
   second = global_header[4]%60
   n = global_header[1].index('\0')
-  print "Experiment %s, SFXC version = %s, date = %dy%dd%dh%dm%ds, nchan = %d, int_time = %d"%(global_header[1][:n], global_header[8], global_header[2], global_header[3], hour, minute, second, global_header[5], global_header[6])
+  print "Experiment %s, SFXC version = %s, date = %dy%dd%dh%dm%ds, nchan = %d, int_time = %d, pol = %s"%(global_header[1][:n], global_header[8], global_header[2], global_header[3], hour, minute, second, global_header[5], global_header[6], int(global_header[9]))
 
 def parse_args():
   usage = "Usage : %prog [OPTIONS] <vex file> <cor file 1> ... <cor file N> <output_file>"
@@ -189,7 +196,7 @@ def parse_args():
   parser.add_option("-d", "--decimate-freq", dest='decimate', default=False, action="store_true",
                   help='Compensate for zeropadding by removing the odd numbered frequency points, default=no')
   parser.add_option("-p", "--pol", dest='pol', type='string', default='I',
-                  help='Which polarization to use: R, L, or I (=R+L), default=I')
+                  help='Which polarization to use: R, L, I (=R+L) or F(=R, L, Re(RL), Im(RL)), default=I')
   (opts, args) = parser.parse_args()
 
   if opts.ifs == None:
@@ -209,6 +216,8 @@ def parse_args():
     pol = 1
   elif opts.pol.upper() == 'I':
     pol = 3
+  else:
+    pol = 4
 
   infiles = []
   nargs = len(args)
@@ -254,16 +263,17 @@ def read_integration(infile, cfg):
     infile.read(stat_header_size * nstatistics)
     # Read the baseline data    
     nbaseline = timeslice_header[1]
-    if nbaseline != nsubint:
-      print 'Error : invalid number of baseline in corfile (should be equal to the number of subints)'
-      sys.exit(1)
     slice_size = nbaseline * (baseline_header_size + (nchan + 1) * 4)
     data = infile.read(slice_size)
     if len(data) != slice_size:
         return []
     results.append((timeslice_header, data))
     # Get next time slice header
-    channel += 1
+    if nbaseline > nsubint:
+      channel += 4 # If data has cross-polls then all polarization in each timeslice
+    else:
+      channel += 1
+
     if channel < nsubband*npol:
       tsheader_buf = infile.read(timeslice_header_size)
       if len(tsheader_buf) == timeslice_header_size:
@@ -274,26 +284,38 @@ def parse_integration(indata, cfg, polarization):
   nchan = cfg['nchan']
   nsubband = cfg['nsubband']
   nsubint = cfg['nsubint']
-
-  data = zeros([nsubint, nsubband * nchan], dtype=float32)
+  npol_in = 1 if (cfg['npol'] < 4) else 4
+  npol_out = 1 if (polarization < 4) else 4
+  
+  data = zeros([nsubint, npol_out, nsubband * nchan], dtype=float32)
   for time_slice_header, time_slice in indata:
+    for ipol in range(npol_in):
       size_slice = nsubint * (baseline_header_size + (nchan + 1) * 4)
-      if len(time_slice) != size_slice:
+      if len(time_slice) != size_slice * npol_in:
           break
 
-      index = 0
+      index = ipol * size_slice
       for b in range(nsubint):
         bheader = struct.unpack('i4B', time_slice[index:index+8])
         index += baseline_header_size
         baseline = frombuffer(time_slice, count=(nchan+1), offset=index, dtype='float32')
         index += (nchan + 1) * 4
         weight, station1, station2, byte = bheader[:4]
-        pol = byte&3
+        pol1 = byte&1
+        pol2 = (byte>>1)&1
         sideband = (byte>>2)&1
         freq_nr = byte>>3
         channel_nr = 2*freq_nr + sideband
+        outpol = -1
+        if (pol1 == pol2) and ((pol1 + 1) & polarization):
+          # --pol = L, R or I
+          outpol = 0
+        elif polarization == 4:
+          # --pol = F
+          outpol = pol1 + 2 * pol2
+
         #print integration, bheader
-        if (station1 == station2) and ((int(pol)/2+1)&polarization != 0):
+        if (outpol >= 0):
           if sideband == 0: 
             vreal = baseline[1:(nchan+1)]
           else:
@@ -301,21 +323,20 @@ def parse_integration(indata, cfg, polarization):
           if isnan(vreal).any()==False:
             # We write data in order of decreasing frequency
             inv_ch = nsubband - channel_nr - 1
-            data[b, (inv_ch*nchan):((inv_ch+1)*nchan)] += vreal
+            data[b, outpol, (inv_ch*nchan):((inv_ch+1)*nchan)] += vreal
           else:
             print "b=("+`station1`+", "+`station2`+"), freq_nr = "+`freq_nr`+",sb="+`sideband`+",pol="+`pol`
             print "invalid data (not a number)"
-        elif (station1 != station2):
-          print 'station1(',station1,') != station2(',station2
   return data
 
-def pad_zeros(outfile, npad, nsubint, nchan):
-  pad = zeros([nsubint, nchan*nsubband],dtype=float32)
+def pad_zeros(outfile, npad, nsubint, nchan, npol):
+  pad = zeros([nsubint, npol, nchan*nsubband],dtype=float32)
   for i in xrange(npad):
     pad.tofile(outfile)
 
 def get_bandpass(infile, cfg, polarization):
     # First determine the size of one subint
+    # FIXME: This is broken for cross-polls
     infile.seek(global_header_size)
     time_slice_buffer = read_integration(infile, cfg)
     data = parse_integration(time_slice_buffer, cfg, polarization)
@@ -362,7 +383,7 @@ def get_bandpass(infile, cfg, polarization):
 
     return bandpass
 
-def start_next_input(infile, cfg, decimate, nwritten):
+def start_next_input(infile, cfg, npol_out, decimate, nwritten):
     decimate_frac = 2 if decimate else 1
     infile.seek(0)
     global_header_size = struct.unpack('i', infiles[0].read(4))[0]
@@ -402,7 +423,7 @@ def start_next_input(infile, cfg, decimate, nwritten):
       npad = diff / inttime - nwritten + nskip 
       print 'padding ', npad, 'integrations'
       print 'diff, inttime,nwritten,nskip = ', diff, inttime, nwritten, nskip
-      pad_zeros(outfile, npad, nsubint, nchan / decimate_frac)
+      pad_zeros(outfile, npad, nsubint, nchan / decimate_frac, npol)
     else:
       npad = 0
     return start_time, npad
@@ -435,9 +456,11 @@ def writer_thread(outqueue, outfile, cfg, bif, eif, decimate_frac):
     end = (cfg["nsubband"] - bif) * nchan
     data = outqueue.get()
     while len(data) > 0:
-        data[:, start:end:decimate_frac].tofile(outfile)
+        if len(data.shape) == 3:
+            data[:, :, start:end:decimate_frac].tofile(outfile)
+        else:
+            data[:, start:end:decimate_frac].tofile(outfile)
         data = outqueue.get()
-
 #########
 ############################### Main program ##########################
 #########
@@ -451,15 +474,21 @@ if __name__ == "__main__":
     if eif == -1:
       eif = cfg["nsubband"] - 1
     start_time = cfg["start_time"]
+    if (pol < 4):
+      npol_out = 1 
+    else:
+      npol_out = 4 
+      if cfg["npol"] != 4:
+        print "Error: Full polarization requested, but correlator output doesn't contain cross-polls"
+        exit(1)
     # Write filterbank header
-    write_header(cfg, outfile, decimate)
-
+    write_header(cfg, outfile, npol_out, decimate)
     nwritten = 0
     total_written = 0
     for infile in infiles:
       print_global_header(infile)
       # Check next input and pad zeros if necessary
-      start_time, npad = start_next_input(infile, cfg, decimate, nwritten)
+      start_time, npad = start_next_input(infile, cfg, npol_out, decimate, nwritten)
       total_written += npad
       if zerodm or dobp:
           bandpass = get_bandpass(infile, cfg, pol)

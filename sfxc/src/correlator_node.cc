@@ -480,6 +480,8 @@ Correlator_node::set_parameters() {
     size_of_one_baseline = sizeof(FLOAT) * (parameters.number_channels + 1);
     nBaselines = ceil(parameters.integration_time / 
                       parameters.sub_integration_time);
+    if (parameters.cross_polarize)
+      nBaselines *= 4;
   } else {
     size_of_one_baseline = sizeof(std::complex<FLOAT>) * 
                            (parameters.number_channels + 1);

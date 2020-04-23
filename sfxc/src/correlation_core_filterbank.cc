@@ -44,9 +44,8 @@ void Correlation_core_filterbank::do_task() {
 
       sub_integration();
       for(int i = 0 ; i < phase_centers.size(); i++){
-        int source_nr;
         int pcenter = 0;
-        source_nr = streams_in_scan[i];
+        int source_nr = streams_in_scan[i];
         integration_write_headers(pcenter, source_nr);
         integration_write_subints(phase_centers[i]);
       }
@@ -103,18 +102,59 @@ Correlation_core_filterbank::set_parameters(
   create_channel_offsets();
 }
 
+void
+Correlation_core_filterbank::create_baselines(const Correlation_parameters &parameters) {
+  number_ffts_in_integration =
+    Control_parameters::nr_ffts_to_output_node(
+      parameters.integration_time,
+      parameters.sample_rate,
+      parameters.fft_size_correlation);
+  if(parameters.window != SFXC_WINDOW_NONE)
+    number_ffts_in_integration -= 1;
+
+  number_ffts_in_sub_integration =
+    Control_parameters::nr_ffts_to_output_node(
+      parameters.sub_integration_time,
+      parameters.sample_rate,
+      parameters.fft_size_correlation);
+  baselines.clear();
+  // Autos
+  for (size_t sn = 0 ; sn < number_input_streams_in_use(); sn++) {
+    baselines.push_back(std::pair<int,int>(sn,sn));
+  }
+  // Crosses
+  if (parameters.cross_polarize) {
+    SFXC_ASSERT(number_input_streams_in_use() % 2 == 0);
+    size_t n_st_2 = number_input_streams_in_use()/2;
+    // Create cross zero-baselines
+    for (size_t sn = 0 ; sn < n_st_2; sn++) {
+      if (parameters.polarisation == 'R')
+        baselines.push_back(std::make_pair(sn, sn + n_st_2));
+      else
+        baselines.push_back(std::make_pair(sn + n_st_2, sn));
+    }
+  }
+}
+
 void Correlation_core_filterbank::integration_initialise() {
-  number_output_products = ceil(correlation_parameters.integration_time / correlation_parameters.sub_integration_time);
+  nr_subints_per_integration = ceil(correlation_parameters.integration_time / correlation_parameters.sub_integration_time);
+  // FIXME this assumes no mixed single and double polarizitions
+  if (correlation_parameters.cross_polarize)
+    number_output_products = 4 * nr_subints_per_integration;
+  else
+    number_output_products = nr_subints_per_integration;
   previous_fft = 0;
 
   int nstreams = streams_in_scan.size();
-  if(phase_centers.size() != nstreams)
-    phase_centers.resize(nstreams);
+  int nstations = (correlation_parameters.cross_polarize) ? nstreams / 2 : nstreams;
+  if(phase_centers.size() != nstations)
+    phase_centers.resize(nstations);
 
+  int nprod = nr_subints_per_integration * baselines.size() / nstations;
   for(int i = 0 ; i < phase_centers.size() ; i++){
-    if (phase_centers[i].size() != number_output_products){
-      phase_centers[i].resize(number_output_products);
-      for(int j = 0 ; j < phase_centers[i].size() ; j++){
+    if (phase_centers[i].size() != nprod) { 
+      phase_centers[i].resize(nprod);
+      for(int j = 0 ; j < phase_centers[i].size() ; j++) {
         phase_centers[i][j].resize(fft_size() + 1);
       }
     }
@@ -151,11 +191,15 @@ integration_step(std::vector<Complex_buffer> &integration_buffer,
 {
   for (size_t i = 0; i < number_input_streams_in_use(); i++) {
     // get the complex conjugates of the input
+    // FIXME if we don't need cross-polls this can be much faster
     SFXC_CONJ_FC(&input_elements[i][buf_idx], &input_conj_buffers[i][buf_idx], 
                  fft_size() + 1);
+    SFXC_ADD_PRODUCT_FC(/* in1 */ &input_elements[i][buf_idx], 
+                    /* in2 */ &input_conj_buffers[i][buf_idx],
+                    /* out */ &integration_buffer[i][0], fft_size() + 1);
   }
   
-  for (size_t i = 0; i < number_input_streams_in_use(); i++) {
+  for (size_t i = number_input_streams_in_use(); i < baselines.size(); i++) {
     // Cross correlations
     std::pair<size_t,size_t> &stations = baselines[i];
     //SFXC_ASSERT(stations.first == stations.second);
@@ -168,51 +212,63 @@ integration_step(std::vector<Complex_buffer> &integration_buffer,
 void Correlation_core_filterbank::integration_write_subints(std::vector<Complex_buffer> &integration_buffer) {
   SFXC_ASSERT(accumulation_buffers.size() == baselines.size());
 
-  int polarisation = (correlation_parameters.polarisation == 'R')? 0 : 1;
-
   std::vector<float> float_buffer;
   float_buffer.resize(number_channels() + 1);
   Output_header_baseline hbaseline;
 
-  size_t n = fft_size() / number_channels();
-  for (size_t i = 0; i < integration_buffer.size(); i++) {
-    for (size_t j = 0; j < number_channels(); j++) {
-      float_buffer[j] = integration_buffer[i][j * n].real();
-      for (size_t k = 1; k < n ; k++)
-        float_buffer[j] += integration_buffer[i][j * n + k].real();
-      float_buffer[j] /= n;
-    }
-    if (RANK_OF_NODE == -10)
-      std::cerr << i << " : " << float_buffer[0] << ", " << float_buffer[1] << ", " << float_buffer[2] 
-                              << integration_buffer[i][0] << ", " << integration_buffer[i][1] << ", " 
-                              << integration_buffer[i][2]  <<"\n";
-    float_buffer[number_channels()] = 
-                            integration_buffer[i][number_channels()*n].real();
-    hbaseline.weight = 1;                        // The number of good samples
-    hbaseline.station_nr1 = 0;
-    hbaseline.station_nr2 = 0;
+  int pol_ref = (correlation_parameters.polarisation == 'R')? 0 : 1;
+  int npol = (correlation_parameters.cross_polarize) ? 4 : 1;
+  int pol1[4] = {pol_ref, 1-pol_ref, 0, 1};
+  int pol2[4] = {pol_ref, 1-pol_ref, 1, 0};
+  int n = fft_size() / number_channels();
+  for (int ipol = 0; ipol < npol; ipol++) {
+    for (size_t i = 0; i < nr_subints_per_integration; i++) {
+      if (pol1[ipol] <= pol2[ipol]) {
+        int bin = ipol * nr_subints_per_integration + i;
+        for (size_t j = 0; j < number_channels(); j++) {
+          float_buffer[j] = integration_buffer[bin][j * n].real();
+          for (size_t k = 1; k < n ; k++)
+            float_buffer[j] += integration_buffer[bin][j * n + k].real();
+          float_buffer[j] /= n;
+        }
+        float_buffer[number_channels()] = 
+                      integration_buffer[bin][number_channels()*n].real();
+      } else {
+        int bin = 2 * nr_subints_per_integration + i;
+        for (size_t j = 0; j < number_channels(); j++) {
+          float_buffer[j] = integration_buffer[bin][j * n].imag();
+          for (size_t k = 1; k < n ; k++)
+            float_buffer[j] += integration_buffer[bin][j * n + k].imag();
+          float_buffer[j] /= n;
+        }
+        float_buffer[number_channels()] = 
+                      integration_buffer[bin][number_channels()*n].imag();
+      }
+      hbaseline.weight = 1;                        // The number of good samples
+      hbaseline.station_nr1 = 0;
+      hbaseline.station_nr2 = 0;
 
-    // Polarisation for the first station
-    SFXC_ASSERT((polarisation == 0) || (polarisation == 1)); // (RCP: 0, LCP: 1)
-    hbaseline.polarisation1 = polarisation;
-    hbaseline.polarisation2 = polarisation;
-    // Upper or lower sideband (LSB: 0, USB: 1)
-    if (correlation_parameters.sideband=='U') {
-      hbaseline.sideband = 1;
-    } else {
-      SFXC_ASSERT(correlation_parameters.sideband == 'L');
-      hbaseline.sideband = 0;
-    }
-    // The number of the channel in the vex-file,
-    hbaseline.frequency_nr = (unsigned char)correlation_parameters.frequency_nr;
-    // sorted increasingly
-    // 1 byte left:
-    hbaseline.empty = ' ';
+      // Polarisation for the first station
+      hbaseline.polarisation1 = pol1[ipol];
+      hbaseline.polarisation2 = pol2[ipol];
+      // Upper or lower sideband (LSB: 0, USB: 1)
+      if (correlation_parameters.sideband=='U') {
+        hbaseline.sideband = 1;
+      } else {
+        SFXC_ASSERT(correlation_parameters.sideband == 'L');
+        hbaseline.sideband = 0;
+      }
+      // The number of the channel in the vex-file,
+      hbaseline.frequency_nr = (unsigned char)correlation_parameters.frequency_nr;
+      // sorted increasingly
+      // 1 byte left:
+      hbaseline.empty = ' ';
 
-    int nWrite = sizeof(hbaseline);
-    writer->put_bytes(nWrite, (char *)&hbaseline);
-    writer->put_bytes((number_channels() + 1) * sizeof(float),
-                      ((char*)&float_buffer[0]));
+      int nWrite = sizeof(hbaseline);
+      writer->put_bytes(nWrite, (char *)&hbaseline);
+      writer->put_bytes((number_channels() + 1) * sizeof(float),
+                        ((char*)&float_buffer[0]));
+    }
   }
 }
 
@@ -223,33 +279,27 @@ Correlation_core_filterbank::sub_integration(){
   //const Time tmid = correlation_parameters.stream_start + 
   //                  tfft*(current_fft + 0.5); 
   //calibrate(accumulation_buffers, tmid); 
+  // nr_subints_per_integration
 
   Time tstart = correlation_parameters.stream_start - 
                  correlation_parameters.integration_start;
   double tmid = (tstart +
                  tfft*(previous_fft+(current_fft-previous_fft)/2.)).get_time_usec();
+  //double tmid = (tstart + tfft * previous_fft).get_time_usec();
   double sub_integration_time = correlation_parameters.sub_integration_time.get_time_usec();
   const int n_fft = fft_size() + 1;
-  const int n_phase_centers = phase_centers.size();
-  const int n_station = number_input_streams_in_use();
-  const int n_baseline = accumulation_buffers.size();
-  if((RANK_OF_NODE == -5) && (next_sub_integration >= 15624))
-                         std::cout << "nbaseline = " << n_baseline
-                                   << ", subint = " << next_sub_integration-1
-                                   << " / " << phase_centers[0].size()
-                                   << "fft = " << current_fft
-                                   << ", nfft_per_sub="<< number_ffts_in_sub_integration
-                                   << ", tmid = " << (int64_t)tmid
-                                   << "\n";
-  for(int i = 0 ; i < n_station ; i++){
+  const int n_station = phase_centers.size();
+  const int n_baseline = baselines.size();
+  for(int i = 0 ; i < n_baseline ; i++){
     std::pair<size_t,size_t> &inputs = baselines[i];
-    int station1 = streams_in_scan[inputs.first];
-    int station2 = streams_in_scan[inputs.second];
-
+    int station = inputs.first % n_station;
+    int ipol = i / n_station;
     for (int j = 0; j <= fft_size(); j++) {
       int bin = floor((tmid + offsets[j]) / sub_integration_time);
-      if ((bin >= 0) and (bin < number_output_products))
-          phase_centers[i][bin][j] += accumulation_buffers[i][j];
+      if ((bin >= 0) and (bin < nr_subints_per_integration)) {
+        int index = bin + nr_subints_per_integration * ipol;
+        phase_centers[station][index][j] += accumulation_buffers[i][j];
+      }
     }
   }
   // Clear the accumulation buffers

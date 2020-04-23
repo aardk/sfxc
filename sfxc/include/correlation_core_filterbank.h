@@ -18,10 +18,12 @@ protected:
   void integration_initialise();
   void integration_step(std::vector<Complex_buffer> &integration_buffer, 
                         int index);
+  void create_baselines(const Correlation_parameters &parameters);
   void sub_integration();
   void integration_write_subints(std::vector<Complex_buffer> &integration_buffer);
   void create_channel_offsets();
   std::vector<double> offsets;
+  int nr_subints_per_integration;
   bool no_intra_channel_dedispersion;
   double DM;
 };
