@@ -120,6 +120,8 @@ main(int argc, char *argv[])
       printf("Error : Invalid CALC_DIR = %s\n", dir);
       exit(1);
     }
+  } else {
+    printf("Warning: CALC_DIR enviroment variable not set, will try to get ocean loading file from current working directory\n");
   }
 
   // call the c-function that calls the FORTRAN calc code
