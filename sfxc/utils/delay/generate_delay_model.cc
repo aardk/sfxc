@@ -476,12 +476,13 @@ int initialise_data(const char *vex_filename,
 	strncpy(scan.scan_name, scan_block.key().c_str(), 80);
         startTime = scan_block["start"]->to_string();
         startTime -= 1000000. * n_padding_seconds;
-        int doy, sec, ms;
+        int doy;
+        double sec;
         startTime.get_date(scan.year, doy);
         // convert day of year to (month,day)
         yd2md(scan.year,doy,scan.month,scan.day);
-        startTime.get_time(scan.hour, scan.min, sec, ms);
-        scan.sec = sec;
+        startTime.get_time(scan.hour, scan.min, sec);
+        scan.sec = (int)round(sec);
         // delay table for sfxc needs this one
         scan.sec_of_day = scan.hour*3600. + scan.min*60. + scan.sec;
         scan.scan_start =

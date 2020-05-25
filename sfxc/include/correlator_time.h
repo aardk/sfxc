@@ -26,10 +26,11 @@ public:
   double get_time_usec() const;
   double get_time() const;
   void get_date(int &year, int &day) const;
-  void get_time(int &h, int &m, int &s, int &ms) const;
-  std::string date_string() const;
+  void get_time(int &h, int &m, double &s) const;
+  std::string date_string(int precision = 3) const;
 
   static const Time max_time(); 
+  static Time now();
   double diff(const Time &other) const;
   int64_t diff_samples(const Time &other) const; 
 
