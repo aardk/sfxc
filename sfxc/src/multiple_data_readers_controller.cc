@@ -266,3 +266,20 @@ add_data_reader(unsigned int i, shared_ptr<Data_reader> reader) {
   readers[i].reader2buffer->set_data_reader(reader);
   node.hook_added_data_reader(i);
 }
+
+void 
+Multiple_data_readers_controller::get_state(std::ostream &out) {
+  out << "\t\"Multiple_data_readers_controller\" : {\n"
+      << "\t\t\"number_of_data_readers\" :" << number_of_data_readers() << ",\n"
+      << "\t\t\"data_reader\": [\n";
+  for (int i = 0; i < readers.size(); i++) {
+    if (readers[i].reader2buffer == Reader2buffer_ptr())
+      out << "\t\t{}";
+    else
+      readers[i].reader2buffer->get_state(out);
+    if (i < readers.size() - 1)
+      out << ",\n";
+    else
+      out << "\n\t\t]\n\t}\n";
+  }
+}

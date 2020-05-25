@@ -67,6 +67,7 @@ public:
   void stop();
   State get_state();
   void set_state(State new_state);
+  void get_state(std::ostream &out);
 
 private:
   static void *start_reading(void *);
@@ -226,5 +227,24 @@ Data_reader2buffer<T>::read() {
   }
 }
 
+template <class T>
+void Data_reader2buffer<T>::get_state(std::ostream &out) {
+  out << "\t\t{\n"
+      << "\t\t\t\"state\": ";
+  switch(get_state()) {
+    case STOPPED:
+      out << "\"STOPPED\",\n";
+      break;
+    case SUSPENDED:
+      out << "\"SUSPENDED\",\n";
+      break;
+    case RUNNING:
+      out << "\"RUNNING\",\n";
+      break;
+    default:
+      out << "\"UNKNOWN_STATE\",\n";
+  }
+  out << "\t\t\t\"memory_pool_free\": " << memory_pool.number_free_element() << "\n\t\t}";
+}
 
 #endif // DATA_READER2BUFFER_H

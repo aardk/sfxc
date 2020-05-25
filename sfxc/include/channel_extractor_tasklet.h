@@ -97,6 +97,9 @@ public:
   *****************************************************************************/
   inline double get_sec(){ return timer_.measured_time(); }
 
+  /// Write state for debug purposes
+  virtual void get_state(std::ostream &out);
+
 private:
   static void *process(void *);
 

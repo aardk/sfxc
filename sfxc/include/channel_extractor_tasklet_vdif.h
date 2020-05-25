@@ -40,6 +40,8 @@ public:
   /// Process one piece of data
   virtual void do_task();
   virtual void set_parameters(const Input_node_parameters &input_node_param);
+  /// Write state for debug purposes
+  virtual void get_state(std::ostream &out);
 };
 
 #endif /*CHANNEL_EXTRACTOR_TASKLET_VDIF_H_*/

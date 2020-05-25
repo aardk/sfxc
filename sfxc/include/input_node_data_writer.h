@@ -85,6 +85,8 @@ public:
   void fetch_next_time_interval();
   Time get_current_time();
 
+  /// Write state for debug purposes
+  void get_state(std::ostream &out);
 private:
   Input_buffer_ptr    input_buffer_;
   Data_writer_queue   data_writers_;

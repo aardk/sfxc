@@ -372,3 +372,40 @@ Output_node::Input_stream::goto_next_slice(int &new_slice_size, int &new_nbins) 
   SFXC_ASSERT(reader->get_size_dataslice() > 0);
   slice_size.pop();
 }
+
+void Output_node::get_state(std::ostream &out) {
+   out << "{\n"
+      << "\t\"rank\": " << RANK_OF_NODE << ",\n"
+      << "\t\"host\": \"" << HOSTNAME_OF_NODE << "\",\n"
+      << "\t\"id\": \"" << ID_OF_NODE << "\",\n"
+      << "\t\"now\": \"" << Time::now() << "\",\n"
+      << "\t\"state\": ";
+  switch (status) {
+    case STOPPED:
+     out << "\"STOPPED\",\n";
+     break;
+    case READ_INPUT:
+     out << "\"READ_INPUT\",\n";
+     break;
+    case ACCUMULATE_INPUT:
+     out << "\"ACCUMULATE_INPUT\",\n";
+     break;
+    case WRITE_OUTPUT:
+     out << "\"WRITE_OUTPUT\",\n";
+     break;
+    case END_SLICE:
+     out << "\"END_SLICE\",\n";
+     break;
+    case END_NODE:
+     out << "\"END_NODE\",\n";
+     break;
+  }
+  out << "\t\"curr_stream\": " << curr_stream << ",\n"
+      << "\t\"curr_band\": " << curr_band << ",\n"
+      << "\t\"curr_slice\": " << curr_slice << ",\n"
+      << "\t\"slice_size\": " << curr_slice_size << ",\n"
+      << "\t\"number_of_bins\": " << number_of_bins << ",\n"
+      << "\t\"nr_time_slices\": " << number_of_time_slices << ",\n";
+  data_readers_ctrl.get_state(out);
+  out << "}";
+}

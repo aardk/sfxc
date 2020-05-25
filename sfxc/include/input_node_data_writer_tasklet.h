@@ -110,6 +110,9 @@ public:
   *****************************************************************************/
   Time get_current_time();
 
+  /// Write state for debug purposes
+  void get_state(std::ostream &out);
+
 private:
   /// Writers that will stream the data.
   std::vector<Input_node_data_writer_sptr>    data_writers_;

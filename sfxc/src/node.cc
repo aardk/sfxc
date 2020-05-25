@@ -7,22 +7,35 @@
  *
  */
 
+#include <fstream>
 #include <stdio.h>
+#include <pwd.h>
 #include "node.h"
 #include "utils.h"
 
+Node *Node::theNode = NULL;
+
 Node::Node(int rank)
-    : rank(rank), log_writer(new Log_writer_mpi(rank, 0)), assertion_raised(false) {}
+    : rank(rank), log_writer(new Log_writer_mpi(rank, 0)), assertion_raised(false) {
+  theNode = this;
+  signal(SIGUSR1, Node::sighandler);
+}
 
 Node::Node(int rank, Log_writer *writer)
-    : rank(rank), log_writer(writer), assertion_raised(false) {}
+    : rank(rank), log_writer(writer), assertion_raised(false) {
+  theNode = this;
+  signal(SIGUSR1, Node::sighandler);
+}
 
 Node::~Node() {
+  //FIXME: potential race condition between destructor and signal handler
+  signal(SIGUSR1, SIG_DFL);
   int rank = get_rank();
   if (rank != RANK_LOG_NODE) {
     MPI_Send(&rank, 1, MPI_INT,
              RANK_LOG_NODE, MPI_TAG_LOG_MESSAGES_ENDED, MPI_COMM_WORLD);
   }
+  theNode = NULL;
 }
 
 Log_writer &Node::get_log_writer() {
@@ -156,3 +169,22 @@ Node::process_event(MPI_Status &status) {
   return MESSAGE_UNKNOWN;
 }
 
+void Node::sighandler(int signum) {
+  if (theNode != NULL)
+    theNode->dump_state(); 
+}
+
+void Node::dump_state() {
+  char filename[80];
+  struct passwd *pw = getpwuid(getuid());
+  snprintf(filename, 80, "/tmp/sfxc-%s-rank%d.json", pw->pw_name, RANK_OF_NODE);
+
+  std::ofstream out;
+  out.open(filename);
+  if (out.is_open()) {
+    get_state(out);
+    out.close();
+  } else {
+    LOG_MSG("ERROR: Couldn't open sfxc log file for writing");
+  }
+}

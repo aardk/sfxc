@@ -81,7 +81,6 @@ Time Input_node::get_time_stamp() {
   return input_node_tasklet->get_current_time();
 }
 
-
 void Input_node::start() {
   main_loop();
 }
@@ -150,4 +149,19 @@ int Input_node::get_status() {
 void Input_node::set_delay_table(Delay_table &delay_table) {
   SFXC_ASSERT(input_node_tasklet != NULL);
   input_node_tasklet->set_delay_table(delay_table);
+}
+
+void Input_node::get_state(std::ostream &out) {
+  out << "{\n"
+      << "  \"rank\": " << RANK_OF_NODE << ",\n"
+      << "  \"host\": \"" << HOSTNAME_OF_NODE << "\",\n"
+      << "  \"id\": \"" << ID_OF_NODE << "\",\n"
+      << "  \"now\": \"" << Time::now() << "\"";
+  if (input_node_tasklet != NULL) {
+    out << ",\n";
+    input_node_tasklet->get_state(out);
+  } else {
+    out << "\n";
+  }
+  out << "}";
 }

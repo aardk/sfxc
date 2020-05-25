@@ -528,3 +528,28 @@ Input_node_data_writer::write_initial_invalid_data(Writer_struct &data_writer, i
   }
   return invalid_samples;
 }
+
+void Input_node_data_writer::get_state(std::ostream &out) {
+  char pol = (polarisation == 0) ? 'R' : 'L';
+  char sb = (sideband == 0) ? 'L' : 'U';
+  out << "\t\t{\n"
+      << "\t\t\"stream\": " << stream_nr << ",\n"
+      << "\t\t\"station\": " << (int)station_number << ",\n"
+      << "\t\t\"frequency\": " << (int)frequency_number << ",\n"
+      << "\t\t\"sideband\": \"" << sb << "\",\n"
+      << "\t\t\"polarization\": \"" << pol << "\",\n"
+      << "\t\t\"input_index\": " << input_index << ",\n"
+      << "\t\t\"n_input_buffer\": " << input_buffer_->size() << ",\n"   
+      << "\t\t\"n_data_writers\": " << data_writers_.size() << ",\n";
+  if (data_writers_.size() > 0) {
+    out << "\t\t\"data_writer_active\": " << data_writers_.front().active << ",\n"
+        << "\t\t\"data_writer_inuse\": " << data_writers_.front().writer->is_active() << ",\n";
+  }
+  out << "\t\t\"time\": \"" << _current_time.date_string(6) << "\",\n"
+      << "\t\t\"interval\" : [\"" << current_interval_.start_time_.date_string(6) 
+                        << "\", \"" << current_interval_.stop_time_.date_string(6) 
+                        << "\"],\n"
+      << "\t\t\"n_interval\": "<< intervals_.size() << ",\n"
+      << "\t\t\"n_delays\": " << delays_.size() << "\n"
+      << "\t\t}";
+}

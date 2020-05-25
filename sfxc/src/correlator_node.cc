@@ -96,3 +96,13 @@ void
 Correlator_node::receive_parameters(const Correlation_parameters &parameters) {
   tasklet.add_new_slice(parameters);
 }
+
+void Correlator_node::get_state(std::ostream &out) {
+  out << "{\n"
+      << "\t\"rank\": " << RANK_OF_NODE << ",\n"
+      << "\t\"host\": \"" << HOSTNAME_OF_NODE << "\",\n"
+      << "\t\"id\": \"" << ID_OF_NODE << "\",\n"
+      << "\t\"now\": \"" << Time::now() << "\",\n";
+  tasklet.get_state(out);
+  out << "}";
+}

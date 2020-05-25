@@ -278,3 +278,14 @@ Input_node_tasklet::get_delay(Time time) {
          delay_in_samples);
   return (Delay){time, delay_in_bytes, delay_in_remaining_samples};
 }
+
+void Input_node_tasklet::get_state(std::ostream &out) {
+  out << "\t\"input_node_tasklet\": {\n" 
+      << "\t\t\"initialized\": " << std::boolalpha << initialized <<",\n"
+      << "\t\t\"delay_pool_free\": " << delay_pool.number_free_element() << "\n"
+      << "\t},\n";
+  reader_.get_state(out);
+  if (initialized)
+    channel_extractor_->get_state(out);
+  data_writer_.get_state(out);
+}

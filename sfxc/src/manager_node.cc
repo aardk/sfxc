@@ -15,6 +15,7 @@
 #include "uvw_model.h"
 #include "svn_version.h"
 
+#include <fstream>
 #include <iostream>
 #include <iomanip>
 #include <fftw3.h>
@@ -803,4 +804,55 @@ void Manager_node::send_global_header(){
   }
 
   output_node_set_global_header((char *)output_header, len);
+}
+
+void Manager_node::get_state(std::ostream &out) {
+  out << "{\n"
+      << "\t\"rank\": " << RANK_OF_NODE << ",\n"
+      << "\t\"host\": \"" << HOSTNAME_OF_NODE << "\",\n"
+      << "\t\"id\": \"" << ID_OF_NODE << "\",\n"
+      << "\t\"now\": \"" << Time::now() << "\",\n"
+      << "\t\"state\": ";
+  switch(status) {
+    case START_NEW_SCAN:
+      out << "\"START_NEW_SCAN\",\n";
+      break;
+    case START_CORRELATION_TIME_SLICE:
+      out << "\"START_CORRELATION_TIME_SLICE\",\n";
+      break;
+    case START_CORRELATOR_NODES_FOR_TIME_SLICE:
+      out << "\"START_CORRELATOR_NODES_FOR_TIME_SLICE\",\n";
+      break;
+    case GOTO_NEXT_TIMESLICE:
+      out << "\"GOTO_NEXT_TIMESLICE\",\n";
+      break;
+    case STOP_CORRELATING:
+      out << "\"STOP_CORRELATING\",\n";
+      break;
+    case WAIT_FOR_OUTPUT_NODE:
+      out << "\"WAIT_FOR_OUTPUT_NODE\",\n";
+      break;
+    case END_NODE:
+      out << "\"END_NODE\",\n";
+      break;
+    default:
+      out << "\"UNKNOWN_STATE\",\n";
+  };
+#ifdef SFXC_DETERMINISTIC
+  int nfree = 0;
+  for (int i = 0; i < correlator_node_ready.size(); i++) {
+    if (correlator_node_ready[i])
+      nfree++;
+  }
+#else
+  int nfree = ready_correlator_nodes.size();
+#endif
+  out << "\t\"current_time\": \"" << start_time + integration_time() * integration_nr << "\",\n"
+      << "\t\"integration_nr\": " << integration_nr << ",\n"
+      << "\t\"current_scan\": \"" << control_parameters.scan(current_scan) << "\",\n"
+      << "\t\"current_channel\": " << channels_in_scan[channel_idx] << ",\n"
+      << "\t\"number_input_nodes\": " << get_control_parameters().number_inputs() << ",\n"
+      << "\t\"number_correlator_nodes\": " << numtasks - (get_control_parameters().number_inputs() + 3) << ",\n"
+      << "\t\"number_free_correlator_nodes\": " << nfree << "\n"
+      << "}";
 }

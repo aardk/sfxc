@@ -62,6 +62,7 @@ public:
   void start();
   void terminate();
 
+  void get_state(std::ostream &out);
   void start_next_timeslice_on_node(int corr_node_nr);
 
   /// Initialise is called from start() to initialise the correlation process.

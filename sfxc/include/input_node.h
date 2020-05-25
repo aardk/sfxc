@@ -77,6 +77,7 @@ public:
   void main_loop();
   void terminate();
 
+  void get_state(std::ostream &out);
   /// Status of the state machine
   enum Status {
     WAITING=0,    ///< The input node is waiting

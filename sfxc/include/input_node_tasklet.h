@@ -50,6 +50,9 @@ public:
   void stop_tasklets();
   void wait_termination();
 
+  /// Write state of input node tasklet for debug purposes
+  void get_state(std::ostream &out);
+
   /// Sets a new time interval for which it should output data
   /// (typically the duration of a scan, or part thereof).
   /// \param start_time in milliseconds

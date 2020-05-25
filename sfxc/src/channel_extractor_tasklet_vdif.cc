@@ -53,3 +53,10 @@ Channel_extractor_tasklet_VDIF::
 set_parameters(const Input_node_parameters &param) {
   n_subbands = param.channels.size();
 }
+
+void Channel_extractor_tasklet_VDIF::get_state(std::ostream &out) {
+  out << "\t\"Channel_extractor_vdif\": {\n"
+      << "\t\t\"nsubbands\": " << n_subbands << ",\n"
+      << "\t\t\"input_queue_size\": " << input_buffer_->size() << "\n"
+      << "\t}";
+}

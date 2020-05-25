@@ -115,6 +115,7 @@ public:
 
   void start();
   void terminate();
+  void get_state(std::ostream &out);
 
   enum STATUS {
     STOPPED=0,

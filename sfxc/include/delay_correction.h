@@ -53,6 +53,8 @@ public:
   const char *name() {
     return __PRETTY_FUNCTION__;
   }
+  /// Write state for debug purposes
+  void get_state(std::ostream &out);
 private:
   void fractional_bit_shift(FLOAT *input,
                             int integer_shift,

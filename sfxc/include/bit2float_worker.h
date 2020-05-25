@@ -67,6 +67,8 @@ public:
   // Empty the input queue, called from the destructor of Input_node
   // This is necessary because of pre-extracting data
   void empty_input_queue();
+  /// Write state for debug purposes
+  void get_state(std::ostream &out);
   
   // Obtain the list of invalid samples
   std::vector<Invalid> *get_invalid();

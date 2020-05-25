@@ -390,3 +390,14 @@ Delay_correction::create_flip() {
   for (int i = 0; i < n; i++)
     flip[i] = ((i % 2) == 0) ? 1 : -1;
 }
+
+void Delay_correction::get_state(std::ostream &out) {
+  out << "\t\t{\n"
+      << "\t\t\"stream_nr\": " << stream_nr << ",\n"
+      << "\t\t\"memory_pool_free\": " <<  output_memory_pool.number_free_element() << ",\n"
+      << "\t\t\"current_time\": \"" << current_time.date_string(6) << "\",\n"
+      << "\t\t\"n_input_buffer\": " << input_buffer->size() << ",\n"
+      << "\t\t\"current_fft\": "<< current_fft << ",\n"
+      << "\t\t\"n_ffts_per_integration\": " << n_ffts_per_integration << "\n"
+      << "\t\t}";
+}
