@@ -429,3 +429,26 @@ std::vector<Bit2float_worker::Invalid> *
 Bit2float_worker::get_invalid(){
   return &invalid;
 }
+
+void Bit2float_worker::get_state(std::ostream &out) {
+  out << "\t\t{\n"
+      << "\t\t\"memory_pool_free\": " << memory_pool_.number_free_element() << ",\n"
+      << "\t\t\"current_fft\": " << current_fft << ",\n"
+      << "\t\t\"n_ffts_per_integration\": " << n_ffts_per_integration << ",\n"
+      << "\t\t\"state\": ";
+  switch(state) {
+  case IDLE:
+    out << "\"IDLE\"\n";
+    break;
+  case SEND_INVALID:
+    out << "\"SEND_INVALID\"\n";
+    break;
+  case SEND_DATA:
+    out << "\"SEND_DATA\"\n";
+    break;
+  case PURGE_STREAM:
+    out << "\"PURGE_STREAM\"\n";
+    break;
+  }
+  out << "\t\t}";
+}

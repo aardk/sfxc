@@ -76,3 +76,17 @@ std::vector< Bit2float_worker_sptr >&
 Correlator_node_bit2float_tasklet::bit2float_workers() {
   return bit2float_workers_;
 }
+
+void Correlator_node_bit2float_tasklet::get_state(std::ostream &out) {
+  out << "\t\"Correlator_node_bit2float_tasklet\": {\n"
+      << "\t\t\"Bit2float_worker\": [\n";
+      for (int i=0; i<bit2float_workers_.size(); i++) {
+        bit2float_workers_[i]->get_state(out);
+        if (i < bit2float_workers_.size() - 1)
+          out << ",\n";
+        else
+          out << "\n";
+      }
+      out << "\t\t]\n"
+          << "\t},\n";
+}

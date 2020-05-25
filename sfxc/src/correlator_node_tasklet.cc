@@ -385,3 +385,42 @@ output_node_set_timeslice(int slice_nr, int stream_nr, int band, int accum,
            MPI_TAG_OUTPUT_STREAM_SLICE_SET_ORDER,
            MPI_COMM_WORLD);
 }
+
+void Correlator_node_tasklet::get_state(std::ostream &out) {
+  out << "\t\"Correlator_node_tasklet\": {\n"
+      << "\t\t\"nr_corr_node\": " << nr_corr_node << ",\n"
+      << "\t\t\"pulsar_binning\": " << std::boolalpha << pulsar_binning << ",\n"
+      << "\t\t\"phased_array\": " << std::boolalpha << phased_array << ",\n"
+      << "\t\t\"has_requested\": " << std::boolalpha << has_requested << ",\n"
+      << "\t\t\"isrunning\": " << std::boolalpha << isrunning_ << ",\n"
+      << "\t\t\"n_integration_slices\": " << integration_slices_queue.size() << ",\n"
+      << "\t\t\"state\": ";
+  switch (status) {
+      case STOPPED: {
+        out << "\"STOPPED\"\n";
+        break;
+      } case CORRELATING: {
+        out << "\"CORRELATING\"\n";
+        break;
+      } default: {
+        out << "\"UNKNOWN STATE\"\n";
+      }
+  }
+  out << "\t},\n";
+  reader_thread_.get_state(out);
+  bit2float_thread_.get_state(out);
+  out << "\t\"Delay_correction\": [\n";
+  for (size_t i=0; i<delay_modules.size(); i++) {
+    if (delay_modules[i] != Delay_correction_ptr()) {
+      delay_modules[i]->get_state(out);
+    } else {
+      out << "\t\t{}";
+    }
+    if (i < delay_modules.size() - 1)
+      out << ",\n";
+    else
+      out << "\n";
+  }
+  out << "\t],\n";
+  correlation_core->get_state(out);
+}

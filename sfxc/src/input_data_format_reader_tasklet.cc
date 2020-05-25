@@ -424,3 +424,14 @@ Input_data_format_reader_tasklet::gen_demodulation_sequence(int sequence_length)
     demodulation_sequence[n]=(unsigned char)ret_val;
   }
 }
+
+void Input_data_format_reader_tasklet::get_state(std::ostream &out) {
+  out << "\t\"Input_data_format_reader_tasklet\" :{\n"
+      << "\t\t\"current_time\": [\"" << current_time[0].date_string(6) << "\"";
+  for (int i = 1; i < current_time.size(); i++) {
+    out << ", \"" << current_time[i].date_string(6) << "\"";
+  }
+  out << "],\n"
+      << "\t\t\"memory_pool_free\": " << memory_pool_->number_free_element() << "\n"
+      << "\t},\n";
+}

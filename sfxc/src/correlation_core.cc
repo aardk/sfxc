@@ -6,7 +6,8 @@
 #include <set>
 
 Correlation_core::Correlation_core()
-  : current_fft(0), total_ffts(0) {
+  : current_fft(0), total_ffts(0), n_phase_centre_written(0), 
+    tsys_written(false) {
 }
 
 Correlation_core::~Correlation_core() {
@@ -56,6 +57,7 @@ void Correlation_core::do_task() {
       integration_normalize(phase_centers[i]);
       int source = sources[delay_tables[first_stream].get_source(i)];
       integration_write(phase_centers[i], i, source, 1);
+      n_phase_centre_written += 1;
     }
     tsys_write();
   } else if(current_fft >= next_sub_integration * number_ffts_in_sub_integration){
@@ -97,6 +99,8 @@ Correlation_core::set_parameters(const Correlation_parameters &parameters,
   current_fft = 0;
   delay_tables = delays;
   uvw_table = uvw;
+  n_phase_centre_written = 0;
+  tsys_written = false;
 
   // Calculate factor by which to divide sample counts such that they
   // fit into a (signed) 32-bit integer.
@@ -512,6 +516,7 @@ Correlation_core::tsys_write() {
 
     MPI_Send(msg, pos, MPI_PACKED, RANK_OUTPUT_NODE, MPI_TAG_OUTPUT_NODE_WRITE_TSYS, MPI_COMM_WORLD);
   }
+  tsys_written = true;
 }  
 
 void 
@@ -836,4 +841,22 @@ Correlation_core::create_mask() {
   }
 
   mask.assign(fft_size() + 1, 1.0);
+}
+
+void Correlation_core::get_state(std::ostream &out) {
+  out << "\t\"Correlation_core\": {\n"
+      << "\t\t\"current_fft\": "<< current_fft << ",\n"
+      << "\t\t\"n_ffts_in_slice\": " <<number_ffts_in_slice << ",\n"
+      << "\t\t\"n_baseline\": " << baselines.size() << ",\n"
+      << "\t\t\"n_input_stream\": " << number_input_streams() << ",\n"
+      << "\t\t\"n_phase_centre\": " << phase_centers.size() << ",\n"
+      << "\t\t\"n_phase_centre_written\": " << n_phase_centre_written << ",\n"
+      << "\t\t\"tsys_witten\": " << std::boolalpha << tsys_written << ",\n"
+      << "\t\t\"n_buffer\": [" << input_buffers[station_stream(0)]->size();
+  for (size_t i = 1; i < number_input_streams(); i++) {
+    int stream = station_stream(i);
+    out << ", " << input_buffers[stream]->size();
+  }
+  out << "\t\t]\n"
+      << "\t}\n";
 }

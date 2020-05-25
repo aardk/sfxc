@@ -8,6 +8,7 @@
  */
 
 #include "log_node.h"
+#include "correlator_time.h"
 #include "utils.h"
 #include "types.h"
 #include "log_writer.h"
@@ -34,7 +35,7 @@ Log_node::Log_node(int rank, int nNodes, Log_writer *writer)
   int32_t msg;
   MPI_Send(&msg, 1, MPI_INT32,
            RANK_MANAGER_NODE, MPI_TAG_NODE_INITIALISED, MPI_COMM_WORLD);
-}
+ }
 
 Log_node::~Log_node() {
   check_and_process_waiting_message();
@@ -54,3 +55,12 @@ void Log_node::terminate() {
 
 void Log_node::hook_added_data_reader(size_t reader) {}
 void Log_node::hook_added_data_writer(size_t writer) {}
+
+void Log_node::get_state(std::ostream &out) {
+  out << "{\n"
+      << "\t\"rank\": " << RANK_OF_NODE << ",\n"
+      << "\t\"host\": \"" << HOSTNAME_OF_NODE << "\",\n"
+      << "\t\"id\": \"" << ID_OF_NODE << "\",\n"
+      << "\t\"now\": \"" << Time::now() << "\"\n"
+      << "}";
+}

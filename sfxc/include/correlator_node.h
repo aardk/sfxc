@@ -67,6 +67,8 @@ public:
   /// Callback function for adding a data_writer:
   void hook_added_data_writer(size_t writer);
 
+  void get_state(std::ostream &out);
+
   void add_delay_table(Delay_table &table, int sn1, int sn2);
   void add_uvw_table(Uvw_model &table, int sn1);
 

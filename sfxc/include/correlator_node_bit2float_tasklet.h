@@ -83,6 +83,9 @@ public:
   *****************************************************************************/
   std::vector< Bit2float_worker_sptr >& bit2float_workers();
 
+  /// Write state for debug purposes
+  void get_state(std::ostream &out);
+
 private:
   std::vector<Bit2float_worker_sptr>    bit2float_workers_;
 

@@ -62,6 +62,7 @@ public:
 
   // This is the set of listening IP/port
   void get_listening_ip(std::vector<uint64_t>& ip_port);
+  void get_state(std::ostream &out);
 
 private:
   void add_data_reader(unsigned int i, shared_ptr<Data_reader> reader);

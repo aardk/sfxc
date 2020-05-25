@@ -48,6 +48,8 @@ public:
   }
 
   void set_parameters();
+  /// Write state for debug purposes
+  void get_state(std::ostream &out);
 
 private:
   Data_reader_ptr           reader;

@@ -329,3 +329,13 @@ void Channel_extractor_tasklet::empty_input_queue() {
     input_buffer_->pop();
   }
 }
+
+void Channel_extractor_tasklet::get_state(std::ostream &out) {
+  out << "\t\"Channel_extractor\": {\n"
+      << "\t\t\"nthreads\": " << NUM_CHANNEL_EXTRACTOR_THREADS << ",\n"
+      << "\t\t\"nsubbands\": " << n_subbands << ",\n"
+      << "\t\t\"memory_pool_size\": " << output_memory_pool_.size() << ",\n"
+      << "\t\t\"memory_pool_free\": " << output_memory_pool_.number_free_element() << ",\n"
+      << "\t\t\"input_queue_size\": " << input_buffer_->size() << "\n"
+      << "\t},\n";
+}

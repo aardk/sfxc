@@ -2,7 +2,7 @@
 
 Correlator_node_data_reader_tasklet::
 Correlator_node_data_reader_tasklet()
-  : input_buffer(37100000), bytes_left(0),
+  : input_buffer(37100000), bytes_left(0), stream_nr(-1),
     new_stream_available(false),state(IDLE) {
 }
 
@@ -139,4 +139,27 @@ bool Correlator_node_data_reader_tasklet::active() {
 void
 Correlator_node_data_reader_tasklet::set_parameters() {
   new_stream_available = true;
+}
+
+void Correlator_node_data_reader_tasklet::get_state(std::ostream &out) {
+  out << "\t\t{\n"
+      << "\t\t\"stream_nr\": " << stream_nr << ",\n"
+      << "\t\t\"read\": " << input_buffer.read << ",\n"
+      << "\t\t\"write\": " << input_buffer.read << ",\n"
+      << "\t\t\"new_stream_available\": " << new_stream_available << ",\n"
+      << "\t\t\"state\": ";
+  switch (state) {
+  case IDLE:
+    out << "\"IDLE\"\n";
+    break;
+  case PROCESSING_STREAM:
+    out << "\"PROCESSING_STREAM\"\n";
+    break;
+  case RECEIVE_DATA:
+    out << "\"RECEIVE_DATA\"\n";
+    break;
+  default:
+    out << "\"UNKNOWN_STATE\"\n";
+  }
+  out << "\t\t}";
 }

@@ -13,6 +13,7 @@
 #include <string>
 #include <list>
 #include <iostream>
+#include <signal.h>
 
 #include "types.h"
 #include "sfxc_mpi.h"
@@ -94,6 +95,10 @@ public:
    **/
   virtual void hook_added_data_writer(size_t writer) = 0;
 
+  static void sighandler(int signum);
+  void dump_state();
+  virtual void get_state(std::ostream &out) = 0;
+
   bool get_assertion_raised() {
     return assertion_raised;
   }
@@ -102,6 +107,7 @@ private:
       Try to delegate it to the controllers, otherwise produce an error message.
    **/
   MESSAGE_RESULT process_event(MPI_Status &status);
+  static Node *theNode;
 
   int rank;
   Controller_list controllers;

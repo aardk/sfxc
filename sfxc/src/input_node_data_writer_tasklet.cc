@@ -152,3 +152,18 @@ Input_node_data_writer_tasklet::get_current_time(){
 
   return time;
 }
+
+void Input_node_data_writer_tasklet::get_state(std::ostream &out) {
+  out << "\t\"Input_node_data_writer_tasklet\": {\n"
+      << "\t\"Input_node_data_writer\": [\n";
+   for (int i = 0; i < data_writers_.size(); i++) {
+     data_writers_[i]->get_state(out);
+     if (i < data_writers_.size() - 1)
+       out << ",\n";
+     else
+       out << "\n";
+   }
+   out << "\t],\n"
+       << "\t\t\"still_running\": " << std::boolalpha << data_writer_thread_pool.still_running()
+       << "\n\t}\n";
+}

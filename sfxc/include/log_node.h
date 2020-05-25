@@ -41,7 +41,9 @@ public:
   ~Log_node();
 
   void start();
-	void terminate();
+  void terminate();
+
+  void get_state(std::ostream &out);
 
   // Callback functions:
   void hook_added_data_reader(size_t reader);

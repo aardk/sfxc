@@ -76,6 +76,8 @@ public:
 
   int get_correlate_node_number();
 
+  /// Write state for debug purposes
+  void get_state(std::ostream &out);
 
 class Reader_thread : public Thread {
     std::vector< Bit_sample_reader_ptr >        bit_sample_readers_;
@@ -107,6 +109,21 @@ class Reader_thread : public Thread {
       double ratio1 = ((100.0*timer_waiting_.measured_time())/total_duration);
       double ratio2 = ((100.0*timer_reading_.measured_time())/total_duration);
       PROGRESS_MSG( "reading ratio:(waiting: "<< ratio1 <<"%, reading:"<< ratio2 <<"%)" );
+    }
+    /// Write state for debug purposes
+    void get_state(std::ostream &out) {
+      out << "\t\"Reader_thread\": {\n"
+          << "\t\"Correlator_node_data_reader_tasklet\": [\n";
+      for (int i=0; i<bit_sample_readers_.size(); i++) {
+        bit_sample_readers_[i]->get_state(out);
+        if (i < bit_sample_readers_.size() - 1)
+          out << ",\n";
+        else
+          out << "\n";
+      }
+      out << "\t],\n";
+      out << "\t\"n_jobs\": " << queue_.size() << "\n"
+          << "\t},\n";
     }
 
   class Listener : public FdEventListener {

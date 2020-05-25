@@ -57,6 +57,8 @@ public:
   std::vector<Delay_table_akima> delay_tables;
   std::vector<std::vector<double> > uvw_table;
   void add_source_list(const std::map<std::string, int> &sources_);
+  /// Write state for debug purposes
+  void get_state(std::ostream &out);
 
 protected:
   virtual void integration_initialise();
@@ -91,6 +93,9 @@ protected:
   std::vector<bit_statistics_ptr>         statistics;
   // Tracks the number of correlator points where one (but not both) stations on a baseline had invalid data
   std::vector< std::pair<int64_t,int64_t> > n_flagged;
+  // How many phase centres are send to output node in current integration (for debug)
+  int n_phase_centre_written; 
+  bool tsys_written;
 
   int sample_shift;
 

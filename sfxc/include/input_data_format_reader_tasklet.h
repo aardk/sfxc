@@ -52,6 +52,9 @@ public:
   void stop();
   void fetch_next_time_interval();
 
+  /// Write state for debug purposes
+  void get_state(std::ostream &out);
+
   /// set a time interval to process (after which the tasklet is blocking)
   void add_time_interval(Time &start_time, Time &stop_time, Time &leave_time);
 
