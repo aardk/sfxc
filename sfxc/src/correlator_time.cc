@@ -42,6 +42,18 @@ Time::Time(const std::string &time) : clock_rate(MAX_SAMPLE_RATE), sample_rate(1
   set_time(time_mjd, 60 * (60 * tm.tm_hour + tm.tm_min) + tm.tm_sec);
 }
 
+Time Time::now() {
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+
+  struct tm *t = localtime(&tv.tv_sec);
+  int m = mjd(t->tm_mday, t->tm_mon + 1, t->tm_year + 1900);
+  int sec = 60 * (60 * t->tm_hour + t->tm_min) + t->tm_sec;
+  Time tnow(m, sec);
+  tnow.inc_time_usec(tv.tv_usec);
+  return tnow;
+}
+
 void Time::set_sample_rate(double sample_rate_){
   sample_rate = (int) round(clock_rate / sample_rate_);
 }
@@ -83,25 +95,29 @@ void Time::get_date(int &year, int &day) const{
   day = 1 + (ndays - p1 * (365 * 4 + 1)) % 365;
 }
 
-void Time::get_time(int &h, int &m, int &s, int &ms) const{
-  double julian_time = (nticks % ((int64_t)clock_rate * 24*60*60)) / (clock_rate * 24*60*60);
-  int time = (int) round(24 * 60 * 60 * 1000 * julian_time);
-  h =  time / (60 * 60 * 1000);
-  time -= h * (60 * 60 * 1000);
-  m = time / (60 * 1000);
-  time -= m * (60 * 1000);
-  s = time / 1000;
-  ms = time - s * 1000;
+void Time::get_time(int &h, int &m, double &s) const{
+  double time = (nticks % ((int64_t)clock_rate * 24*60*60)) / clock_rate;
+  h = (int) floor(time / (60 * 60));
+  time -= h * 60 * 60 ;
+  m = (int) floor(time / 60);
+  time -= m * 60;
+  s = time;
 }
 
-std::string Time::date_string() const{
-  int year, day, hour, minute, second, milisecond;
-  char date[25];
+std::string Time::date_string(int precision /* = 3 */ ) const{
+  int year, day, hour, minute;
+  double second;
+  char date[40], fmt[40];
+  if (precision > 17)
+    precision = 17;
+  int nlead = (precision > 0) ? precision + 3 : 2;
+  snprintf(fmt, 40, "%%04dy%%03dd%%02dh%%02dm%%0%d.%dfs", 
+           nlead, precision);
 
   get_date(year, day);
-  get_time(hour, minute, second, milisecond);
-  snprintf(date, 25, "%04dy%03dd%02dh%02dm%02d.%03ds",
-           year, day, hour, minute, second, milisecond);
+  get_time(hour, minute, second);
+  snprintf(date, 40, fmt,
+           year, day, hour, minute, second);
   return std::string(date);
 }
 
