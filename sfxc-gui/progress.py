@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'progress.ui'
 #
-# Created: Tue Feb 26 17:02:18 2019
+# Created: Wed May 27 11:14:23 2020
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -121,11 +121,11 @@ class Ui_Dialog1(object):
         self.hboxlayout2.setSpacing(6)
         self.hboxlayout2.setMargin(0)
         self.hboxlayout2.setObjectName(_fromUtf8("hboxlayout2"))
-        self.buttonReset = QtGui.QPushButton(Dialog1)
-        self.buttonReset.setEnabled(False)
-        self.buttonReset.setAutoDefault(False)
-        self.buttonReset.setObjectName(_fromUtf8("buttonReset"))
-        self.hboxlayout2.addWidget(self.buttonReset)
+        self.buttonDebug = QtGui.QPushButton(Dialog1)
+        self.buttonDebug.setEnabled(True)
+        self.buttonDebug.setAutoDefault(False)
+        self.buttonDebug.setObjectName(_fromUtf8("buttonDebug"))
+        self.hboxlayout2.addWidget(self.buttonDebug)
         spacerItem4 = QtGui.QSpacerItem(20, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
         self.hboxlayout2.addItem(spacerItem4)
         self.buttonAbort = QtGui.QPushButton(Dialog1)
@@ -137,6 +137,7 @@ class Ui_Dialog1(object):
 
         self.retranslateUi(Dialog1)
         QtCore.QObject.connect(self.buttonAbort, QtCore.SIGNAL(_fromUtf8("clicked()")), Dialog1.abort)
+        QtCore.QObject.connect(self.buttonDebug, QtCore.SIGNAL(_fromUtf8("clicked()")), Dialog1.create_debug)
         QtCore.QMetaObject.connectSlotsByName(Dialog1)
 
     def retranslateUi(self, Dialog1):
@@ -145,8 +146,9 @@ class Ui_Dialog1(object):
         self.jobLabel.setText(_translate("Dialog1", "      Job ID:", None))
         self.timeLabel.setText(_translate("Dialog1", "Time:", None))
         self.subjobLabel.setText(_translate("Dialog1", "Subjob ID:", None))
-        self.buttonReset.setText(_translate("Dialog1", "&Reset", None))
-        self.buttonReset.setShortcut(_translate("Dialog1", "Alt+R", None))
+        self.buttonDebug.setToolTip(_translate("Dialog1", "Let all SFXC processes dump their state", None))
+        self.buttonDebug.setText(_translate("Dialog1", "Create &Debug", None))
+        self.buttonDebug.setShortcut(_translate("Dialog1", "Alt+D", None))
         self.buttonAbort.setText(_translate("Dialog1", "&Abort", None))
         self.buttonAbort.setShortcut(_translate("Dialog1", "Alt+A", None))
 

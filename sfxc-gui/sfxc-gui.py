@@ -13,6 +13,7 @@ import sys
 import signal
 import time
 import urlparse
+from threading import Thread
 
 # Qt and Qwt
 from PyQt4 import Qt, QtCore, QtGui
@@ -59,6 +60,24 @@ class progressDialog(QtGui.QDialog):
             self.reject()
             pass
         pass
+
+    def debug_thread(self):
+        dirname = self.debug_path + \
+                  datetime.now().strftime('/sfxclog-%Y%m%dT%Hh%Mm%Ss')
+        try:
+            os.mkdir(dirname)
+        except FileExistsError:
+            pass
+        args = [self.path + '/create_debug.py', '-d', dirname, self.rank_file]
+        proc = subprocess.Popen(args)
+        proc.wait()
+        self.ui.buttonDebug.setEnabled(True)
+
+    def create_debug(self):
+        if self.proc:
+            self.ui.buttonDebug.setEnabled(False)
+            self.__debug_thread = Thread(target = self.debug_thread, args = ())
+            self.__debug_thread.start()
 
     def update_status(self):
         if self.subjob == -1:
@@ -187,11 +206,14 @@ class progressDialog(QtGui.QDialog):
     def run(self, vex_file, ctrl_file, machine_file, rank_file, options):
         self.vex = Vex(vex_file)
         self.ctrl_file = ctrl_file
+        self.rank_file = rank_file
         self.evlbi = options.evlbi
         self.reference = options.reference
         self.timeout_interval = options.timeout_interval
         self.path = options.path
         self.label = options.label
+        self.debug_path = options.debug_path if options.debug_path != "" \
+                          else os.path.split(os.path.realpath(ctrl_file))[0]
 
         if self.label:
             self.setWindowTitle("Progress " + self.label)
@@ -538,6 +560,9 @@ parser.add_option("-l", "--label", dest="label",
                   default="", type="string",
                   help="label",
                   metavar="LABEL")
+parser.add_option("-D", "--debug-path", dest="debug_path",
+                  default="", type="string",
+                  help="Directory in which debug information is written", metavar="PATH")
 
 (options, args) = parser.parse_args()
 if len(args) != 4:

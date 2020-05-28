@@ -227,15 +227,18 @@
       <number>0</number>
      </property>
      <item>
-      <widget class="QPushButton" name="buttonReset">
+      <widget class="QPushButton" name="buttonDebug">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
+       </property>
+       <property name="toolTip">
+        <string>Let all SFXC processes dump their state</string>
        </property>
        <property name="text">
-        <string>&amp;Reset</string>
+        <string>Create &amp;Debug</string>
        </property>
        <property name="shortcut">
-        <string>Alt+R</string>
+        <string>Alt+D</string>
        </property>
        <property name="autoDefault">
         <bool>false</bool>
@@ -298,5 +301,24 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>buttonDebug</sender>
+   <signal>clicked()</signal>
+   <receiver>Dialog1</receiver>
+   <slot>create_debug()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>56</x>
+     <y>340</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>330</x>
+     <y>181</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
+ <slots>
+  <slot>create_debug()</slot>
+ </slots>
 </ui>
