@@ -312,7 +312,7 @@ def parse_integration(indata, cfg, polarization):
           outpol = 0
         elif polarization == 4:
           # --pol = F
-          outpol = pol1 + 2 * pol2
+          outpol = abs(3 * pol1 - 2 * pol2)
 
         #print integration, bheader
         if (outpol >= 0):
