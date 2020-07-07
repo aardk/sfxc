@@ -34,18 +34,28 @@ Data_reader_tcp::~Data_reader_tcp() {
   if (socket > 0) close(socket);
 }
 
-size_t Data_reader_tcp::do_get_bytes(size_t nBytes, char*out) {
+size_t Data_reader_tcp::do_get_bytes(size_t nBytes, char *out) {
   SFXC_ASSERT(socket > 0);
 
   if (out == NULL) {
     size_t buff_size = 1000000;
     buff_size = (nBytes < buff_size ? nBytes : buff_size);
     char buff[(int)buff_size];
-    return read(socket, (void *) buff, buff_size);
+    ssize_t nread = read(socket, (void *) buff, buff_size);
+    if (nread > 0) { 
+      return nread;
+    } else {
+      return 0;
+    }
   }
 
+  ssize_t nread = read(socket, (void *) out, nBytes);
   /* Read data from socket */
-  return read(socket, (void *) out, nBytes);
+  if (nread > 0) {
+    return nread;
+  } else {
+    return 0;
+  }
 }
 
 unsigned int Data_reader_tcp::get_port() {
