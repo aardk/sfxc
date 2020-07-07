@@ -1513,7 +1513,7 @@ get_vdif_datastreams(const std::string &mode,
 	     channel_it != datastream->end("channel"); channel_it++) {
 	  if (channel_name == channel_it[2]->to_string() &&
 	      ds_name == channel_it[0]->to_string())
-	    thread_name = channel_it[3]->to_string();
+	    thread_name = channel_it[1]->to_string();
 	}
 	if (thread_name == std::string())
 	  continue;
