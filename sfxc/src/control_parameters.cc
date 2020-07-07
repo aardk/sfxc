@@ -2322,8 +2322,12 @@ get_correlation_parameters(const std::string &scan_name,
   channel_nr = cross_channel(channel_nr, mode_name);
   for (Vex::Node::const_iterator station = scan->begin("station");
        station != scan->end("station"); ++station) {
+    const std::string &channel_name =
+      frequency_channel(channel_nr, mode_name, station[0]->to_string());
+    const std::string ds_name =
+      datastream(mode_name, station[0]->to_string(), channel_name);
     std::map<stream_key, int>::const_iterator station_nr_it =
-      correlator_node_station_to_input.find(stream_key(station[0]->to_string(), ""));
+      correlator_node_station_to_input.find(stream_key(station[0]->to_string(), ds_name));
     if (station_nr_it != correlator_node_station_to_input.end()) {
       if (station_nr_it->second >= 0) {
 	const std::string &channel_name =
