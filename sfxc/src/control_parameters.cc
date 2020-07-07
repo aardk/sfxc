@@ -392,7 +392,7 @@ Control_parameters::check(std::ostream &writer) const {
       int numproc, minproc;
       MPI_Comm_size(MPI_COMM_WORLD, &numproc);
       std::string mode = get_vex().get_mode(scan(scan(ctrl["start"].asString())));
-      minproc = 3 + number_stations() + number_correlation_cores_per_timeslice(mode);
+      minproc = 3 + number_inputs() + number_correlation_cores_per_timeslice(mode);
 
       if (numproc < minproc) {
         writer << "#correlator nodes < #freq. channels, use at least "
@@ -2336,7 +2336,7 @@ get_correlation_parameters(const std::string &scan_name,
           Correlation_parameters::Station_parameters station_param;
           station_param.station_number = station_number(station[0]->to_string());
 	  if (stations_set.count(station_param.station_number) > 0)
-	    station_param.station_stream = station_nr_it->second + number_stations();
+	    station_param.station_stream = station_nr_it->second + number_inputs();
 	  else
 	    station_param.station_stream = station_nr_it->second;;
           station_param.bits_per_sample = bits_per_sample(mode_name, station[0]->to_string());
