@@ -46,12 +46,16 @@ public:
             (int)ip&255, (int)(ip>>8)&255, (int)(ip>>16)&255, (int)ip>>24);
     return std::string(addr);
   }
+  std::string get_address() {
+    return connection_addr;
+  }
 
   int get_port();
 private:
   bool verbose;
   int connection_socket;
   int port_nr;
+  char connection_addr[17];
 };
 
 #endif /*TCP_CONNECTION_H_*/
