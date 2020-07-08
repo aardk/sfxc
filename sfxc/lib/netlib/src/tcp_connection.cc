@@ -23,7 +23,11 @@
 #include "utils.h"
 
 TCP_Connection::TCP_Connection(bool verbose)
-    : verbose(verbose), connection_socket(-1), port_nr(-1) {}
+    : verbose(verbose), connection_socket(-1), port_nr(-1) {
+    connection_addr[0]='\0';
+}
+
+
 
 TCP_Connection::~TCP_Connection() {}
 
@@ -158,6 +162,12 @@ TCP_Connection::do_connect(const char *hostname, unsigned short int port) {
     std::cout << "problem interpreting host: " << hostname << std::endl;
     return -1;
   }
+  
+  strncpy(connection_addr,
+          inet_ntoa(*(struct in_addr *)hostInfo->h_addr_list[0]),
+          16
+         );
+  connection_addr[16] = '\0';
 
   // Create a socket.  "AF_INET" means it will use the IPv4 protocol.
   // "SOCK_STREAM" means it will be a reliable connection (i.e., TCP;
@@ -208,6 +218,8 @@ TCP_Connection::do_connect(uint64_t ip, unsigned short int port) {
     std::cout << "problem interpreting host: " << inet_ntoa(addr) << "\n";
     return -1;
   }
+  strncpy(connection_addr, inet_ntoa(addr), 16);
+  connection_addr[16] = '\0';
 
   // Create a socket.  "AF_INET" means it will use the IPv4 protocol.
   // "SOCK_STREAM" means it will be a reliable connection (i.e., TCP;
