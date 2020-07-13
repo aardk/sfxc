@@ -317,13 +317,13 @@ def parse_integration(indata, cfg, polarization):
         #print integration, bheader
         if (outpol >= 0):
           if sideband == 0: 
-            vreal = baseline[1:(nchan+1)]
-          else:
-            # outpol=3 is Im(RL), for USB we need the complex conjugate
+            # outpol=3 is Im(RL), for LSB we need the complex conjugate
             if outpol == 3:
-              vreal = -baseline[nchan-1::-1]
+              vreal = -baseline[1:(nchan+1)]
             else:
-              vreal = baseline[nchan-1::-1]
+              vreal = baseline[1:(nchan+1)]
+          else:
+            vreal = baseline[nchan-1::-1]
           if isnan(vreal).any()==False:
             # We write data in order of decreasing frequency
             inv_ch = nsubband - channel_nr - 1
