@@ -349,8 +349,8 @@ int main(int argc, char *argv[]) {
       int thread = header.thread_id;
       int bps = header.bits_per_sample + 1;
       int max_val = ((1 << bps) - 1);
-      int nchan = 1<< header.log2_nchan;
-      int nword = 1 + (nchan-1) / 32;
+      int nchan = 1 << header.log2_nchan;
+      int nword = 1 + (nchan * bps - 1) / 32;
       for (int i = 0; i < bytes_read / sizeof(uint32_t); i += nword) {
         int chan = 0;
         for (int j = 0; j < nword; j++) {
