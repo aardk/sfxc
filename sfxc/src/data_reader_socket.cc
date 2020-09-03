@@ -39,11 +39,11 @@ size_t Data_reader_socket::do_get_bytes(size_t nBytes, char *out) {
   SFXC_ASSERT(m_socket > 0);
   SFXC_ASSERT(out != NULL);
 
-  size_t val = read(m_socket, (void *) out, nBytes);
+  ssize_t val = read(m_socket, (void *) out, nBytes);
   if ( val > 0 ) return val;
   iseof = true;
 //  std::cout << "EOF is reached"<< std::endl;
-  return val;
+  return 0;
 }
 
 bool Data_reader_socket::eof() {
