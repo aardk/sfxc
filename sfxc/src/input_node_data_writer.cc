@@ -117,8 +117,18 @@ do_task() {
   int samples_per_byte = 8/bits_per_sample;
 
   // Go to the current positition in the delay table
-  std::vector<Delay> &cur_delay = delay_list.data();
+  std::vector<Delay> cur_delay = delay_list.data();
   int delay_size = cur_delay.size();
+
+  for (int i = 0; i < delay_size; i++) {
+    cur_delay[i].remaining_samples += extra_delay_in_samples;
+    cur_delay[i].bytes += cur_delay[i].remaining_samples / samples_per_byte;
+    cur_delay[i].remaining_samples %= samples_per_byte;
+    if (cur_delay[i].remaining_samples < 0) {
+      cur_delay[i].remaining_samples += samples_per_byte;
+      cur_delay[i].bytes--;
+    }
+  }
 
   // Check whether we have to start a new timeslice
   if(!data_writer.active){
@@ -364,6 +374,7 @@ set_parameters(int nr_stream, const Input_node_parameters &input_param, int stat
 
   station_number = station_number_;
   frequency_number = input_param.channels[nr_stream].frequency_number;
+  extra_delay_in_samples = input_param.channels[nr_stream].extra_delay_in_samples;
   if (input_param.channels[nr_stream].polarisation == 'L')
     polarisation = 1;
   else
@@ -494,8 +505,18 @@ Input_node_data_writer::write_data(Data_writer_sptr writer, int ndata, int byte_
 int64_t 
 Input_node_data_writer::write_initial_invalid_data(Writer_struct &data_writer, int64_t byte_offset){
   int samples_per_byte = 8/bits_per_sample;
-  std::vector<Delay> &cur_delay = delay_list.data();
+  std::vector<Delay> cur_delay = delay_list.data();
   int delay_size = cur_delay.size();
+
+  for (int i = 0; i < delay_size; i++) {
+    cur_delay[i].remaining_samples += extra_delay_in_samples;
+    cur_delay[i].bytes += cur_delay[i].remaining_samples / samples_per_byte;
+    cur_delay[i].remaining_samples %= samples_per_byte;
+    if (cur_delay[i].remaining_samples < 0) {
+      cur_delay[i].remaining_samples += samples_per_byte;
+      cur_delay[i].bytes--;
+    }
+  }
 
   // The initial delay
   write_delay(data_writer.writer, cur_delay[delay_index].remaining_samples);

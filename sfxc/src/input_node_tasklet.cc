@@ -120,6 +120,8 @@ add_time_interval(Time &start_time, Time &stop_time, Time &leave_time) {
   Time tbh = reader_.get_data_reader()->time_between_headers();
   Time delay_start = Time(akima_delays.delay(start_time)*1e6) - overlap_time;
   Time delay_stop = Time(akima_delays.delay(stop_time)*1e6) + overlap_time * 3;
+  delay_start += min_extra_delay;
+  delay_stop += max_extra_delay;
   int32_t start_frames = (int32_t) std::floor(delay_start/tbh);
   int32_t stop_frames = (int32_t) std::ceil(delay_stop/tbh);
   Time start_time_reader = start_time + tbh * start_frames;
@@ -201,7 +203,17 @@ set_parameters(const Input_node_parameters &input_node_param,
     data_writer_.connect_to(i, channel_extractor_->get_output_buffer(i) );
     data_writer_.set_parameters(i, input_node_param, station_number);
   }
+
   overlap_time = input_node_param.overlap_time;
+  int min_samples = 0, max_samples = 0;
+  for (size_t i=0; i < number_frequency_channels; i++) {
+    min_samples = 
+      MIN(input_node_param.channels[i].extra_delay_in_samples, min_samples);
+    max_samples =
+      MAX(input_node_param.channels[i].extra_delay_in_samples, max_samples);
+  }
+  min_extra_delay = Time((min_samples * 1e6) / sample_rate);
+  max_extra_delay = Time((max_samples * 1e6) / sample_rate);
 }
 
 

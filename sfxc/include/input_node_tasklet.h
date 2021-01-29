@@ -108,6 +108,7 @@ private:
   int bits_per_sample;
   int64_t size_slice; // Number of samples for one integration slice
   Time overlap_time;  // Size of buffer additional data needed for dedispersion filter
+  Time min_extra_delay, max_extra_delay;
 };
 
 

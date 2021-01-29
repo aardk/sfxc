@@ -283,6 +283,9 @@ Delay_correction::set_parameters(const Correlation_parameters &parameters, Delay
   // Compute start phase of LO offset with maximum numerical precision
   start_phase = LO_offset*(dt-trunc(dt)) + (LO_offset-trunc(LO_offset))*trunc(dt);
   start_phase = start_phase - floor(start_phase);
+
+  extra_delay = parameters.station_streams[stream_idx].extra_delay;
+
   current_fft = 0;
   tbuf_start = 0;
   tbuf_end = 0;
@@ -294,7 +297,7 @@ void Delay_correction::connect_to(Input_buffer_ptr new_input_buffer) {
 }
 
 double Delay_correction::get_delay(Time time) {
-  return delay_table.delay(time);
+  return delay_table.delay(time) + extra_delay;
 }
 
 double Delay_correction::get_phase(Time time) {

@@ -104,6 +104,7 @@ private:
   uint8_t frequency_number;
   uint8_t sideband;
   uint8_t polarisation;
+  int32_t extra_delay_in_samples;
 
   /// The queue storing all the delays
   Threadsafe_queue<Delay_memory_pool_element> delays_;
