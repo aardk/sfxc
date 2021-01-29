@@ -1591,6 +1591,7 @@ get_vdif_datastreams(const std::string &mode,
       channel_param.sideband = sideband(channel(ch_nr), setup_station(), mode);
       channel_param.polarisation = polarisation(channel(ch_nr), setup_station(), mode);
       channel_param.frequency_number = frequency_number(ch_nr, mode);
+      channel_param.extra_delay_in_samples = extra_delay_in_samples(channel_name, station, mode);
 
       // NB: Number of channels (and therefore num_tracks) is always a power of two
       const int word_size = (num_tracks <= 32) ? 32 : num_tracks; 
@@ -1661,6 +1662,7 @@ get_vdif_threads(const std::string &mode,
 	  channel_param.sideband = sideband(channel(ch_nr), setup_station(), mode);
 	  channel_param.polarisation = polarisation(channel(ch_nr), setup_station(), mode);
 	  channel_param.frequency_number = frequency_number(ch_nr, mode);
+	  channel_param.extra_delay_in_samples = extra_delay_in_samples(channel_name, station, mode);
 	  channel_param.tracks.push_back(thread_id);
 	  channel_param.tracks.push_back(-1); // XXX
 	  input_parameters.channels.push_back(channel_param);
@@ -1685,6 +1687,7 @@ get_vdif_threads(const std::string &mode,
       channel_param.sideband = sideband(channel(ch_nr), setup_station(), mode);
       channel_param.polarisation = polarisation(channel(ch_nr), setup_station(), mode);
       channel_param.frequency_number = frequency_number(ch_nr, mode);
+      channel_param.extra_delay_in_samples = extra_delay_in_samples(channel_name, station, mode);
 
       // NB: Number of channels (and therefore num_tracks) is always a power of two
       const int word_size = (num_tracks <= 32) ? 32 : num_tracks; 
@@ -1792,6 +1795,7 @@ get_mark5b_standard_mapping(const std::string &mode,
 	channel_param.sideband = sideband(channel(ch_nr), setup_station(), mode);
 	channel_param.polarisation = polarisation(channel(ch_nr), setup_station(), mode);
         channel_param.frequency_number = frequency_number(ch_nr, mode);
+        channel_param.extra_delay_in_samples = extra_delay_in_samples(channel_name, station, mode);
         if (bits_per_sample_ == 2) {
           for (; bit_stream_nr < 32; bit_stream_nr += nr_bit_streams) {
             channel_param.tracks.push_back(bit_stream_nr);
