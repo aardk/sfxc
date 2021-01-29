@@ -696,6 +696,34 @@ Control_parameters::LO_offset(const std::string &station) const {
   return ctrl["LO_offset"][station].asDouble();
 }
 
+double
+Control_parameters::extra_delay(const std::string &channel,
+				const std::string &station,
+				const std::string &mode) const {
+  if (ctrl["extra_delay"] == Json::Value())
+    return 0;
+  if (ctrl["extra_delay"][station] == Json::Value())
+    return 0;
+
+  if (ctrl["extra_delay"][station][channel] != Json::Value())
+    return ctrl["extra_delay"][station][channel].asDouble();
+
+  std::string pol(1, polarisation(channel, station, mode));
+
+  if (ctrl["extra_delay"][station][pol] != Json::Value())
+    return ctrl["extra_delay"][station][pol].asDouble();
+
+  return 0;
+}
+
+int
+Control_parameters::extra_delay_in_samples(const std::string &channel,
+					   const std::string &station,
+					   const std::string &mode) const {
+  double delay = extra_delay(channel, station, mode);
+  return (int) floor(delay * sample_rate(mode, station) + 0.5);
+}
+
 int
 Control_parameters::tsys_freq(const std::string &station) const {
   if (ctrl["tsys_freq"] == Json::Value())
@@ -1282,6 +1310,7 @@ get_mark5a_tracks(const std::string &mode,
       channel_param.sideband = sideband(channel(ch_nr), setup_station(), mode);
       channel_param.polarisation = polarisation(channel(ch_nr), setup_station(), mode);
       channel_param.frequency_number = frequency_number(ch_nr, mode);
+      channel_param.extra_delay_in_samples = extra_delay_in_samples(channel_name, station, mode);
       sign_tracks.resize(0);
       mag_tracks.resize(0);
 
@@ -1366,6 +1395,7 @@ get_mark5b_tracks(const std::string &mode,
 	channel_param.sideband = sideband(channel(ch_nr), setup_station(), mode);
 	channel_param.polarisation = polarisation(channel(ch_nr), setup_station(), mode);
         channel_param.frequency_number = frequency_number(ch_nr, mode);
+        channel_param.extra_delay_in_samples = extra_delay_in_samples(channel_name, station, mode);
         int sign_track, mag_track;
         for (Vex::Node::const_iterator bitstream_it = bitstream->begin("stream_def");
             bitstream_it != bitstream->end("stream_def"); ++bitstream_it) {
@@ -1417,6 +1447,7 @@ get_mark5b_tracks(const std::string &mode,
 	  channel_param.sideband = sideband(channel(ch_nr), setup_station(), mode);
 	  channel_param.polarisation = polarisation(channel(ch_nr), setup_station(), mode);
 	  channel_param.frequency_number = frequency_number(ch_nr, mode);
+	  channel_param.extra_delay_in_samples = extra_delay_in_samples(channel_name, station, mode);
 	  int sign_track, mag_track;
 	  for (Vex::Node::const_iterator fanout_def_it = track->begin("fanout_def");
 	       fanout_def_it != track->end("fanout_def"); ++fanout_def_it) {
@@ -1533,6 +1564,7 @@ get_vdif_datastreams(const std::string &mode,
 	channel_param.sideband = sideband(channel(ch_nr), setup_station(), mode);
 	channel_param.polarisation = polarisation(channel(ch_nr), setup_station(), mode);
 	channel_param.frequency_number = frequency_number(ch_nr, mode);
+	channel_param.extra_delay_in_samples = extra_delay_in_samples(channel_name, station, mode);
 	channel_param.tracks.push_back(thread_id);
 	channel_param.tracks.push_back(-1); // XXX
 	input_parameters.channels.push_back(channel_param);
@@ -2302,6 +2334,7 @@ get_correlation_parameters(const std::string &scan_name,
           station_param.sideband = sideband(channel_name, station[0]->to_string(), mode_name);
           station_param.polarisation = polarisation(channel_name, station[0]->to_string(), mode_name);
           station_param.LO_offset = LO_offset(station[0]->to_string());
+          station_param.extra_delay = extra_delay(channel_name, station[0]->to_string(), mode_name);
           station_param.tsys_freq = tsys_freq(station[0]->to_string());
           corr_param.station_streams.push_back(station_param);
         }
@@ -2346,6 +2379,7 @@ get_correlation_parameters(const std::string &scan_name,
           station_param.sideband = sideband(channel_name, station[0]->to_string(), mode_name);
           station_param.polarisation = polarisation(channel_name, station[0]->to_string(), mode_name);
           station_param.LO_offset = LO_offset(station[0]->to_string());
+          station_param.extra_delay = extra_delay(channel_name, station[0]->to_string(), mode_name);
           station_param.tsys_freq = tsys_freq(station[0]->to_string());
           corr_param.station_streams.push_back(station_param);
         }

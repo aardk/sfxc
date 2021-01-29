@@ -86,6 +86,7 @@ private:
   int oversamp; // The amount of oversampling
   double LO_offset;
   double start_phase;
+  double extra_delay;
 
   int n_ffts_per_integration, current_fft, total_ffts;
   size_t tbuf_start, tbuf_end;

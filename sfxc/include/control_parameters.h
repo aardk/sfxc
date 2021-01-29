@@ -31,6 +31,7 @@ public:
     char sideband;
     char polarisation;
     int32_t frequency_number;
+    int32_t extra_delay_in_samples;
   };
 
   typedef std::vector<Channel_parameters>           Channel_list;
@@ -139,6 +140,7 @@ public:
     char polarisation;
     int32_t bits_per_sample;
     double LO_offset; // LO offset in Hz
+    double extra_delay;
     int tsys_freq;
   };
 
@@ -239,6 +241,12 @@ public:
   bool pulsar_binning() const;
   bool multi_phase_center() const;
   double LO_offset(const std::string &station) const;
+  double extra_delay(const std::string &channel_name,
+		     const std::string &station_name,
+		     const std::string &mode_name) const;
+  int extra_delay_in_samples(const std::string &channel_name,
+			     const std::string &station_name,
+			     const std::string &mode_name) const;
   int tsys_freq(const std::string &station) const;
   bool exit_on_empty_datastream() const;
   
