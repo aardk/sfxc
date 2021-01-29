@@ -120,13 +120,15 @@ do_task() {
   std::vector<Delay> cur_delay = delay_list.data();
   int delay_size = cur_delay.size();
 
-  for (int i = 0; i < delay_size; i++) {
-    cur_delay[i].remaining_samples += extra_delay_in_samples;
-    cur_delay[i].bytes += cur_delay[i].remaining_samples / samples_per_byte;
-    cur_delay[i].remaining_samples %= samples_per_byte;
-    if (cur_delay[i].remaining_samples < 0) {
-      cur_delay[i].remaining_samples += samples_per_byte;
-      cur_delay[i].bytes--;
+  if (extra_delay_in_samples != 0) {
+    for (int i = 0; i < delay_size; i++) {
+      cur_delay[i].remaining_samples += extra_delay_in_samples;
+      cur_delay[i].bytes += cur_delay[i].remaining_samples / samples_per_byte;
+      cur_delay[i].remaining_samples %= samples_per_byte;
+      if (cur_delay[i].remaining_samples < 0) {
+	cur_delay[i].remaining_samples += samples_per_byte;
+	cur_delay[i].bytes--;
+      }
     }
   }
 
@@ -508,13 +510,15 @@ Input_node_data_writer::write_initial_invalid_data(Writer_struct &data_writer, i
   std::vector<Delay> cur_delay = delay_list.data();
   int delay_size = cur_delay.size();
 
-  for (int i = 0; i < delay_size; i++) {
-    cur_delay[i].remaining_samples += extra_delay_in_samples;
-    cur_delay[i].bytes += cur_delay[i].remaining_samples / samples_per_byte;
-    cur_delay[i].remaining_samples %= samples_per_byte;
-    if (cur_delay[i].remaining_samples < 0) {
-      cur_delay[i].remaining_samples += samples_per_byte;
-      cur_delay[i].bytes--;
+  if (extra_delay_in_samples != 0) {
+    for (int i = 0; i < delay_size; i++) {
+      cur_delay[i].remaining_samples += extra_delay_in_samples;
+      cur_delay[i].bytes += cur_delay[i].remaining_samples / samples_per_byte;
+      cur_delay[i].remaining_samples %= samples_per_byte;
+      if (cur_delay[i].remaining_samples < 0) {
+	cur_delay[i].remaining_samples += samples_per_byte;
+	cur_delay[i].bytes--;
+      }
     }
   }
 
