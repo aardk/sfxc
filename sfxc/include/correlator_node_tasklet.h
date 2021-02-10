@@ -89,7 +89,6 @@ class Reader_thread : public Thread {
     };
 
     Threadsafe_queue<struct job> queue_;
-    bool readers_active_;
     /// Time spend in waiting for new slice
     Timer timer_waiting_;
 
@@ -155,7 +154,11 @@ class Reader_thread : public Thread {
       DEBUG_MSG("reading thread started ! n_readers = " << bit_sample_readers_.size());
       try {
         while ( isrunning_ ) {
-					if ( readers_active_ == false ) {
+          bool readers_active_ = false;
+          for ( unsigned int i= 0; i<bit_sample_readers_.size(); i++) {
+           readers_active_ |= bit_sample_readers_[i]->active();
+          }
+          if ( readers_active_ == false ) {
 //            timer_waiting_.resume();
             fetch_new_time_slice();
 //            timer_waiting_.stop();
@@ -163,10 +166,6 @@ class Reader_thread : public Thread {
             timer_reading_.resume();
             /// Wait something happens.
             eventsrc_.wait_until_any_event();
-            readers_active_ = false;
-            for ( unsigned int i= 0;(i<bit_sample_readers_.size())&&(!readers_active_);i++) {
-             readers_active_=bit_sample_readers_[i]->active();
-            }
             timer_reading_.stop();
           }
         }
@@ -185,13 +184,11 @@ class Reader_thread : public Thread {
       struct job jb = queue_.front();
       DEBUG_MSG("New input fetched:" << jb.station_streams_size);
 
-      readers_active_=false;
       for (size_t i=0; i<bit_sample_readers_.size(); i++) {
         SFXC_ASSERT(bit_sample_readers_[i] !=
                     Bit_sample_reader_ptr());
         if (jb.stream_list[i] >= 0) {
           bit_sample_readers_[i]->set_parameters();
-          readers_active_=true;
         }
       }
       queue_.pop();
@@ -207,7 +204,7 @@ class Reader_thread : public Thread {
         jb.stream_list[i] = -1;
       for(int i = 0; i < jb.station_streams_size; i++)
         jb.stream_list[parameters.station_streams[i].station_stream] = i;
-
+      
       //DEBUG_MSG("Add A Time slice:" << jb.station_streams_size );
       queue_.push(jb);
     }
