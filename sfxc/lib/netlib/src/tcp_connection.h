@@ -15,6 +15,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 
 class TCP_Connection {
 public:
@@ -38,7 +39,7 @@ public:
     return (ip_addr == 0x100007f);
   }
   bool is_localhost(const char *hostname) {
-    return (hostname == "127.0.0.1");
+    return (strcmp(hostname, "127.0.0.1") == 0);
   }
   std::string ip_addr(uint64_t ip) {
     char addr[16];
