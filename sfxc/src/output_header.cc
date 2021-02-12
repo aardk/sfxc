@@ -99,11 +99,12 @@ operator<(const Output_header_baseline &h1,
   if (h1.polarisation1 != h2.polarisation1)
     return (h1.polarisation1 < h2.polarisation1);
 
-  if (h1.polarisation2 != h2.polarisation2)
+  if (h1.polarisation2 != h2.polarisation2) {
     if (h1.polarisation1 == 0) 
       return (h1.polarisation2 < h2.polarisation2);
     else 
       return (h1.polarisation2 > h2.polarisation2);
+  }
 
   // Auto correlations first:
   if ((h1.station_nr1 == h1.station_nr2) &&

@@ -11,7 +11,7 @@ Test_manager::~Test_manager() {
 
 void Test_manager::add_test(pTestable test) {
   vectortests_.push_back(test);
-  int toto;
+  //int toto;
 }
 
 void Test_manager::do_test() {

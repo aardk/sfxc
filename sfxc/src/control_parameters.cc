@@ -263,7 +263,6 @@ Control_parameters::check_data_source(std::ostream &writer,
 
 bool
 Control_parameters::check(std::ostream &writer) const {
-  typedef Json::Value::const_iterator                    Value_it;
   bool ok = true;
 
   // check start and stop time
@@ -1187,7 +1186,7 @@ int
 Control_parameters::frequency_number(size_t channel_nr, const std::string& mode_name) const {
   std::set<int64_t> freq_set;
   std::set<int64_t>::const_iterator freq_set_it;
-  int64_t frequency;
+  int64_t frequency = -1;
 
   const std::string& channel_name = channel(channel_nr);
   const std::string& station_name = setup_station();
@@ -1354,7 +1353,6 @@ Control_parameters::
 n_mark5b_bitstreams(const std::string &mode,
                     const std::string &station) const {
   // First determine if there is a bitstreams section for the current station in the vex file.
-  const Vex::Node &root=get_vex().get_root_node();
   const std::string bitstreams_name = get_vex().get_bitstreams(mode, station);
   Vex::Node::const_iterator bitstream = vex.get_root_node()["BITSTREAMS"][bitstreams_name];
   int n_bitstream = 0;
@@ -1372,8 +1370,6 @@ get_mark5b_tracks(const std::string &mode,
                   const std::string &station,
                   Input_node_parameters &input_parameters) const {
   // First determine if there is a bitstreams section for the current station in the vex file.
-  const Vex::Node &root=get_vex().get_root_node();
-
   const std::string bitstreams_name = get_vex().get_bitstreams(mode, station);
   if (get_vex().get_version() > 1.5 && bitstreams_name == std::string()) {
     std::cerr << "Cannot find $BITSTREAMS reference for " << station
@@ -1431,7 +1427,7 @@ get_mark5b_tracks(const std::string &mode,
 
   const std::string tracks_name = get_vex().get_track(mode, station);
   if (tracks_name != std::string()) {
-    Vex::Node::const_iterator track = root["TRACKS"][tracks_name];
+    Vex::Node::const_iterator track = vex.get_root_node()["TRACKS"][tracks_name];
     if (track["track_frame_format"]->to_string() == "Mark5B" ||
 	track["track_frame_format"]->to_string() == "MARK5B") {
       input_parameters.n_tracks = n_mark5a_tracks(mode, station);
@@ -1488,7 +1484,6 @@ get_vdif_tracks(const std::string &mode,
 		const std::string &ds_name,
 		Input_node_parameters &input_parameters) const {
 
-  const Vex::Node &root = get_vex().get_root_node();
   const std::string datastreams_name = get_vex().get_section("DATASTREAMS", mode, station);
   if (get_vex().get_version() > 1.5 || datastreams_name != std::string())
     get_vdif_datastreams(mode, station, ds_name, input_parameters);
@@ -1503,7 +1498,6 @@ get_vdif_datastreams(const std::string &mode,
 		     const std::string &ds_name,
 		     Input_node_parameters &input_parameters) const {
 
-  const Vex::Node &root = get_vex().get_root_node();
   const std::string datastreams_name = get_vex().get_section("DATASTREAMS", mode, station);
   if (datastreams_name == std::string()) {
     std::cerr << "Cannot find $DATASTREAMS reference for " << station
@@ -1618,7 +1612,6 @@ get_vdif_threads(const std::string &mode,
 		 const std::string &station,
 		 Input_node_parameters &input_parameters) const {
 
-  const Vex::Node &root = get_vex().get_root_node();
   const std::string threads_name = get_vex().get_section("THREADS", mode, station);
   if (threads_name == std::string()) {
     std::cerr << "Cannot find $THREADS reference for " << station

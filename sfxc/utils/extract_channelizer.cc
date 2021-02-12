@@ -81,9 +81,7 @@ int main(int argc, char** argv)
                 shared_ptr<Mark5a_reader>(new Mark5a_reader(reader, Time(0)));
               while((!m_reader->open_input_stream(data)) && (!m_reader->eof()))
                 ;
-              int n_subbands = input_node_param.channels.size();
               int bits_per_sample = input_node_param.bits_per_sample();
-              int fan_out    = bits_per_sample * input_node_param.subsamples_per_sample();
               int samples_per_block = SIZE_MK5A_FRAME;
               m_reader->get_current_time();
               std::cout << "Channelizer !" << std::endl;

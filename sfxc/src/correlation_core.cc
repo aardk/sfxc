@@ -521,7 +521,6 @@ Correlation_core::tsys_write() {
 
 void 
 Correlation_core::sub_integration(){
-  const int current_sub_int = (int) round((double)current_fft / number_ffts_in_sub_integration);
   Time tfft(0., correlation_parameters.sample_rate); 
   tfft.inc_samples(fft_size());
   const Time tmid = correlation_parameters.slice_start + tfft*(previous_fft+(current_fft-previous_fft)/2.); 

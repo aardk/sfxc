@@ -274,7 +274,6 @@ void Delay_table::open(const char *delayTableName, const Time tstart, const Time
   char current_scan[81];
   char current_source[81];
 
-  int correlation_scan = 0;
   int state = READ_SCAN_HEADER;
   bool done_reading = false;
   while (!done_reading && in.good()) {
@@ -389,7 +388,6 @@ void Delay_table::open(const char *delayTableName, const Time tstart, const Time
           scan_end = line[0] - n_padding * 1.0;
         }
       } while (in.read(reinterpret_cast<char *>(line), 7 * sizeof(double)));
-      correlation_scan = scans.size() - 1;
       break;
     }}
   }

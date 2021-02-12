@@ -38,9 +38,9 @@ Input_node_data_writer::~Input_node_data_writer() {
 
   double wait_duration = (timer_waiting_.measured_time()+timer_other_.measured_time());
   double total_duration = wait_duration+timer_writing_.measured_time();
-  double ratio1 = ((100.0*timer_waiting_.measured_time())/total_duration);
-  double ratio2 = ((100.0*timer_other_.measured_time())/total_duration);
-  double ratio3 = ((100.0*timer_writing_.measured_time())/total_duration);
+  //double ratio1 = ((100.0*timer_waiting_.measured_time())/total_duration);
+  //double ratio2 = ((100.0*timer_other_.measured_time())/total_duration);
+  //double ratio3 = ((100.0*timer_writing_.measured_time())/total_duration);
 
   last_duration_ = total_duration;
   DEBUG_MSG( "data_writer byte sent:" << toMB(total_data_written_) << "MB" );
