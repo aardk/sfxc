@@ -274,7 +274,6 @@ set_parameters() {
   tsys_freq = new_parameters.tsys_freq;
 
   fft_size = new_parameters.fft_size_delaycor;
-  int fft_size_correlation = new_parameters.fft_size_correlation;
   SFXC_ASSERT(((int64_t)fft_size * 1000000) % sample_rate == 0);
   nfft_max = new_parameters.n_ffts_per_buffer;
   n_ffts_per_integration = new_parameters.n_ffts_per_integration;

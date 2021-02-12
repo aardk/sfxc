@@ -1086,7 +1086,6 @@ MPI_Transfer::receive(MPI_Status &status, Correlation_parameters &corr_param) {
     MPI_Unpack(buffer, size, &position,
                &station_param.station_stream, 1, MPI_INT32,
                MPI_COMM_WORLD);
-    int64_t ticks;
     MPI_Unpack(buffer, size, &position,
                &station_param.bits_per_sample, 1, MPI_INT32,
                MPI_COMM_WORLD);

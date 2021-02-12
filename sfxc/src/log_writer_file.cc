@@ -52,11 +52,12 @@ Log_writer_file_buffer::~Log_writer_file_buffer() {
 int Log_writer_file_buffer::overflow(int c) {
   put_buffer();
 
-  if (c != EOF)
+  if (c != EOF) {
     if (pbase() == epptr())
       put_char(c);
     else
       sputc(c);
+  }
 
   return 0;
 }

@@ -126,7 +126,6 @@ void get_options(int argc, char*argv[], char **filename, int &frame_size,
 void print_header(Header &header) {
   Time t = get_time(header.ref_epoch, header.sec_from_epoch);
   int data_size = 8*header.dataframe_length;
-  int header_size = (16+16*(1-header.legacy_mode));
   uint16_t s_id = header.station_id;
   char *s = (char *)&s_id;
   char station[3];

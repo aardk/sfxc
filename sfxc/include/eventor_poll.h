@@ -47,11 +47,12 @@ public:
   }
 
   ~Eventor_poll() {
-
+    #ifdef PRINT_PROGRESS
     double total_duration=timer_breading_.measured_time()+timer_reading_.measured_time();
     double ratio1 = ((100.0*timer_breading_.measured_time())/total_duration);
     double ratio2 = ((100.0*timer_reading_.measured_time())/total_duration);
     PROGRESS_MSG( "enventor_poll: ratio:(blocked:"<< ratio1 <<"%, reading:"<< ratio2 <<"%)");
+    #endif
   }
 
   void add_listener( short events, int fd, FdEventListener* listener ) {

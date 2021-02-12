@@ -52,7 +52,6 @@ Correlator_node_data_reader_tasklet::do_task() {
     {
       uint16_t nbytes;
       breader_->get_bytes(sizeof(nbytes), (char *)&nbytes);
-      char *nbytes_buffer = (char *)&nbytes;
       data[write++ % dsize] = nbytes & 0xff;
       data[write++ % dsize] = nbytes >> 8;
       bytes_left = nbytes;

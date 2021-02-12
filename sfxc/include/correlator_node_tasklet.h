@@ -104,10 +104,12 @@ class Reader_thread : public Thread {
     }
 
     ~Reader_thread() {
+      #ifdef PRINT_PROGRESS
       double total_duration = timer_waiting_.measured_time()+timer_reading_.measured_time();
       double ratio1 = ((100.0*timer_waiting_.measured_time())/total_duration);
       double ratio2 = ((100.0*timer_reading_.measured_time())/total_duration);
       PROGRESS_MSG( "reading ratio:(waiting: "<< ratio1 <<"%, reading:"<< ratio2 <<"%)" );
+      #endif
     }
     /// Write state for debug purposes
     void get_state(std::ostream &out) {

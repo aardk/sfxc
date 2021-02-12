@@ -99,7 +99,6 @@ Manager_node(int rank, int numtasks,
     // Set up the connection to the input nodes:
     for (int input_node = 0; input_node < n_inputs; input_node++) {
       int input_rank = input_node + 3;
-      int station_nr = station_map[input_node];
       connect_to(input_rank,
 		 correlator_nr,
 		 correlator_rank, input_node,
@@ -111,7 +110,6 @@ Manager_node(int rank, int numtasks,
       // duplicate all inputs:
       for (int input_node = 0; input_node < n_inputs; input_node++) {
 	int input_rank = input_node + 3;
-	int station_nr = station_map[input_node];
 	connect_to(input_rank,
 		   correlator_nr + n_corr_nodes,
 		   correlator_rank,
@@ -666,7 +664,6 @@ void Manager_node::initialise_scan(const std::string &scan) {
   get_log_writer() << "Set uvw_table" << std::endl;
   for (size_t input_node = 0; input_node < control_parameters.number_inputs();
        input_node++) {
-    int input_rank = input_node + 3;
     const std::string &station_name = control_parameters.station(station_map[input_node]);
     if (!control_parameters.station_in_scan(scan, station_name))
       continue;
@@ -742,7 +739,6 @@ std::string Manager_node::get_current_mode() const {
 void Manager_node::send_global_header(){ 
   size_t len = sizeof(Output_header_global);;
   std::set<std::string>::iterator it;
-  int i;
 
   std::set<std::string> stations;
   const Vex vex = control_parameters.get_vex();
