@@ -384,6 +384,9 @@ void Output_node::get_state(std::ostream &out) {
     case STOPPED:
      out << "\"STOPPED\",\n";
      break;
+    case START_NEW_SLICE:
+     out << "\"START_NEW_SLICE\",\n";
+     break;
     case READ_INPUT:
      out << "\"READ_INPUT\",\n";
      break;
