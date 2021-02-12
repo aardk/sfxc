@@ -58,11 +58,11 @@ Channel_extractor_tasklet::process(void *self_)
   try {
     while (self->isrunning())
       self->do_task();
-    return NULL;
   }
   catch (QueueClosedException&e ) {
     ;
   }
+  return NULL;
 }
 
 void Channel_extractor_tasklet::do_execute() {
