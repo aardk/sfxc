@@ -16,7 +16,7 @@ Bit2float_worker::Bit2float_worker(int stream_nr_, bit_statistics_ptr statistics
     sample_rate(-1),
     tsys_freq(80),
     memory_pool_(32),
-    have_new_parameters(false), stream_nr(stream_nr_),
+    stream_nr(stream_nr_),
     n_ffts_per_integration(0), current_fft(0), state(IDLE), statistics(statistics_)
     /**/
 {
@@ -199,9 +199,8 @@ Bit2float_worker::do_task() {
 
 bool
 Bit2float_worker::has_work() {
-  if(have_new_parameters){
+  if( queue_.size() > 0) {
     set_parameters();
-    have_new_parameters = false;
   }
 
   if (sample_rate <= 0)
@@ -243,7 +242,7 @@ set_new_parameters(const Correlation_parameters &parameters, Delay_table_akima &
     // Data stream is not participating in current time slice
     return;
   }
-
+  Bit2float_parameters new_parameters;
   new_parameters.stream_start = parameters.stream_start;
   new_parameters.bits_per_sample = parameters.station_streams[stream_idx].bits_per_sample;
   new_parameters.sample_rate = parameters.station_streams[stream_idx].sample_rate;
@@ -262,12 +261,13 @@ set_new_parameters(const Correlation_parameters &parameters, Delay_table_akima &
      (int64_t) new_parameters.sample_rate * parameters.slice_size / 
      ((int64_t) new_parameters.base_sample_rate * parameters.fft_size_delaycor);
 
-  have_new_parameters=true;
+  queue_.push(new_parameters);
 }
 
 void
 Bit2float_worker::
 set_parameters() {
+  Bit2float_parameters &new_parameters = queue_.front();
   bits_per_sample = new_parameters.bits_per_sample;
   sample_rate = new_parameters.sample_rate;
   base_sample_rate = new_parameters.base_sample_rate;
@@ -299,6 +299,7 @@ set_parameters() {
     // Convert to bytes.  
     tsys_count /= 4;
   }
+  queue_.pop();
 }
 
 // Empty the input queue, called from the destructor of Input_node
