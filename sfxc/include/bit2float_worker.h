@@ -118,9 +118,7 @@ private:
   int stream_nr;
   int16_t invalid_samples;
   int8_t cur_delay;
-  /// Indicates if we have received a new set of parameters
-  bool have_new_parameters;
-  struct New_parameters{
+  struct Bit2float_parameters{
     int n_ffts_per_integration;
     int n_ffts_per_buffer;
     int bits_per_sample;
@@ -131,7 +129,10 @@ private:
     int fft_size_correlation;
     int delay_in_samples;
     Time stream_start;
-  } new_parameters;
+  };
+
+  Threadsafe_queue<Bit2float_parameters> queue_;
+
   /// List of all invalid samples in the time slice
   std::vector<Invalid> invalid;
 };
