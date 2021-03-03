@@ -132,6 +132,9 @@ Channel_extractor_interface* create_number5_(int n_subbands) {
     case 16:
     return new Channel_extractor_5_impl<Tsize_of_word, 16>();
     break;
+    case 32:
+    return new Channel_extractor_5_impl<Tsize_of_word, 32>();
+    break;
     default:
     SFXC_ASSERT_MSG(false,
                     "Unsupported number of channel for this channelizer");
