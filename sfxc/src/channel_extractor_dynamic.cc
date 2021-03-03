@@ -69,12 +69,12 @@ void Channel_extractor_dynamic::initialise(
       hidden_implementation_ = compile_load_construct( dirname_+str.str(), track_positions_,
                                                        size_of_one_input_word_, input_sample_size_ );
       if( hidden_implementation_ == NULL ){
-        DEBUG_MSG("Compiling optimized extractor fails ! use slow one instead");
+        LOG_MSG("Compiling optimized extractor fails ! use slow one instead");
         name_ = "Channel_extractor_dynamic (slow mode!)";
         hidden_implementation_ = new Channel_extractor_5();
       }
     } else {
-      DEBUG_MSG("Unable to compile extractor ! use slow one instead");
+      LOG_MSG("Unable to compile extractor ! use slow one instead");
       name_ = "Channel_extractor_dynamic (slow mode!)";
       hidden_implementation_ = new Channel_extractor_5();
     }
