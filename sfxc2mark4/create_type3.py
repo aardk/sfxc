@@ -433,6 +433,8 @@ def write_type309(info, in_file, out_fp):
             times.append(secs)
 
         # Filter out vectors with no valid data
+        if len(dd) == 0:
+            continue
         ddx = dd.max()
         if ddx == 0:
             continue
