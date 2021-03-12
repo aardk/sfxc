@@ -213,28 +213,42 @@ def vex2time(str):
     tupletime = time.strptime(str, "%Yy%jd%Hh%Mm%Ss");
     return time.mktime(tupletime)
 
-delay_header_v0 = "=I2sx"
-delay_header_v1 = "=II2sx"
+delay_header_base = "=I2sx"
+delay_header_v0 = "=II2sx"
+delay_header_v1 = "=III2sx"
 delay_scan = "=80sx"
 delay_source = "=80sxI"
 delay_entry = "=7d"
 
 def parse_model(info, delay_file):
     fp = open(delay_file, 'r')
-    buf = fp.read(struct.calcsize(delay_header_v0))
-    hdr = struct.unpack(delay_header_v0, buf)
+    buf = fp.read(struct.calcsize(delay_header_base))
+    hdr = struct.unpack(delay_header_base, buf)
     if hdr[0] > 3:
         fp.seek(0)
-        buf = fp.read(struct.calcsize(delay_header_v1))
-        hdr = struct.unpack(delay_header_v1, buf)
+        buf = fp.read(struct.calcsize(delay_header_v0))
+        hdr = struct.unpack(delay_header_v0, buf)
         version = hdr[1]
     else:
         version = -1
         pass
 
+    if version > 1:
+        msg = "unhandled delay file version " + str(version)
+        raise NotImplementedError(msg)
+
+    if version == 1:
+        fp.seek(0)
+        buf = fp.read(struct.calcsize(delay_header_v1))
+        hdr = struct.unpack(delay_header_v1, buf)
+        padding = hdr[2]
+        pass
+    else:
+        padding = 0
+
     scan = info.scan
 
-    if version == 0:
+    if version >= 0:
         buf = fp.read(struct.calcsize(delay_scan))
         scan = struct.unpack(delay_scan, buf)[0].strip('\0')
         pass
@@ -254,10 +268,10 @@ def parse_model(info, delay_file):
         if delay[0] == 0 and delay[4] == 0:
             if (source == info.source and
                 scan == info.scan and
-                start >= info.start and
+                start >= info.start - padding and
                 start < info.start + info.length):
                 return (t, d, u, v, w)
-            if version == 0:
+            if version >= 0:
                 buf = fp.read(struct.calcsize(delay_scan))
                 if not buf:
                     break
