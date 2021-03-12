@@ -507,6 +507,12 @@ def write_type309(info, in_file, out_fp):
                     pass
                 idx += 1
                 continue
+            for idx in range(64):
+                if acc[idx][0] < -2147483648 or acc[idx][0] > 2147483647 or \
+                   acc[idx][1] < -2147483648 or acc[idx][1] > 2147483647:
+                    acc[idx][0] = acc[idx][1] = 0
+                    pass
+                continue
 
             buf = struct.pack(type309_channel, chan_name, freq, *acc.flatten())
             out_fp.write(buf)
