@@ -6,7 +6,7 @@ Coherent_dedispersion::Coherent_dedispersion(int stream_nr_,
                          Memory_pool_vector_element<std::complex<FLOAT> > &dedispersion_buffer_,
                          Memory_pool_vector_element<FLOAT> &zeropad_buffer_):
       output_queue(Delay_queue_ptr(new Delay_queue())),
-      stream_nr(stream_nr_), output_memory_pool(2, NO_RESIZE), 
+      stream_nr(stream_nr_), output_memory_pool(4, NO_RESIZE), 
       current_buffer(0), fft(fft_), filter(filter_), 
       dedispersion_buffer(dedispersion_buffer_),
       zeropad_buffer(zeropad_buffer_), n_fft_dedispersion(0) {
@@ -124,7 +124,7 @@ bool
 Coherent_dedispersion::has_work(){
   if (input_queue->empty())
     return false;
-  if (output_memory_pool.empty())
+  if (output_memory_pool.number_free_element() < 2)
     return false;
   return true;
 }
