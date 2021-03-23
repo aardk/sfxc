@@ -70,23 +70,24 @@ def create_one_letter_mapping(vex, codefile=None):
   # stations which are not in the current experiment. 
   allcodes = "abcdefghijklmnopqrstuvwxyz"
   allcodes = set(allcodes + allcodes.upper())
-  sparecodes = list(allcodes - set(one_letter_codes.values()))
-
-  stations = []
-  for key in vex['STATION']:
-    site = vex['STATION'][key]['SITE']
-    st = vex['SITE'][site]['site_ID']
-    stations.append(st)
-  unused = list(set(one_letter_codes.keys()) - set(stations))
-  unused = [one_letter_codes[x] for x in unused]
-  spares = unused + sparecodes
+  definedcodes = set(one_letter_codes.values())
+  undefinedcodes = list(allcodes - definedcodes)
+  usedcodes = set()
   for key in vex['STATION']:
     site = vex['STATION'][key]['SITE']
     st = vex['SITE'][site]['site_ID']
     try:
-      code = one_letter_codes[st]
+      usedcodes.add(one_letter_codes[st])
     except KeyError:
+      pass
+  unusedcodes = list(definedcodes - usedcodes)
+  spares = unusedcodes + undefinedcodes
+
+  for key in vex['STATION']:
+    site = vex['STATION'][key]['SITE']
+    st = vex['SITE'][site]['site_ID']
+    if st not in one_letter_codes:
       code = spares.pop()
       print 'Warning: station {} did not have a default one letter code, '\
             'assigned code: "{}"'.format(st, code)
-    one_letter_codes[st] = code
+      one_letter_codes[st] = code
