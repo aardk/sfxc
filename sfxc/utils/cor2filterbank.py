@@ -83,13 +83,13 @@ def write_header(cfg, outfile, npol_out, decimate):
   data_type = 1 # 0: raw data, 1 : filterbank
   h=struct.pack('i', data_type)
   header.append(['data_type', h])
-  fch1 = cfg["maxfreq"] - (nsubband-eif-1) * bw
-  print fch1, bif, eif
-  h = struct.pack('d', fch1)
-  header.append(['fch1', h])
   foff = -bw / nchan
   h = struct.pack('d', foff)
   header.append(['foff', h])
+  fch1 = cfg["maxfreq"] - (nsubband-eif-1) * bw + foff / 2.
+  print fch1, bif, eif, bw
+  h = struct.pack('d', fch1)
+  header.append(['fch1', h])
   h = struct.pack('i', nchan * (eif-bif+1))
   header.append(['nchans', h])
   h = struct.pack('i', 1)
