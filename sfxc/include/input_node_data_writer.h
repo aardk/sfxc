@@ -108,9 +108,9 @@ private:
 
   /// The queue storing all the delays
   Threadsafe_queue<Delay_memory_pool_element> delays_;
-  Delay_memory_pool_element delay_list;
+  std::vector<Delay> cur_delay;
 
-  int get_next_delay_pos(std::vector<Delay> &cur_delay, Time start_time);
+  int get_next_delay_pos(Time start_time);
 
   void write_invalid(Data_writer_sptr writer, int nInvalid);
   void write_delay(Data_writer_sptr writer, int8_t delay);

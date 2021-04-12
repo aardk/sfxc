@@ -116,22 +116,6 @@ do_task() {
   int64_t byte_offset=0;
   int samples_per_byte = 8/bits_per_sample;
 
-  // Go to the current positition in the delay table
-  std::vector<Delay> cur_delay = delay_list.data();
-  int delay_size = cur_delay.size();
-
-  if (extra_delay_in_samples != 0) {
-    for (int i = 0; i < delay_size; i++) {
-      cur_delay[i].remaining_samples += extra_delay_in_samples;
-      cur_delay[i].bytes += cur_delay[i].remaining_samples / samples_per_byte;
-      cur_delay[i].remaining_samples %= samples_per_byte;
-      if (cur_delay[i].remaining_samples < 0) {
-	cur_delay[i].remaining_samples += samples_per_byte;
-	cur_delay[i].bytes--;
-      }
-    }
-  }
-
   // Check whether we have to start a new timeslice
   if(!data_writer.active){
     // Initialise the size of the data slice
@@ -150,6 +134,7 @@ do_task() {
   }
   if(sync_stream){
     // Move to the next integer delay change
+    int delay_size = cur_delay.size();
     while((delay_index < delay_size - 1) && (cur_delay[delay_index+1].time <= _current_time+byte_length))
        delay_index++;
     int64_t dsamples = _current_time.diff_samples(input_element.start_time);
@@ -181,7 +166,7 @@ do_task() {
   int invalid_index = 0;
   int next_invalid_pos = input_element.invalid.size() > 0 ? input_element.invalid[0].invalid_begin :
                                                             block_size + 1;
-  int next_delay_pos = get_next_delay_pos(cur_delay, _current_time) + byte_offset;
+  int next_delay_pos = get_next_delay_pos(_current_time) + byte_offset;
   int total_to_write = std::min(block_size-byte_offset,
                        (int64_t)(data_writer.slice_size + samples_per_byte-1) / samples_per_byte);
   int end_index = total_to_write+byte_offset;
@@ -196,7 +181,7 @@ do_task() {
         data_writer.slice_size -= 1;
       else 
         data_writer.slice_size += 1;
-      next_delay_pos=get_next_delay_pos(cur_delay, _current_time) + byte_offset;
+      next_delay_pos=get_next_delay_pos(_current_time) + byte_offset;
       total_to_write = std::min(block_size-byte_offset,
                        (int64_t)(data_writer.slice_size+samples_per_byte-1)/samples_per_byte);
       end_index = total_to_write+byte_offset;
@@ -421,7 +406,20 @@ Input_node_data_writer::fetch_next_time_interval() {
   current_interval_ = intervals_.front_and_pop();
   SFXC_ASSERT( !current_interval_.empty() );
   delay_index = 0;
-  delay_list = delays_.front_and_pop();
+  cur_delay = delays_.front_and_pop().data();
+  if (extra_delay_in_samples != 0) {
+    int samples_per_byte = 8 / bits_per_sample;
+    for (int i = 0; i < cur_delay.size(); i++) {
+      cur_delay[i].remaining_samples += extra_delay_in_samples;
+      cur_delay[i].bytes += cur_delay[i].remaining_samples / samples_per_byte;
+      cur_delay[i].remaining_samples %= samples_per_byte;
+      if (cur_delay[i].remaining_samples < 0) {
+	cur_delay[i].remaining_samples += samples_per_byte;
+	cur_delay[i].bytes--;
+      }
+    }
+  }
+
 
   _current_time = current_interval_.start_time_ - overlap_time;
   _current_time.set_sample_rate(sample_rate);
@@ -462,7 +460,7 @@ Input_node_data_writer::write_delay(Data_writer_sptr writer, int8_t delay){
 
 
 int 
-Input_node_data_writer::get_next_delay_pos(std::vector<Delay> &cur_delay, Time start_time){
+Input_node_data_writer::get_next_delay_pos(Time start_time){
   int delay_pos;
   int delay_size=cur_delay.size();
   if(delay_index < delay_size-1){
@@ -507,20 +505,7 @@ Input_node_data_writer::write_data(Data_writer_sptr writer, int ndata, int byte_
 int64_t 
 Input_node_data_writer::write_initial_invalid_data(Writer_struct &data_writer, int64_t byte_offset){
   int samples_per_byte = 8/bits_per_sample;
-  std::vector<Delay> cur_delay = delay_list.data();
   int delay_size = cur_delay.size();
-
-  if (extra_delay_in_samples != 0) {
-    for (int i = 0; i < delay_size; i++) {
-      cur_delay[i].remaining_samples += extra_delay_in_samples;
-      cur_delay[i].bytes += cur_delay[i].remaining_samples / samples_per_byte;
-      cur_delay[i].remaining_samples %= samples_per_byte;
-      if (cur_delay[i].remaining_samples < 0) {
-	cur_delay[i].remaining_samples += samples_per_byte;
-	cur_delay[i].bytes--;
-      }
-    }
-  }
 
   // The initial delay
   write_delay(data_writer.writer, cur_delay[delay_index].remaining_samples);
