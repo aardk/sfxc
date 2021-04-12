@@ -67,7 +67,8 @@ public:
   void deactivate();
   /** check whether the data writer is currently active **/
   bool is_active();
-
+  void set_stream_nr(int nr);
+  int get_stream_nr();
 private:
   /** Function that actually writes the data to the output device.
   **/
@@ -76,7 +77,7 @@ private:
   uint64_t _data_counter;
   int data_slice;
   bool active; // Flag that indicates if data writer is currently in use
-
+  int stream_nr;
 };
 
 Data_writer& operator<<(Data_writer& dr, const std::string& str);

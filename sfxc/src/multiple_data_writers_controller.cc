@@ -222,6 +222,7 @@ add_data_writer(unsigned int i, shared_ptr<Data_writer> writer) {
   if (data_writers.size() <= i)
     data_writers.resize(i + 1);
   SFXC_ASSERT(i < data_writers.size());
+  writer->set_stream_nr(i);
 
   data_writers[i] = writer;
   node.hook_added_data_writer(i);
