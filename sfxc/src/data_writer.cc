@@ -12,7 +12,7 @@
 
 #include <netinet/in.h>
 
-Data_writer::Data_writer() : _data_counter(0), data_slice(-1), active(false) {}
+Data_writer::Data_writer() : _data_counter(0), data_slice(-1), active(false), stream_nr(-1) {}
 
 Data_writer::~Data_writer() {}
 
@@ -23,6 +23,16 @@ Data_writer::put_bytes(size_t nBytes, const char *buff) {
   _data_counter += (int64_t)result;
   data_slice -= result;
   return result;
+}
+
+void
+Data_writer::set_stream_nr(int nr) {
+  stream_nr = nr;
+}
+
+int
+Data_writer::get_stream_nr() {
+  return stream_nr;
 }
 
 uint64_t

@@ -568,7 +568,8 @@ void Input_node_data_writer::get_state(std::ostream &out) {
       << "\t\t\"n_data_writers\": " << data_writers_.size() << ",\n";
   if (data_writers_.size() > 0) {
     out << "\t\t\"data_writer_active\": " << data_writers_.front().active << ",\n"
-        << "\t\t\"data_writer_inuse\": " << data_writers_.front().writer->is_active() << ",\n";
+        << "\t\t\"data_writer_inuse\": " << data_writers_.front().writer->is_active() << ",\n"
+        << "\t\t\"data_writer_stream\": " << data_writers_.front().writer->get_stream_nr() << ",\n";
   }
   out << "\t\t\"time\": \"" << _current_time.date_string(6) << "\",\n"
       << "\t\t\"interval\" : [\"" << current_interval_.start_time_.date_string(6) 
