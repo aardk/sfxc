@@ -124,6 +124,10 @@ add_time_interval(Time &start_time, Time &stop_time) {
   Time start_time_reader = start_time + tbh * start_frames;
   Time stop_time_reader = stop_time + tbh * stop_frames;
   reader_.add_time_interval(start_time_reader, stop_time_reader);
+  std::cerr << RANK_OF_NODE << " : reader start = " << start_time_reader << ", stop = " << stop_time_reader
+                            << ", start time = " << start_time << ", stop time =" << stop_time 
+                            << ", buffer_time = " << int(buffer_time.get_time_usec()) 
+                            << ", max offset = " << int(max_channel_offset.get_time_usec()) << "\n";
 }
 
 void Input_node_tasklet::initialise(int num_tracks)

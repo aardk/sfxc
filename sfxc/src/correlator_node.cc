@@ -53,6 +53,11 @@ Correlator_node::Correlator_node(int rank, int nr_corr_node, int correlator_node
       correlation_core_pulsar = new Correlation_core_pulsar();
       correlation_core = correlation_core_pulsar;
       break;
+    case CORRELATOR_NODE_BOLOMETER:
+      correlation_core_bolometer = new Correlation_core_bolometer();
+      correlation_core_normal = new Correlation_core();
+      correlation_core = correlation_core_bolometer;
+      break;
   }
   add_controller(&correlator_node_ctrl);
   add_controller(&data_readers_ctrl);
@@ -257,10 +262,19 @@ void Correlator_node::hook_added_data_reader(size_t stream_nr) {
                                       windowing[stream_nr]->get_output_buffer());
   correlation_core_normal->connect_to(stream_nr, statistics, 
                                       bit2float_thread_.get_invalid(stream_nr));
-  if (correlator_node_type != CORRELATOR_NODE_NORMAL) {
+
+  if (correlator_node_type == CORRELATOR_NODE_BOLOMETER) {
+    dedispersion_tasklet.connect_to(bit2float_thread_.get_output_buffer(stream_nr), stream_nr);
+  } else if (correlator_node_type != CORRELATOR_NODE_NORMAL) {
     dedispersion_tasklet.connect_to(delay_modules[stream_nr]->get_output_buffer(), stream_nr);
   }
-  if (correlator_node_type == CORRELATOR_NODE_PULSAR_BINNING) {
+
+  if (correlator_node_type == CORRELATOR_NODE_BOLOMETER) {
+    correlation_core_bolometer->connect_to(stream_nr,
+                             dedispersion_tasklet.get_output_buffer(stream_nr));
+    correlation_core_bolometer->connect_to(stream_nr, statistics,
+                                 bit2float_thread_.get_invalid(stream_nr));
+  } else if (correlator_node_type == CORRELATOR_NODE_PULSAR_BINNING) {
     correlation_core_pulsar->connect_to(stream_nr,
                                         windowing[stream_nr]->get_output_buffer());
     correlation_core_pulsar->connect_to(stream_nr, statistics,
@@ -281,6 +295,8 @@ void Correlator_node::hook_added_data_writer(size_t i) {
     correlation_core_pulsar->set_data_writer(data_writer_ctrl.get_data_writer(0));
   } else if (correlator_node_type == CORRELATOR_NODE_FILTERBANK) {
     correlation_core_filterbank->set_data_writer(data_writer_ctrl.get_data_writer(0));
+  } else if (correlator_node_type == CORRELATOR_NODE_BOLOMETER) {
+    correlation_core_bolometer->set_data_writer(data_writer_ctrl.get_data_writer(0));
   }
 }
 
@@ -291,7 +307,7 @@ int Correlator_node::get_correlate_node_number() {
 void Correlator_node::correlate() {
   RT_STAT( dotask_state_.begin_measure() );
   bool done_work=false; 
-  delay_timer_.resume();
+  delay_timer_.resume(); 
   for (size_t i=0; i<delay_modules.size(); i++) {
     if (delay_modules[i] != Delay_correction_ptr()) {
       if (delay_modules[i]->has_work()) {
@@ -361,7 +377,6 @@ Correlator_node::receive_parameters(const Correlation_parameters &parameters) {
 void
 Correlator_node::set_parameters() {
   SFXC_ASSERT(status == STOPPED);
-
   if ( !isinitialized_ ) {
     ///DEBUG_MSG("START THE THREADS !");
     isinitialized_ = true;
@@ -378,7 +393,7 @@ Correlator_node::set_parameters() {
 
   // Get delay and UVW tables
   // NB: The total number of streams in the job is not nessecarily the same 
-  // as the number of streams in the scan
+  // as the number of streams in the scan 
   int nstreams = delay_index.size();
   Time tmid = parameters.integration_start + parameters.integration_time/2;
   std::vector<Delay_table_akima> akima_tables(nstreams);
@@ -398,7 +413,7 @@ Correlator_node::set_parameters() {
         uvw_tables[stream].get_uvw(j, tmid, &out[0], &out[1], &out[2]);
       }
     }
-  }
+  } 
   int nBins=1;
   coherent_dedispersion = false;
   if (correlator_node_type == CORRELATOR_NODE_NORMAL) {
@@ -414,13 +429,15 @@ Correlator_node::set_parameters() {
       dedispersion_tasklet.set_parameters(parameters, pulsar);
     }
     // select the correct input queue
-    for(int stream_nr = 0 ; stream_nr < delay_modules.size() ; stream_nr++) {
-      if (coherent_dedispersion) {
-        windowing[stream_nr]->connect_to(
-                      dedispersion_tasklet.get_output_buffer(stream_nr));
-      } else { 
-        windowing[stream_nr]->connect_to(
-                              delay_modules[stream_nr]->get_output_buffer());
+    if (correlator_node_type != CORRELATOR_NODE_BOLOMETER) {
+      for(int stream_nr = 0 ; stream_nr < delay_modules.size() ; stream_nr++) {
+        if (coherent_dedispersion) {
+          windowing[stream_nr]->connect_to(
+                        dedispersion_tasklet.get_output_buffer(stream_nr));
+        } else { 
+          windowing[stream_nr]->connect_to(
+                                delay_modules[stream_nr]->get_output_buffer());
+        }
       }
     }
     if (correlator_node_type == CORRELATOR_NODE_PULSAR_BINNING) {
@@ -451,17 +468,21 @@ Correlator_node::set_parameters() {
         }
       }
       correlation_core_filterbank->set_parameters(parameters, akima_tables, uvw, get_correlate_node_number(), DM, no_intra_channel_dedispersion);
+    } else if(correlator_node_type == CORRELATOR_NODE_BOLOMETER) {
+      correlation_core = correlation_core_bolometer;
+      correlation_core_bolometer->set_parameters(parameters, uvw, get_correlate_node_number());
     }
   }
-
-  for (size_t i=0; i<delay_modules.size(); i++) {
-    if (delay_modules[i] != Delay_correction_ptr()) {
-      delay_modules[i]->set_parameters(parameters, akima_tables[i]);
+  if (correlator_node_type != CORRELATOR_NODE_BOLOMETER) {
+    for (size_t i=0; i<delay_modules.size(); i++) {
+      if (delay_modules[i] != Delay_correction_ptr()) {
+        delay_modules[i]->set_parameters(parameters, akima_tables[i]);
+      }
     }
-  }
-  for (size_t i=0; i<windowing.size(); i++) {
-    if (windowing[i] != Windowing_ptr()) {
-      windowing[i]->set_parameters(parameters);
+    for (size_t i=0; i<windowing.size(); i++) {
+      if (windowing[i] != Windowing_ptr()) {
+        windowing[i]->set_parameters(parameters);
+      }
     }
   }
   bit2float_thread_.set_parameters(parameters, akima_tables);
@@ -480,8 +501,17 @@ Correlator_node::set_parameters() {
     size_of_one_baseline = sizeof(FLOAT) * (parameters.number_channels + 1);
     nBaselines = ceil(parameters.integration_time / 
                       parameters.sub_integration_time);
+    nBins = nstations;
     if (parameters.cross_polarize)
       nBaselines *= 4;
+  } else if (correlator_node_type == CORRELATOR_NODE_BOLOMETER) {
+    int nsamples = round(parameters.sample_rate * parameters.integration_time.get_time());
+    size_of_one_baseline = sizeof(FLOAT) * nsamples;
+    if (parameters.cross_polarize)
+      nBaselines = 3;
+    else
+      nBaselines = 1;
+    nBins = nstations;
   } else {
     size_of_one_baseline = sizeof(std::complex<FLOAT>) * 
                            (parameters.number_channels + 1);
@@ -503,7 +533,7 @@ Correlator_node::set_parameters() {
   SFXC_ASSERT(nBins >= 1);
   output_node_set_timeslice(parameters.slice_nr,
                             parameters.slice_offset,
-                            get_correlate_node_number(),slice_size, nBins);
+                            get_correlate_node_number(), slice_size, nBins);
   integration_slices_queue.pop();
 }
 

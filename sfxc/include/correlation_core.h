@@ -31,7 +31,7 @@ public:
 
   /// For Tasklet
   virtual void do_task();
-  bool has_work();
+  virtual bool has_work();
   const char *name() {
     return __PRETTY_FUNCTION__;
   }
@@ -39,7 +39,7 @@ public:
   bool finished();
   bool almost_finished();
 
-  void connect_to(size_t stream, Input_buffer_ptr buffer);
+  virtual void connect_to(size_t stream, Input_buffer_ptr buffer);
   void connect_to(size_t stream, bit_statistics_ptr statistics_, 
                   std::vector<Invalid> *invalid_);
 

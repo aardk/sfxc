@@ -97,6 +97,11 @@ enum MPI_TAG {
    **/
   MPI_TAG_SET_CORRELATOR_NODE_FILTERBANK,
 
+  /** Add a "correlator" node in bolometer mode
+   * - MPI_INT32: no content
+   **/
+  MPI_TAG_SET_CORRELATOR_NODE_BOLOMETER,
+
   /** Add an output node
    * - MPI_INT32: no content
    **/
@@ -404,6 +409,9 @@ inline const char * const do_print_MPI_TAG(MPI_TAG tag) {
     }
   case MPI_TAG_SET_CORRELATOR_NODE_FILTERBANK: {
       return "MPI_TAG_SET_CORRELATOR_NODE_FILTERBANK";
+    }
+  case MPI_TAG_SET_CORRELATOR_NODE_BOLOMETER: {
+      return "MPI_TAG_SET_CORRELATOR_NODE_BOLOMETER";
     }
   case MPI_TAG_SET_CORRELATOR_NODE_PHASED: {
       return "MPI_TAG_SET_CORRELATOR_NODE_PHASED";

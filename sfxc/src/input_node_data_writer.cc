@@ -15,6 +15,7 @@ Input_node_data_writer::Input_node_data_writer() {
   frames_to_buffer = 0;
   intnr = 0;
   sync_stream=false;
+  do_integer_delay=false;
 }
 
 Input_node_data_writer::~Input_node_data_writer() {
@@ -147,11 +148,15 @@ do_task() {
               << ", diff = " << (old_time - input_element.start_time).get_time_usec()<< "\n";
   old_time = input_element.start_time;
   if(sync_stream){
-    // Move to the next integer delay change
-    while((delay_index < delay_size - 1) && (cur_delay[delay_index+1].time <= _current_time))
-       delay_index++;
     int64_t dsamples = _current_time.diff_samples(input_element.start_time);
-    byte_offset = dsamples*bits_per_sample/8 + cur_delay[delay_index].bytes;
+    if (do_integer_delay) {
+      // Move to the next integer delay change
+      while((delay_index < delay_size - 1) && (cur_delay[delay_index+1].time <= _current_time))
+         delay_index++;
+      byte_offset = dsamples*bits_per_sample/8 + cur_delay[delay_index].bytes;
+    } else {
+      byte_offset = dsamples*bits_per_sample/8;
+    }
     std::cerr.precision(16);
     if((RANK_OF_NODE==-3) && (stream_nr == 0)) 
                       std::cerr << RANK_OF_NODE << " : "
@@ -164,24 +169,33 @@ do_task() {
                                 << ", input = " << input_element.start_time.get_time_usec()
                                 << ", dsamples ="<< dsamples
                                 << "\n";
-    if(byte_offset < 0){
+    if(byte_offset < 0) {
       // The requested output lies (partly) before the input data, send invalid data
-      int initial_delay = cur_delay[delay_index].remaining_samples;
-      int64_t invalid_samples = write_initial_invalid_data(data_writer, byte_offset);
-      data_writer.slice_size -= invalid_samples;
-      _current_time.inc_samples(invalid_samples-initial_delay);
+      if (do_integer_delay) {
+        int initial_delay = cur_delay[delay_index].remaining_samples;
+        int64_t invalid_samples = write_initial_invalid_data(data_writer, byte_offset);
+        data_writer.slice_size -= invalid_samples;
+        _current_time.inc_samples(invalid_samples-initial_delay);
+      } else {
+       write_delay(data_writer.writer, 0);
+      }
       
       sync_stream = false;
       return 0;
-    }else if (byte_offset >= block_size){
+    } else if (byte_offset >= block_size) {
       // This can happen if there is still a bit of old data left in the input queue
       input_buffer_->pop();
       return 0;
-    }else{
-      data_writer.slice_size += cur_delay[delay_index].remaining_samples;
-      write_delay(data_writer.writer, cur_delay[delay_index].remaining_samples);
-      // decrease the sample count because we always send entire bytes
-      _current_time.inc_samples(-cur_delay[delay_index].remaining_samples);
+    } else {
+      if (do_integer_delay) {
+        data_writer.slice_size += cur_delay[delay_index].remaining_samples;
+        write_delay(data_writer.writer, cur_delay[delay_index].remaining_samples);
+       // decrease the sample count because we always send entire bytes
+        _current_time.inc_samples(-cur_delay[delay_index].remaining_samples);
+      } else {
+       write_delay(data_writer.writer, 0);
+      }
+
       sync_stream = false;
     }
   }
@@ -373,6 +387,7 @@ set_parameters(int stream_nr_, const Input_node_parameters &input_param, int sta
   _current_time.set_sample_rate(sample_rate);
   bits_per_sample = input_param.bits_per_sample();
   integration_time = input_param.integr_time;
+  do_integer_delay = input_param.do_integer_delay;
   byte_length = Time(8 * 1000000. / (sample_rate * bits_per_sample));
   // Round channel offset to the nearest sample
   channel_offset = round(input_param.channels[stream_nr].channel_offset * 
@@ -382,8 +397,8 @@ set_parameters(int stream_nr_, const Input_node_parameters &input_param, int sta
   std::cerr << RANK_OF_NODE << " : channel_offset = " << channel_offset 
             << "; " << channel_offset.get_time_usec()
             << "; orig=" << input_param.channels[stream_nr].channel_offset
-            << ", buffer_time ="<< buffer_time.get_time_usec()<<"\n";
-
+            << ", buffer_time ="<< buffer_time.get_time_usec() 
+            << ", do_integer_delay = " << do_integer_delay << "\n";
   station_number = station_number_;
   frequency_number = input_param.channels[stream_nr].frequency_number;
   if (input_param.channels[stream_nr].polarisation == 'L')
@@ -456,7 +471,6 @@ Input_node_data_writer::write_invalid(Data_writer_sptr writer, int nInvalid){
 void
 Input_node_data_writer::write_end_of_stream(Data_writer_sptr writer){
   int8_t header = HEADER_ENDSTREAM;
-  if(stream_nr == -1) std::cerr << "HEADER_ENDSTREAM\n";
   writer->put_bytes(sizeof(header), (char *)&header);
 }
 
@@ -479,7 +493,9 @@ int
 Input_node_data_writer::get_next_delay_pos(std::vector<Delay> &cur_delay, Time start_time){
   int delay_pos;
   int delay_size=cur_delay.size();
-  if(delay_index < delay_size-1){
+  if (!do_integer_delay) {
+    delay_pos = INT_MAX/2;
+  } else if(delay_index < delay_size-1){
     Time dtime = cur_delay[delay_index+1].time - start_time;
     delay_pos = (int) (dtime / byte_length);
   }

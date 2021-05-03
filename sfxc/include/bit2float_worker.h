@@ -96,7 +96,7 @@ private:
 
   Input_buffer_ptr    input_buffer_;
   Output_queue_ptr    output_buffer_;
-  Output_memory_pool   memory_pool_;
+  Output_memory_pool  memory_pool_;
 
   /// The lookup tables for the bit2float conversion
   FLOAT lookup_table[256][4];

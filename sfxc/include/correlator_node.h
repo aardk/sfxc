@@ -22,6 +22,7 @@
 #include "correlation_core_pulsar.h"
 #include "correlation_core_phased.h"
 #include "correlation_core_filterbank.h"
+#include "correlation_core_bolometer.h"
 #include "dedispersion_tasklet.h"
 #include "delay_correction.h"
 #include "windowing.h"
@@ -36,6 +37,7 @@
 #define CORRELATOR_NODE_PULSAR_BINNING 1
 #define CORRELATOR_NODE_PHASED 2
 #define CORRELATOR_NODE_FILTERBANK 3
+#define CORRELATOR_NODE_BOLOMETER 4
 
 // Declare the correlator controller:
 class Correlator_node;
@@ -273,6 +275,7 @@ private:
   Dedispersion_tasklet                    dedispersion_tasklet;
   Correlation_core *correlation_core, *correlation_core_normal;
   Correlation_core_filterbank *correlation_core_filterbank;
+  Correlation_core_bolometer *correlation_core_bolometer;
   Correlation_core_pulsar *correlation_core_pulsar;
 
   std::queue<Correlation_parameters>          integration_slices_queue;

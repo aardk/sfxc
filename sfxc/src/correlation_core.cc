@@ -267,7 +267,6 @@ void Correlation_core::integration_initialise() {
       }
     }
   }
-
   for(int i = 0 ; i < phase_centers.size() ; i++){
     for (int j = 0; j < phase_centers[i].size(); j++) {
       SFXC_ASSERT(phase_centers[i][j].size() == fft_size() + 1);
@@ -439,11 +438,12 @@ void Correlation_core::integration_write_headers(int phase_center, int sourcenr)
     nstations /= 2;
   {
     // initialise with -1
-    stream2station.resize(input_buffers.size(), -1);
-
+    stream2station.resize(statistics.size(), -1);
+    SFXC_ASSERT(statistics.size() > 0);
     for (size_t i=0; i < nstreams; i++) {
       size_t station_stream =
         correlation_parameters.station_streams[i].station_stream;
+      SFXC_ASSERT(station_stream < stream2station.size());
       stream2station[station_stream] =
         correlation_parameters.station_streams[i].station_number;
     }
@@ -467,6 +467,7 @@ void Correlation_core::integration_write_headers(int phase_center, int sourcenr)
     for (size_t i=0; i < nstations; i++){
       double u,v,w;
       int stream = streams_in_scan[i];
+      SFXC_ASSERT(stream < uvw_table.size());
       uvw[i].station_nr=stream2station[stream];
       uvw[i].reserved=0;
       uvw[i].u = uvw_table[stream][phase_center*3];
@@ -481,7 +482,7 @@ void Correlation_core::integration_write_headers(int phase_center, int sourcenr)
       int station = stream2station[stream]-1;
       int32_t *levels=statistics[stream]->get_statistics();
       if(correlation_parameters.cross_polarize){
-        int nstreams_max = input_buffers.size();
+        int nstreams_max = statistics.size();
         stats[i].polarisation=(stream>=nstreams_max/2)?1-polarisation:polarisation;
       }else{
         stats[i].polarisation=polarisation;

@@ -24,6 +24,7 @@ public:
   void connect_to(Delay_queue_ptr buffer, int stream_nr);
   /// Get the output
   Delay_queue_ptr get_output_buffer(int stream_nr);
+
 private:
   void create_dedispersion_filter();
 private:

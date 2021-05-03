@@ -711,7 +711,7 @@ MPI_Transfer::receive(MPI_Status &status, std::map<std::string, int> &sources){
 void
 MPI_Transfer::send(Input_node_parameters &input_node_param, int rank) {
   int size = 0;
-  size = 7 * sizeof(int32_t) + 4 * sizeof(int64_t);
+  size = 8 * sizeof(int32_t) + 4 * sizeof(int64_t);
   for (Input_node_parameters::Channel_iterator channel =
          input_node_param.channels.begin();
        channel != input_node_param.channels.end(); channel++) {
@@ -747,6 +747,9 @@ MPI_Transfer::send(Input_node_parameters &input_node_param, int rank) {
            size, &position, MPI_COMM_WORLD);
   int exit_on_empty_datastream = input_node_param.exit_on_empty_datastream ? 1 : 0;
   MPI_Pack(&exit_on_empty_datastream, 1, MPI_INT32, 
+           message_buffer, size, &position, MPI_COMM_WORLD);
+  int do_integer_delay = input_node_param.do_integer_delay ? 1 : 0;
+  MPI_Pack(&do_integer_delay, 1, MPI_INT32, 
            message_buffer, size, &position, MPI_COMM_WORLD);
 
   length = (int32_t)input_node_param.channels.size();
@@ -832,6 +835,10 @@ MPI_Transfer::receive(MPI_Status &status, Input_node_parameters &input_node_para
   MPI_Unpack(buffer, size, &position, &exit_on_empty_datastream, 
              1, MPI_INT32, MPI_COMM_WORLD);
   input_node_param.exit_on_empty_datastream = (exit_on_empty_datastream == 1);
+  int do_integer_delay;
+  MPI_Unpack(buffer, size, &position, &do_integer_delay, 
+             1, MPI_INT32, MPI_COMM_WORLD);
+  input_node_param.do_integer_delay = (do_integer_delay == 1);
   int32_t n_channels;
   MPI_Unpack(buffer, size, &position,
              &n_channels, 1, MPI_INT32,

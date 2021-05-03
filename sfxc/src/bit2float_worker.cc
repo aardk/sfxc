@@ -57,7 +57,7 @@ Bit2float_worker::do_task() {
 
       uint8_t header = inp_data[read++ % inp_size];
       //if(current_fft == 0)
-       // std::cerr << RANK_OF_NODE << " : stream = " << stream_nr << ", header = " << (int) header << "\n";
+      //  std::cerr << RANK_OF_NODE << " : stream = " << stream_nr << ", header = " << (int) header << "\n";
       switch(header) {
       case HEADER_DATA:
         bytes_left = inp_data[read++ % inp_size];
@@ -450,7 +450,7 @@ void
 Bit2float_worker::allocate_element(){
   int nfft = std::min(nfft_max, n_ffts_per_integration - current_fft);
   int nsamples = nfft * fft_size;
-  if(RANK_OF_NODE == -10) std::cerr<<"nsamples = " << nsamples 
+  if(RANK_OF_NODE == -5) std::cerr<<"nsamples = " << nsamples 
                                   <<", current_fft = " << current_fft << " / " << n_ffts_per_integration
                                   <<", nfft = " << nfft 
                                   <<", nfft_max = " << nfft_max

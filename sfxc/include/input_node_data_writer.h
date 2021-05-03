@@ -91,6 +91,7 @@ private:
   int                 delay_index;
   int sample_rate;
   int bits_per_sample;
+  bool do_integer_delay;
   Time integration_time;
   Time channel_offset;
   Time buffer_time;

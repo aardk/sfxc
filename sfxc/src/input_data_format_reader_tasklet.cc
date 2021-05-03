@@ -254,6 +254,7 @@ allocate_element() {
 Time
 Input_data_format_reader_tasklet::
 goto_time(Time time) {
+  std::cerr << RANK_OF_NODE <<  " : Goto time t = " << time << "\n";
 
   Time new_time = reader_->goto_time(input_element_, time);
   SFXC_ASSERT(new_time == reader_->get_current_time());
@@ -261,7 +262,7 @@ goto_time(Time time) {
   // Set the current time to the actual time in the data stream.
   // Might not be the requested time, if no data is available
   input_element_.start_time = new_time;
-
+  std::cerr << RANK_OF_NODE <<  " : Goto time t = " << new_time << "\n";
   if (time != new_time) {
     DEBUG_MSG("Warning: Couldn't go to time " << time << "us.");
     DEBUG_MSG("Current time is              " << current_time[0] << "us.");

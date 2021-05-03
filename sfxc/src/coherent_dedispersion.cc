@@ -27,14 +27,6 @@ Coherent_dedispersion::do_task(){
     return;
   const int n_input_fft=input_data.size() / fft_size_dedispersion;
   total_input_fft += n_input_fft;
-/*  if((RANK_OF_NODE == 5) && (current_fft > nffts_per_integration -1000)) 
-    std::cerr<<"nfft = " <<n_input_fft 
-             << ", size = " << input_data.size()
-             << ", current_time " << (int64_t) current_time.get_time_usec()
-             << ", current_fft = " << current_fft
-             << ", input fft nr =" << total_input_fft
-             << ", queue_length " << input_queue->size()
-             << "\n";*/
 
   // Allocate output buffer
   allocate_element(n_input_fft*fft_size_dedispersion/fft_size_correlation);
@@ -159,14 +151,18 @@ Coherent_dedispersion::set_parameters(const Correlation_parameters &parameters)
   sample_rate = parameters.sample_rate;
   start_time = parameters.integration_start;
   stop_time = parameters.integration_start + parameters.integration_time; 
-  if(RANK_OF_NODE == 10){
+  current_time = parameters.stream_start;
+  if(RANK_OF_NODE == -5){
     std::cout.precision(16);
     std::cout << RANK_OF_NODE << " : start_time(" << stream_nr << ") = " << start_time 
               << ", " << start_time.get_time_usec() << "\n";
     std::cout << RANK_OF_NODE << " : stop_time(" << stream_nr << ") = " << stop_time 
               << ", " << stop_time.get_time_usec() << "\n";
+    std::cout << RANK_OF_NODE << " : current_time(" << stream_nr << ") = " << current_time
+              << ", " << current_time.get_time_usec() << "\n";
+    std::cout << RANK_OF_NODE << " : fft_size_dedispersion = " << fft_size_dedispersion 
+                              << ", fft_size_correlation = " << fft_size_correlation << "\n";
   }
-  current_time = parameters.stream_start;
   current_time.set_sample_rate(sample_rate);
   current_time.inc_samples(-fft_size_dedispersion/2);
   
@@ -175,6 +171,6 @@ Coherent_dedispersion::set_parameters(const Correlation_parameters &parameters)
   // Initialize buffers
   for (int i=0; i<2; i++) {
     time_buffer[i].resize(2*fft_size_dedispersion);
-    memset(&time_buffer[i][0], 0, time_buffer[current_buffer].size()*sizeof(FLOAT));
+    memset(&time_buffer[i][0], 0, time_buffer[i].size()*sizeof(FLOAT));
   }
 }
