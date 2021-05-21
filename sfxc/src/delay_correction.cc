@@ -400,6 +400,7 @@ void Delay_correction::get_state(std::ostream &out) {
       << "\t\t\"memory_pool_free\": " <<  output_memory_pool.number_free_element() << ",\n"
       << "\t\t\"current_time\": \"" << current_time.date_string(6) << "\",\n"
       << "\t\t\"n_input_buffer\": " << input_buffer->size() << ",\n"
+      << "\t\t\"LO_offset\": " << LO_offset << ",\n"
       << "\t\t\"current_fft\": "<< current_fft << ",\n"
       << "\t\t\"n_ffts_per_integration\": " << n_ffts_per_integration << "\n"
       << "\t\t}";

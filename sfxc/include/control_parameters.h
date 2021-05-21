@@ -240,7 +240,7 @@ public:
   bool phased_array() const;
   bool pulsar_binning() const;
   bool multi_phase_center() const;
-  double LO_offset(const std::string &station) const;
+  double LO_offset(const std::string &station, int integration_nr) const;
   double extra_delay(const std::string &channel_name,
 		     const std::string &station_name,
 		     const std::string &mode_name) const;
@@ -348,6 +348,7 @@ public:
   Correlation_parameters
   get_correlation_parameters(const std::string &scan_name,
                              size_t channel_nr,
+                             int integration_nr,
                              const std::map<stream_key, int> &correlator_node_station_to_input) const;
   std::string rack_type(const std::string &station) const;
   std::string recorder_type(const std::string &station) const;
