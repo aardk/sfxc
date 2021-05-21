@@ -352,6 +352,7 @@ void Manager_node::start_next_timeslice_on_node(int corr_node_nr) {
     control_parameters.
     get_correlation_parameters(scan_name,
                                current_channel,
+                               integration_nr,
                                get_input_node_map());
   correlation_parameters.integration_start =
     start_time + integration_time() * integration_nr;

@@ -686,12 +686,18 @@ Control_parameters::fft_size_correlation() const {
 }
 
 double
-Control_parameters::LO_offset(const std::string &station) const {
+Control_parameters::LO_offset(const std::string &station, int integration_nr) const {
   if (ctrl["LO_offset"] == Json::Value())
     return 0;
   if (ctrl["LO_offset"][station] == Json::Value())
     return 0;
-
+  if (ctrl["LO_offset"][station].isArray()) {
+    int i = 0; // need variable to prevent operator overload ambiguity
+    double start = ctrl["LO_offset"][station][i++].asDouble();
+    double end = ctrl["LO_offset"][station][i++].asDouble();
+    int nstep = ctrl["LO_offset"][station][i].asInt();
+    return start + (integration_nr % nstep) * (end - start) / nstep;
+  }
   return ctrl["LO_offset"][station].asDouble();
 }
 
@@ -2225,6 +2231,7 @@ Correlation_parameters
 Control_parameters::
 get_correlation_parameters(const std::string &scan_name,
 			   size_t channel_nr,
+                           int integration_nr,
                            const std::map<stream_key, int> &correlator_node_station_to_input) const {
   std::string bbc_nr;
   std::string bbc_mode;
@@ -2330,7 +2337,7 @@ get_correlation_parameters(const std::string &scan_name,
           station_param.bandwidth = bandwidth(mode_name, station[0]->to_string(), channel_name);
           station_param.sideband = sideband(channel_name, station[0]->to_string(), mode_name);
           station_param.polarisation = polarisation(channel_name, station[0]->to_string(), mode_name);
-          station_param.LO_offset = LO_offset(station[0]->to_string());
+          station_param.LO_offset = LO_offset(station[0]->to_string(), integration_nr);
           station_param.extra_delay = extra_delay(channel_name, station[0]->to_string(), mode_name);
           station_param.tsys_freq = tsys_freq(station[0]->to_string());
           corr_param.station_streams.push_back(station_param);
@@ -2375,7 +2382,7 @@ get_correlation_parameters(const std::string &scan_name,
           station_param.bandwidth = bandwidth(mode_name, station[0]->to_string(), channel_name);
           station_param.sideband = sideband(channel_name, station[0]->to_string(), mode_name);
           station_param.polarisation = polarisation(channel_name, station[0]->to_string(), mode_name);
-          station_param.LO_offset = LO_offset(station[0]->to_string());
+          station_param.LO_offset = LO_offset(station[0]->to_string(), integration_nr);
           station_param.extra_delay = extra_delay(channel_name, station[0]->to_string(), mode_name);
           station_param.tsys_freq = tsys_freq(station[0]->to_string());
           corr_param.station_streams.push_back(station_param);
