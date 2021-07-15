@@ -183,7 +183,7 @@ def parse_args():
                          "The default is to use the first station in the vexfile",
                     default="")
   parser.add_option("-p", "--pol", dest='pol', type='string', default='I',
-      help='NB: This parameter doesn\'t work yet.')
+      help='Polarization: L, R, or I; default = I=L+R')
   (opts, args) = parser.parse_args()
 
   if opts.ifs == None:
@@ -204,7 +204,7 @@ def parse_args():
   elif opts.pol.upper() == 'I':
     pol = 3
   else:
-    pol = 4
+    parser.error('Polarization should be L, R, or I.')
 
   infiles = []
   nargs = len(args)
