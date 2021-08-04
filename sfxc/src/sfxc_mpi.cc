@@ -109,6 +109,7 @@ void start_node() {
   case MPI_TAG_SET_CORRELATOR_NODE_FILTERBANK:
   case MPI_TAG_SET_CORRELATOR_NODE_PSR_BINNING:
   case MPI_TAG_SET_CORRELATOR_NODE_BOLOMETER:
+  case MPI_TAG_SET_CORRELATOR_NODE_VOLTAGES:
   case MPI_TAG_SET_CORRELATOR_NODE: {
       int32_t corr_nr;
       MPI_Recv(&corr_nr, 1, MPI_INT32,
@@ -140,6 +141,9 @@ void start_node() {
            break;
          case MPI_TAG_SET_CORRELATOR_NODE_BOLOMETER:
            correlator_node_type = CORRELATOR_NODE_BOLOMETER;
+           break;
+         case MPI_TAG_SET_CORRELATOR_NODE_VOLTAGES:
+           correlator_node_type = CORRELATOR_NODE_VOLTAGES;
            break;
          default:
            sfxc_abort("Invalid correlator node type received, are you mixing diffent SFXC versions?");

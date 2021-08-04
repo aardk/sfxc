@@ -58,6 +58,11 @@ Correlator_node::Correlator_node(int rank, int nr_corr_node, int correlator_node
       correlation_core_normal = new Correlation_core();
       correlation_core = correlation_core_bolometer;
       break;
+    case CORRELATOR_NODE_VOLTAGES:
+      correlation_core_voltages = new Correlation_core_voltages();
+      correlation_core_normal = new Correlation_core();
+      correlation_core = correlation_core_voltages;
+      break;
   }
   add_controller(&correlator_node_ctrl);
   add_controller(&data_readers_ctrl);
@@ -263,7 +268,8 @@ void Correlator_node::hook_added_data_reader(size_t stream_nr) {
   correlation_core_normal->connect_to(stream_nr, statistics, 
                                       bit2float_thread_.get_invalid(stream_nr));
 
-  if (correlator_node_type == CORRELATOR_NODE_BOLOMETER) {
+  if ((correlator_node_type == CORRELATOR_NODE_BOLOMETER) ||
+      (correlator_node_type == CORRELATOR_NODE_VOLTAGES)) {
     dedispersion_tasklet.connect_to(bit2float_thread_.get_output_buffer(stream_nr), stream_nr);
   } else if (correlator_node_type != CORRELATOR_NODE_NORMAL) {
     dedispersion_tasklet.connect_to(delay_modules[stream_nr]->get_output_buffer(), stream_nr);
@@ -273,6 +279,11 @@ void Correlator_node::hook_added_data_reader(size_t stream_nr) {
     correlation_core_bolometer->connect_to(stream_nr,
                              dedispersion_tasklet.get_output_buffer(stream_nr));
     correlation_core_bolometer->connect_to(stream_nr, statistics,
+                                 bit2float_thread_.get_invalid(stream_nr));
+  } else if (correlator_node_type == CORRELATOR_NODE_VOLTAGES) {
+    correlation_core_voltages->connect_to(stream_nr,
+                             dedispersion_tasklet.get_output_buffer(stream_nr));
+    correlation_core_voltages->connect_to(stream_nr, statistics,
                                  bit2float_thread_.get_invalid(stream_nr));
   } else if (correlator_node_type == CORRELATOR_NODE_PULSAR_BINNING) {
     correlation_core_pulsar->connect_to(stream_nr,
@@ -297,6 +308,8 @@ void Correlator_node::hook_added_data_writer(size_t i) {
     correlation_core_filterbank->set_data_writer(data_writer_ctrl.get_data_writer(0));
   } else if (correlator_node_type == CORRELATOR_NODE_BOLOMETER) {
     correlation_core_bolometer->set_data_writer(data_writer_ctrl.get_data_writer(0));
+  } else if (correlator_node_type == CORRELATOR_NODE_VOLTAGES) {
+    correlation_core_voltages->set_data_writer(data_writer_ctrl.get_data_writer(0));
   }
 }
 
@@ -429,7 +442,8 @@ Correlator_node::set_parameters() {
       dedispersion_tasklet.set_parameters(parameters, pulsar);
     }
     // select the correct input queue
-    if (correlator_node_type != CORRELATOR_NODE_BOLOMETER) {
+    if ((correlator_node_type != CORRELATOR_NODE_BOLOMETER) &&
+        (correlator_node_type != CORRELATOR_NODE_VOLTAGES)) {
       for(int stream_nr = 0 ; stream_nr < delay_modules.size() ; stream_nr++) {
         if (coherent_dedispersion) {
           windowing[stream_nr]->connect_to(
@@ -471,9 +485,13 @@ Correlator_node::set_parameters() {
     } else if(correlator_node_type == CORRELATOR_NODE_BOLOMETER) {
       correlation_core = correlation_core_bolometer;
       correlation_core_bolometer->set_parameters(parameters, uvw, get_correlate_node_number());
+    } else if(correlator_node_type == CORRELATOR_NODE_VOLTAGES) {
+      correlation_core = correlation_core_voltages;
+      correlation_core_voltages->set_parameters(parameters, uvw, get_correlate_node_number());
     }
   }
-  if (correlator_node_type != CORRELATOR_NODE_BOLOMETER) {
+  if ((correlator_node_type != CORRELATOR_NODE_BOLOMETER) &&
+      (correlator_node_type != CORRELATOR_NODE_VOLTAGES)){
     for (size_t i=0; i<delay_modules.size(); i++) {
       if (delay_modules[i] != Delay_correction_ptr()) {
         delay_modules[i]->set_parameters(parameters, akima_tables[i]);
@@ -509,6 +527,14 @@ Correlator_node::set_parameters() {
     size_of_one_baseline = sizeof(FLOAT) * nsamples;
     if (parameters.cross_polarize)
       nBaselines = 3;
+    else
+      nBaselines = 1;
+    nBins = nstations;
+  } else if (correlator_node_type == CORRELATOR_NODE_VOLTAGES) {
+    int nsamples = round(parameters.sample_rate * parameters.integration_time.get_time());
+    size_of_one_baseline = sizeof(FLOAT) * nsamples;
+    if (parameters.cross_polarize)
+      nBaselines = 2;
     else
       nBaselines = 1;
     nBins = nstations;

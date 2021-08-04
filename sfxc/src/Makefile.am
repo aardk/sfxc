@@ -41,6 +41,7 @@ OBJ=\
   correlation_core.cc \
   correlation_core_filterbank.cc \
   correlation_core_bolometer.cc \
+  correlation_core_voltages.cc \
   correlation_core_phased.cc \
   correlation_core_pulsar.cc \
   delay_correction.cc \

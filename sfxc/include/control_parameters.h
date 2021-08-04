@@ -248,6 +248,7 @@ public:
   bool pulsar_binning() const;
   bool filterbank() const;
   bool bolometer() const;
+  bool voltages() const;
   bool multi_phase_center() const;
   double LO_offset(const std::string &station) const;
   bool exit_on_empty_datastream() const;

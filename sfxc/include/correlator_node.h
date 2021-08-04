@@ -23,6 +23,7 @@
 #include "correlation_core_phased.h"
 #include "correlation_core_filterbank.h"
 #include "correlation_core_bolometer.h"
+#include "correlation_core_voltages.h"
 #include "dedispersion_tasklet.h"
 #include "delay_correction.h"
 #include "windowing.h"
@@ -38,6 +39,7 @@
 #define CORRELATOR_NODE_PHASED 2
 #define CORRELATOR_NODE_FILTERBANK 3
 #define CORRELATOR_NODE_BOLOMETER 4
+#define CORRELATOR_NODE_VOLTAGES 5
 
 // Declare the correlator controller:
 class Correlator_node;
@@ -276,6 +278,7 @@ private:
   Correlation_core *correlation_core, *correlation_core_normal;
   Correlation_core_filterbank *correlation_core_filterbank;
   Correlation_core_bolometer *correlation_core_bolometer;
+  Correlation_core_voltages *correlation_core_voltages;
   Correlation_core_pulsar *correlation_core_pulsar;
 
   std::queue<Correlation_parameters>          integration_slices_queue;

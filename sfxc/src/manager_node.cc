@@ -467,7 +467,8 @@ Manager_node::initialise() {
       sources_it++;
       source_nr++;
     }
-  }else if (control_parameters.filterbank() || control_parameters.bolometer()){
+  }else if (control_parameters.filterbank() || control_parameters.bolometer() ||
+            control_parameters.voltages()) {
     std::string base_filename = control_parameters.get_output_file();
     for(int i = 0; i < control_parameters.number_stations(); i++) {
       // Open one output file per pulsar bin
@@ -479,6 +480,7 @@ Manager_node::initialise() {
 
   if (control_parameters.phased_array() || 
       control_parameters.filterbank() ||
+      control_parameters.voltages() || 
       control_parameters.bolometer()) { 
     Pulsar_parameters &pulsar_parameters = control_parameters.get_pulsar_parameters();
     correlator_node_set_all(pulsar_parameters);
@@ -706,7 +708,7 @@ void Manager_node::send_global_header(){
     // midnight
     Time int_time = control_parameters.integration_time();// Integration time: microseconds
     output_header.integration_time = (int)int_time.get_time_usec();
-    if (control_parameters.bolometer()) {
+    if (control_parameters.bolometer() || control_parameters.voltages()) {
       std::string mode = control_parameters.get_mode(start);
       std::string setup_station = control_parameters.setup_station();
       int sample_rate = control_parameters.sample_rate(mode, setup_station);
@@ -715,7 +717,7 @@ void Manager_node::send_global_header(){
       output_header.number_channels = control_parameters.number_channels();  // Number of frequency channels
     if (control_parameters.phased_array() || control_parameters.filterbank())
       output_header.output_format_version = OUTPUT_FORMAT_VERSION_PHASED;
-    else if (control_parameters.bolometer())
+    else if (control_parameters.bolometer() || control_parameters.voltages())
       output_header.output_format_version = OUTPUT_FORMAT_VERSION_BOLOMETER;
     else
       output_header.output_format_version = OUTPUT_FORMAT_VERSION;

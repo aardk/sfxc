@@ -97,6 +97,11 @@ enum MPI_TAG {
    **/
   MPI_TAG_SET_CORRELATOR_NODE_FILTERBANK,
 
+  /** Add a "correlator" node in voltages mode
+   * - MPI_INT32: no content
+   **/
+  MPI_TAG_SET_CORRELATOR_NODE_VOLTAGES,
+
   /** Add a "correlator" node in bolometer mode
    * - MPI_INT32: no content
    **/

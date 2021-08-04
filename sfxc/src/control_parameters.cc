@@ -132,12 +132,26 @@ initialise(const char *ctrl_file, const char *vex_file,
   if (ctrl["filterbank"] == Json::Value())
     ctrl["filterbank"] = false;
 
+  if (ctrl["voltages"] == Json::Value())
+    ctrl["voltages"] = false;
+
   if (ctrl["bolometer"] == Json::Value())
     ctrl["bolometer"] = false;
 
+  if (ctrl["voltages"].asBool() && cross_polarize()) {
+    std::cout << "Error: Cross polarizations must be disabled in voltage dump\n";
+    return false;
+  }
+
+  if (ctrl["bolometer"].asBool() &&  ctrl["voltages"].asBool()) {
+    std::cout << "Error: Bolometer and voltages cannot be selected at the same time\n";
+    return false;
+  }
+
   if (ctrl["multi_phase_center"] == Json::Value()){
     ctrl["multi_phase_center"] = false;
-    if(!ctrl["pulsar_binning"].asBool() && !ctrl["filterbank"].asBool() && !ctrl["bolometer"].asBool()){
+    if(!ctrl["pulsar_binning"].asBool() && !ctrl["filterbank"].asBool() && !ctrl["bolometer"].asBool()
+        && !ctrl["voltages"].asBool()){
       Vex::Node::const_iterator it = vex.get_root_node()["SCHED"]->begin();
       while(it != vex.get_root_node()["SCHED"]->end()){
         int n_sources = 0;
@@ -162,6 +176,10 @@ initialise(const char *ctrl_file, const char *vex_file,
              (ctrl["bolometer"].asBool() == true)){
     std::cout << "Bolometer cannot be used together with multiple phase centers\n";
     return false;
+  } else if ((ctrl["multi_phase_center"].asBool() == true) && 
+             (ctrl["voltages"].asBool() == true)) {
+    std::cout << "Voltages cannot be used together with multiple phase centers\n";
+    return false;
   }
   // No phased array and filterbank modes at the same time 
   if (ctrl["phased_array"].asBool() && ctrl["filterbank"].asBool()) {
@@ -169,8 +187,8 @@ initialise(const char *ctrl_file, const char *vex_file,
     return false;
   }
   // No phased array in pulsar binning mode
-  if ((ctrl["phased_array"].asBool() || ctrl["filterbank"].asBool() || ctrl["bolometer"].asBool()) &&
-      ctrl["pulsar_binning"].asBool()) {
+  if ((ctrl["phased_array"].asBool() || ctrl["filterbank"].asBool() || ctrl["bolometer"].asBool() 
+       || ctrl["voltages"].asBool()) && ctrl["pulsar_binning"].asBool()) {
     std::cout << "Pulsar binning cannot be used with phased array or filterbank modes\n";
     return false;
   }
@@ -682,7 +700,8 @@ Control_parameters::window_function() const{
   int windowval = SFXC_WINDOW_NONE;
   if (ctrl["filterbank"].asBool() || 
       ctrl["phased_array"].asBool() ||
-      ctrl["bolometer"].asBool()) {
+      ctrl["bolometer"].asBool() ||
+      ctrl["voltages"].asBool()) {
     windowval = SFXC_WINDOW_NONE;
   } else if (ctrl["window_function"] != Json::Value()){
     std::string window = ctrl["window_function"].asString();
@@ -755,6 +774,10 @@ bool Control_parameters::pulsar_binning() const{
 
 bool Control_parameters::filterbank() const{
   return ctrl["filterbank"].asBool();
+}
+
+bool Control_parameters::voltages() const{
+  return ctrl["voltages"].asBool();
 }
 
 bool Control_parameters::bolometer() const{
@@ -1664,7 +1687,7 @@ Control_parameters::get_dedispersion_parameters(const std::string &scan) const{
   dedispersion_parameters.ref_frequency = 0.;
 
   // check for coherent dedispersion
-  if(pulsar_binning() || phased_array() || filterbank() || bolometer()){
+  if(pulsar_binning() || phased_array() || filterbank() || bolometer() || voltages()){
     std::string source = scan_source(scan);
     // See if current source is a pulsar and if coherent dedispersion is requested
     std::map<std::string, Pulsar_parameters::Pulsar>::const_iterator it = 
