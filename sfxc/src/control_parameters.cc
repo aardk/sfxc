@@ -148,6 +148,12 @@ initialise(const char *ctrl_file, const char *vex_file,
     return false;
   }
 
+  if (ctrl["bolometer"].asBool() &&  ctrl["filterbank"].asBool()) {
+    std::cout << "Error: Filterbank and voltages cannot be selected at the same time\n";
+    return false;
+  }
+
+
   if (ctrl["multi_phase_center"] == Json::Value()){
     ctrl["multi_phase_center"] = false;
     if(!ctrl["pulsar_binning"].asBool() && !ctrl["filterbank"].asBool() && !ctrl["bolometer"].asBool()
