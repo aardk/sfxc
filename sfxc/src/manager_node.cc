@@ -717,8 +717,10 @@ void Manager_node::send_global_header(){
       output_header.number_channels = control_parameters.number_channels();  // Number of frequency channels
     if (control_parameters.phased_array() || control_parameters.filterbank())
       output_header.output_format_version = OUTPUT_FORMAT_VERSION_PHASED;
-    else if (control_parameters.bolometer() || control_parameters.voltages())
+    else if (control_parameters.bolometer())
       output_header.output_format_version = OUTPUT_FORMAT_VERSION_BOLOMETER;
+    else if (control_parameters.voltages())
+      output_header.output_format_version = OUTPUT_FORMAT_VERSION_VOLTAGES;
     else
       output_header.output_format_version = OUTPUT_FORMAT_VERSION;
     

@@ -126,8 +126,8 @@ def read_baselines(infile, data, nbaseline, nchan, fmt):
     # data is in phased array format
     baseline_data_size = (nchan + 1) * 4
     blfmt = str((nchan+1)) + 'f'
-  if fmt == 3:
-    # data is in phased array format
+  if (fmt == 3) or (fmt == 4):
+    # data is in BOLO / VOLTAGE format
     baseline_data_size = nchan  * 4
     blfmt = str(nchan) + 'f'
   else:
