@@ -221,5 +221,6 @@ int main(int argc, char *argv[]) {
     }
     out << std::endl;
     scan ++;
-  } while (delay_table.initialise_next_scan());
+  } while (delay_table.initialise_next_scan() && 
+          (!print_uvw || uvw_table.initialise_next_scan()));
 }
