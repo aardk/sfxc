@@ -26,6 +26,8 @@ def get_configuration(vexfile, corfile, setup_station):
   cfg = {}
   cfg["nsamples"] = global_header[5]
   cfg["inttime"] = global_header[6] / 1000000.
+  cfg["version"] = global_header[7]
+
   if global_header[9] < 2:
     cfg["npol"] = 1
   elif global_header[9] == 2:
@@ -51,7 +53,7 @@ def get_configuration(vexfile, corfile, setup_station):
   print "jday=", cfg["mjd"], ", year = ", global_header[2], ", day=", global_header[3], ", sec = ", global_header[4]
   return cfg
 
-def write_header(cfg, outfile, npol_out):
+def write_header(cfg, outfile, npol_out, fb_nchan):
   bw = cfg["bandwidth"]
   nsubband = cfg["nsubband"]
 
@@ -85,7 +87,11 @@ def write_header(cfg, outfile, npol_out):
   header.append(['foff', h])
   h = struct.pack('i', (eif-bif+1))
   header.append(['nchans', h])
-  h = struct.pack('i', 1)
+  if (fb_nchan <= 1):
+    nchan = nsubband
+  else
+    nchan = nsubband * fb_nchan
+  h = struct.pack('i', nchan)
   header.append(['nbeams', h])
   header.append(['ibeam', h])
   h = struct.pack('i', 32)
@@ -184,6 +190,8 @@ def parse_args():
                     default="")
   parser.add_option("-p", "--pol", dest='pol', type='string', default='I',
       help='Polarization: L, R, or I; default = I=L+R')
+  parser.add_option("-n", "--nchan", dest='nchan', type='int', default=0, metavar='NCHAN',
+      help='Create <NCHAN> frequency channels, NB: only valid for voltage data')
   (opts, args) = parser.parse_args()
 
   if opts.ifs == None:
@@ -206,6 +214,10 @@ def parse_args():
   else:
     parser.error('Polarization should be L, R, or I.')
 
+  if opts.nchan < 0:
+    parser.error('Invalid number of channels')
+  nchan = opts.nchan if opts.nchan > 1 else 0
+
   infiles = []
   nargs = len(args)
   if nargs < 3:
@@ -219,7 +231,7 @@ def parse_args():
 
   vexfile = vex.Vex(args[0])
   outfile = open(args[-1], 'w')
-  return vexfile, infiles, outfile, bif, eif, pol, opts.setup_station
+  return vexfile, infiles, outfile, bif, eif, pol, opts.setup_station, nchan
 
 def get_time(year, day, seconds):
   t = datetime.datetime(year, 1, 1)
@@ -263,7 +275,7 @@ def read_integration(infile, cfg):
         timeslice_header = struct.unpack('4i', tsheader_buf)
   return results 
 
-def parse_integration(indata, cfg, polarization):
+def parse_integration(indata, cfg, polarization, fb_chan):
   nsamples = cfg['nsamples']
   nsubband = cfg['nsubband']
   npol_in = 1 if (cfg['npol'] < 4) else 4
@@ -356,8 +368,8 @@ def reader_thread(inqueue, infile, cfg):
       timeslice_buffer = read_integration(infile, cfg)
   inqueue.put([])
 
-def worker_thread(indata, cfg, polarization, bandpass=[]):
-    data = parse_integration(indata, cfg, polarization)
+def worker_thread(indata, cfg, polarization, fb_nchan, bandpass=[]):
+    data = parse_integration(indata, cfg, polarization, fb_nchan)
     return data
 
 def writer_thread(outqueue, outfile, cfg, bif, eif):
@@ -376,7 +388,7 @@ def writer_thread(outqueue, outfile, cfg, bif, eif):
 ############################### Main program ##########################
 #########
 if __name__ == "__main__":
-    vexfile, infiles, outfile, bif, eif, pol, setup_station = parse_args()
+    vexfile, infiles, outfile, bif, eif, pol, setup_station, fb_nchan = parse_args()
     nthreads = 8 # For now hardcode the number of converter threads
 
     # Read global header
@@ -393,7 +405,7 @@ if __name__ == "__main__":
         print "Error: Full polarization requested, but correlator output doesn't contain cross-polls"
         exit(1)
     # Write filterbank header
-    write_header(cfg, outfile, npol_out)
+    write_header(cfg, outfile, npol_out, fb_nchan)
     nwritten = 0
     total_written = 0
     for infile in infiles:
@@ -424,7 +436,7 @@ if __name__ == "__main__":
           #Write data
           if (nwritten >= nskip):
             if (len(indata) != 0) and (len(results) < nthreads):
-              results.append(workers.apply_async(worker_thread, (indata, cfg, pol)))
+              results.append(workers.apply_async(worker_thread, (indata, cfg, pol, fb_nchan)))
               indata = inqueue.get()
             else:
               # use sleep rather than a blocking .get() to keep ctrl-c responsive
