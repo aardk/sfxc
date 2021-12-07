@@ -120,11 +120,15 @@ VDIF_reader::read_new_block(Data_frame &data) {
     Data_reader_blocking::get_bytes_s(data_reader_.get(), 16, (char *)&current_header);
     if (data_reader_->eof())
       return false;
+    bool data_good = (current_header.invalid == 0);
     if (((uint32_t *)&current_header)[0] == 0x11223344 ||
         ((uint32_t *)&current_header)[1] == 0x11223344 ||
         ((uint32_t *)&current_header)[2] == 0x11223344 ||
         ((uint32_t *)&current_header)[3] == 0x11223344) {
       LOG_MSG(": VDIF_READER, fill pattern in header, frame_size =" << frame_size);
+      data_good = false;
+    }
+    if (!data_good) {
       // NB we default to non-legacy VDIF, at this point there is no way to tell
       Data_reader_blocking::get_bytes_s(data_reader_.get(), frame_size + 16, NULL);
       if (++restarts > max_restarts)
@@ -154,7 +158,7 @@ VDIF_reader::read_new_block(Data_frame &data) {
   if (buffer.size() == 0)
     buffer.resize(size_data_block());
 
-  bool dorestart = false;
+  bool dorestart = (current_header.invalid == 1);
   if (((uint32_t *)&current_header)[0] == 0x11223344 ||
       ((uint32_t *)&current_header)[1] == 0x11223344 ||
       ((uint32_t *)&current_header)[2] == 0x11223344 ||
