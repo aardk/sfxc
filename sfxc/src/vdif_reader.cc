@@ -120,11 +120,7 @@ VDIF_reader::read_new_block(Data_frame &data) {
     Data_reader_blocking::get_bytes_s(data_reader_.get(), 16, (char *)&current_header);
     if (data_reader_->eof())
       return false;
-    if (((uint32_t *)&current_header)[0] == 0x11223344 ||
-        ((uint32_t *)&current_header)[1] == 0x11223344 ||
-        ((uint32_t *)&current_header)[2] == 0x11223344 ||
-        ((uint32_t *)&current_header)[3] == 0x11223344) {
-      LOG_MSG(": VDIF_READER, fill pattern in header, frame_size =" << frame_size);
+    if (!check_header(current_header)) {
       // NB we default to non-legacy VDIF, at this point there is no way to tell
       Data_reader_blocking::get_bytes_s(data_reader_.get(), frame_size + 16, NULL);
       if (++restarts > max_restarts)
@@ -153,22 +149,8 @@ VDIF_reader::read_new_block(Data_frame &data) {
 
   if (buffer.size() == 0)
     buffer.resize(size_data_block());
-
-  bool dorestart = false;
-  if (((uint32_t *)&current_header)[0] == 0x11223344 ||
-      ((uint32_t *)&current_header)[1] == 0x11223344 ||
-      ((uint32_t *)&current_header)[2] == 0x11223344 ||
-      ((uint32_t *)&current_header)[3] == 0x11223344) {
-    LOG_MSG(": VDIF_READER, fill pattern in header, frame_size =" << frame_size);
-    dorestart = true;
-  } else if ((current_header.ref_epoch == 0 ) && (current_header.sec_from_epoch == 0)) {
-    // jive5ab sometimes inserts an invalid frame with timestamp 0 into the stream
-    dorestart = true;
-  } else if ((current_header.dataframe_in_second % vdif_frames_per_block) != 0) {
-    //    LOG_MSG("VDIF_READER, unexpected frame nr = " << current_header.dataframe_in_second);
-    dorestart = true;
-  }
-  if (dorestart) {
+  
+  if (!check_header(current_header)) {
     Data_reader_blocking::get_bytes_s(data_reader_.get(), frame_size, NULL);
     if (++restarts > max_restarts)
       return false;
