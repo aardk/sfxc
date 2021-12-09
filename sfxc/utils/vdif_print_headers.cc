@@ -260,15 +260,24 @@ int main(int argc, char *argv[]) {
       if (((uint32_t *)header_buf)[0] == 0x11223344 ||
           ((uint32_t *)header_buf)[1] == 0x11223344 ||
           ((uint32_t *)header_buf)[2] == 0x11223344 ||
-          ((uint32_t *)header_buf)[3] == 0x11223344){
+          ((uint32_t *)header_buf)[3] == 0x11223344) {
         std::cout << "Invalid frame with fill pattern : Nr of previous bad frames = " << invalid_nr << "\n";
         invalid_nr++;
-      }else{
+      } else if (first_header) {
         // We save the first header to be able to determine if a frame is valid or not
-        if (first_header){
-          first_header = false;
-          memcpy(&prev_header, header_buf, sizeof(Header));
-        }
+          if(header.sec_from_epoch == 0 &&
+             header.dataframe_in_second == 0 &&
+             header.ref_epoch == 0) {
+            std::cout << "First frame(s) suspected to be jive5ab filler frame\n";
+          } else {
+            first_header = false;
+            memcpy(&prev_header, header_buf, sizeof(Header));
+          }
+          // Even if the first frame is a jive5ab zero'd filler frame it will still have
+          // a valid data_size
+          data_size = 8*header.dataframe_length;
+          header_size = (16+16*(1-header.legacy_mode));
+      } else {
         if (check_header(header, prev_header)){
           data_size = 8*header.dataframe_length;
           header_size = (16+16*(1-header.legacy_mode));
@@ -300,7 +309,7 @@ int main(int argc, char *argv[]) {
           }
         }
       }
-      if (frame_size > 0){
+      if (frame_size > 0) {
         // The frame size in the header is overridden
         fseek(infile, frame_size-header_size, SEEK_CUR);
       }else{
