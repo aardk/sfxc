@@ -91,6 +91,9 @@ public:
     return vdif_frames_per_block * first_header.data_size();
   }
 
+  // NB: This checks the validity of the header not the data
+  bool check_header(Header &header);
+  
   void set_parameters(const Input_node_parameters &param);
 
   size_t bytes_per_input_word() const {
@@ -140,6 +143,21 @@ inline int32_t
 VDIF_reader::Header::data_size() const{
   return 8*dataframe_length-header_size();
 }
+
+inline bool VDIF_reader::check_header(Header &header) {
+  if (((uint32_t *)&current_header)[0] == 0x11223344 ||
+      ((uint32_t *)&current_header)[1] == 0x11223344 ||
+      ((uint32_t *)&current_header)[2] == 0x11223344 ||
+      ((uint32_t *)&current_header)[3] == 0x11223344) {
+    LOG_MSG(": VDIF_READER, fill pattern in header, frame_size =" << frame_size);
+    return false;
+  } else if ((current_header.ref_epoch == 0  && current_header.sec_from_epoch == 0) || 
+             (current_header.dataframe_in_second % vdif_frames_per_block != 0)) {
+    return false;
+  }
+  return true;
+}
+
 
 std::ostream &operator<<(std::ostream &out,
                          const VDIF_reader::Header &header);
