@@ -253,8 +253,11 @@ class progressDialog(QtGui.QDialog):
         self.ui.progressBar.setRange(self.start, self.stop)
         self.ui.logEdit.setMaximumBlockCount(100000)
         self.time = self.start
+        self.integr_time = self.json_input['integr_time']
         self.cordata = None
-        self.scan = None
+        self.scans = self.json_input['scans']
+        self.scan = self.scans[0]
+        self.ui.scanEdit.setText(self.scan)
         self.wplot = None
         self.fplot = None
         self.status = 'CRASH'
@@ -390,6 +393,30 @@ class progressDialog(QtGui.QDialog):
         self.t.start(500)
         pass
 
+    def _output_file(self, start):
+        output_file = urlparse.urlparse(self.json_input['output_file']).path
+        try:
+            if self.json_input['multi_phase_center']:
+                source = None
+                for scan in self.vex['SCHED']:
+                    if start >= vex2time(self.vex['SCHED'][scan]['start']):
+                        source = self.vex['SCHED'][scan]['source']
+                        pass
+                    continue
+                if source:
+                    output_file = output_file + '_' + source
+                    pass
+                pass
+        except:
+            pass
+        try:
+            if self.json_input['pulsar_binning']:
+                output_file = output_file + '.bin1'
+                pass
+        except:
+                pass
+        return output_file
+
     def timeout(self):
         if self.cordata:
             self.cordata.read()
@@ -399,14 +426,27 @@ class progressDialog(QtGui.QDialog):
                 strtime = time.strftime("%H:%M:%S", tupletime)
                 self.ui.timeEdit.setText(strtime)
                 self.ui.progressBar.setValue(self.time)
-                for scan in self.vex['SCHED']:
-                    if self.time < vex2time(self.vex['SCHED'][scan]['start']):
-                        break
-                    current_scan = scan
+
+                stop_time = 0
+                for transfer in self.vex['SCHED'][self.scan].getall('station'):
+                    stop_time = max(stop_time, int(transfer[2].split()[0]))
                     continue
-                if current_scan != self.scan:
-                    self.scan = current_scan
+                stop_time += vex2time(self.vex['SCHED'][self.scan]['start'])
+
+                next_scan = self.scan
+                if self.time + self.integr_time >= stop_time:
+                    index = self.scans.index(self.scan)
+                    try:
+                        next_scan = self.scans[index + 1]
+                    except:
+                        pass
+                    pass
+                if next_scan != self.scan:
+                    self.scan = next_scan
                     self.ui.scanEdit.setText(self.scan)
+                    start = vex2time(self.vex['SCHED'][next_scan]['start'])
+                    output_file = self._output_file(start)
+                    self.cordata.switch(output_file)
                     pass
                 pass
             pass
@@ -420,28 +460,8 @@ class progressDialog(QtGui.QDialog):
                 m = r1.search(line)
                 if m:
                     if not self.cordata:
-                        output_file = urlparse.urlparse(self.json_input['output_file']).path
-                        try:
-                            if self.json_input['multi_phase_center']:
-                                source = None
-                                for scan in self.vex['SCHED']:
-                                    if self.start >= vex2time(self.vex['SCHED'][scan]['start']):
-                                        source = self.vex['SCHED'][scan]['source']
-                                        pass
-                                    continue
-                                if source:
-                                    output_file = output_file + '_' + source
-                                    pass
-                                pass
-                        except:
-                            pass
-                        try:
-                            if self.json_input['pulsar_binning']:
-                                output_file = output_file + '.bin1'
-                                pass
-                        except:
-                            pass
-                        self.cordata = CorrelatedData(self.vex, output_file, True)
+                        self.output_file = self._output_file(self.start)
+                        self.cordata = CorrelatedData(self.vex, self.output_file, True)
                         if not self.wplot:
                             self.wplot = WeightPlotWindow(self.vex, [self.ctrl_file], self.cordata, True)
                             if self.label:
