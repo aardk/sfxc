@@ -39,6 +39,7 @@ class CorrelatedData:
 
         self.realtime = realtime
 
+        self.fps = {}
         self.fp = None
         self.integration_slice = 0
         self.integration_time = 0
@@ -62,22 +63,33 @@ class CorrelatedData:
         self.output_file = output_file
         self.offset = offset
 
+        self.fps = {}
         self.fp = None
+        return
+
+    def switch(self, output_file):
+        self.output_file = output_file
+        if not output_file in self.fps:
+            self.fps[output_file] = None
+            pass
+        self.fp = self.fps[output_file]
         return
 
     def read(self):
         if self.fp == None:
             try:
-                self.fp = open(self.output_file, 'r')
+                fp = open(self.output_file, 'r')
             except:
                 return
 
             try:
-                h = struct.unpack(global_hdr, self.fp.read(struct.calcsize(global_hdr)))
+                h = struct.unpack(global_hdr, fp.read(struct.calcsize(global_hdr)))
             except:
-                self.fp.close()
-                self.fp = None
+                fp.close()
                 return
+
+            self.fps[self.output_file] = fp
+            self.fp = fp
 
             self.fp.read(h[0] - struct.calcsize(global_hdr))
             exper = h[1].strip('\x00')
