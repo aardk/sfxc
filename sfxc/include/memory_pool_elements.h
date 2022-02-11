@@ -95,7 +95,7 @@ template <class T, int N>
 class Memory_pool_fixed_size_element {
 public:
   typedef T value_type;
-  inline size_t size() const {
+  inline static size_t size() {
     return N;
   }
 

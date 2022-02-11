@@ -208,6 +208,9 @@ initialise(const char *ctrl_file, const char *vex_file,
   if(ctrl["exit_on_empty_datastream"] == Json::Value())
     ctrl["exit_on_empty_datastream"] = true;
 
+  if (ctrl["output_buffer_size"] == Json::Value())
+    ctrl["output_buffer_size"] = 5000 * 250;
+
   if (ctrl["start"].asString().compare("now") == 0) {
     char *now;
     time_t t;
@@ -549,6 +552,10 @@ Control_parameters::check(std::ostream &writer) const {
       }
     }
   }
+  if (ctrl["output_buffer_size"].asInt() <= 0) {
+    ok = false;
+    writer << "Ctrl-file: Invalid output buffer size " << std::endl;
+  }
   return ok;
 }
 
@@ -776,6 +783,11 @@ Control_parameters::subjob_nr() const {
     return 0;
   else
     return ctrl["subjob"].asInt();
+}
+
+int
+Control_parameters::output_buffer_size() const {
+  return ctrl["output_buffer_size"].asInt();
 }
 
 std::string

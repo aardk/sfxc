@@ -41,7 +41,7 @@ public:
   virtual ~Abstract_manager_node();
 
   void start_input_node(int rank, const std::string &station, const std::string &datastream);
-  void start_output_node(int rank);
+  void start_output_node(int rank, int32_t buffer_size);
   void start_correlator_node(int rank);
   void start_log_node(int rank);
   void start_log_node(int rank, char *filename);

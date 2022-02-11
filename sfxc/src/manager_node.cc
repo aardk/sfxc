@@ -46,7 +46,7 @@ Manager_node(int rank, int numtasks,
   start_log_node(RANK_LOG_NODE);
 
   // initialise the output node
-  start_output_node(RANK_OUTPUT_NODE);
+  start_output_node(RANK_OUTPUT_NODE, control_parameters.output_buffer_size());
 
   // Input nodes:
   int n_inputs = get_control_parameters().number_inputs();

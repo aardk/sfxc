@@ -231,6 +231,7 @@ public:
   int window_function() const;
   int job_nr() const;
   int subjob_nr() const;
+  int output_buffer_size() const;
 
   std::string sideband(int i) const;
   std::string reference_station() const;
