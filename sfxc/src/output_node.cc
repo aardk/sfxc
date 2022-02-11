@@ -13,13 +13,14 @@
 
 #include <iostream>
 
-Output_node::Output_node(int rank, int size)
+Output_node::Output_node(int rank, int buffer_size_)
     : Node(rank),
     output_node_ctrl(*this),
     data_readers_ctrl(*this),
     data_writer_ctrl(*this),
     status(STOPPED), n_data_writers(0), output_file_index(0),
-      curr_slice(0), number_of_time_slices(-1), curr_band(-1), curr_stream(-1), current_output_file(-1) {
+      curr_slice(0), number_of_time_slices(-1), curr_band(-1), curr_stream(-1), 
+      current_output_file(-1), buffer_size(buffer_size_) {
   initialise();
 }
 
@@ -305,7 +306,7 @@ bool Output_node::write_output(int nBytes) {
 
 void Output_node::hook_added_data_reader(size_t reader) {
   // Create an output buffer:
-  data_readers_ctrl.enable_buffering(reader);
+  data_readers_ctrl.enable_buffering(reader, buffer_size);
 
   // Create the data_stream:
   if (input_streams.size() <= reader) {

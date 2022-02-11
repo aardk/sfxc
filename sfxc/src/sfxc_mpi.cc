@@ -94,8 +94,8 @@ void start_node() {
       break;
     }
   case MPI_TAG_SET_OUTPUT_NODE: {
-      int32_t msg;
-      MPI_Recv(&msg, 1, MPI_INT32,
+      int32_t output_buffer_size;
+      MPI_Recv(&output_buffer_size, 1, MPI_INT32,
                RANK_MANAGER_NODE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 
       if (PRINT_PID) {
@@ -105,7 +105,7 @@ void start_node() {
         DEBUG_MSG("Output node, hostname = " << HOSTNAME_OF_NODE);
       }
       ID_OF_NODE = "Outputnode";
-      Output_node node(rank);
+      Output_node node(rank, output_buffer_size);
       node.start();
       break;
     }

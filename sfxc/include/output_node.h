@@ -107,8 +107,8 @@ public:
     size_t offset;
   };
 
-  Output_node(int rank, Log_writer *writer, int buffer_size = 10);
-  Output_node(int rank, int buffer_size = 10);
+  Output_node(int rank, Log_writer *writer, int buffer_size_);
+  Output_node(int rank, int buffer_size_);
   void initialise();
 
   ~Output_node();
@@ -190,7 +190,8 @@ private:
   // In one read operation we might only partially receive the output file nr, 
   // this tracks the number of received bytes.
   int output_file_index;
-
+  // The size of the per reader input buffers
+  int32_t buffer_size; 
   uint32_t number_channels;
 };
 

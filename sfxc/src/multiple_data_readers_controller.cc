@@ -203,17 +203,22 @@ Multiple_data_readers_controller::stop() {
   }
 }
 
+// This is the old default value
+//int32_t buffer_size = 250 * sizeof(Memory_pool_fixed_size_element);
 void
 Multiple_data_readers_controller::
-enable_buffering(unsigned int i) {
+enable_buffering(unsigned int i, int32_t buffer_size) {
   SFXC_ASSERT(i < readers.size());
   SFXC_ASSERT(readers[i].reader2buffer != Reader2buffer_ptr());
   SFXC_ASSERT(readers[i].reader2buffer->get_data_reader() !=
               Data_reader_ptr());
   SFXC_ASSERT(readers[i].reader2buffer->get_queue() == Queue_ptr());
 
-  Queue_ptr queue(new Queue());
+  // Resize the memory pool of the data reader
+  int npool = (int) std::ceil(float(buffer_size) / data_type::size());
+  readers[i].reader2buffer->resize(npool);
 
+  Queue_ptr queue(new Queue());
   readers[i].reader2buffer->set_queue(queue);
   readers[i].reader2buffer->start();
 

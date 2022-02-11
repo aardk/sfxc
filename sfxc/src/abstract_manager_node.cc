@@ -88,10 +88,10 @@ start_input_node(int rank, const std::string &station, const std::string &datast
 }
 void
 Abstract_manager_node::
-start_output_node(int rank) {
+start_output_node(int rank, int32_t buffer_size) {
   SFXC_ASSERT(rank == RANK_OUTPUT_NODE);
   // starting an input reader
-  int32_t msg=0;
+  int32_t msg = buffer_size;
   MPI_Send(&msg, 1, MPI_INT32,
            rank, MPI_TAG_SET_OUTPUT_NODE, MPI_COMM_WORLD);
 

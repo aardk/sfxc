@@ -65,9 +65,12 @@ public:
   void start();
   void try_start();
   void stop();
+
   State get_state();
   void set_state(State new_state);
   void get_state(std::ostream &out);
+
+  void resize(int32_t pool_size);
 
 private:
   static void *start_reading(void *);
@@ -86,7 +89,7 @@ private:
 // Implementation:
 template <class T>
 Data_reader2buffer<T>::Data_reader2buffer()
-    : memory_pool(250), state(STOPPED) {
+    : memory_pool(0), state(STOPPED) {
   pthread_mutex_init(&mutex_for_set_state, NULL);
 }
 
@@ -247,4 +250,9 @@ void Data_reader2buffer<T>::get_state(std::ostream &out) {
   out << "\t\t\t\"memory_pool_free\": " << memory_pool.number_free_element() << "\n\t\t}";
 }
 
+template <class T>
+void
+Data_reader2buffer<T>::resize(int32_t pool_size) {
+  memory_pool.resize(pool_size);  
+}
 #endif // DATA_READER2BUFFER_H

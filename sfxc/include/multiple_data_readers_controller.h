@@ -44,7 +44,7 @@ public:
 
   /** This enables asynchronous io for a certain stream
    **/
-  void enable_buffering(unsigned int i);
+  void enable_buffering(unsigned int i, int32_t buffer_size);
 
   Queue_ptr get_queue(unsigned int i);
 
