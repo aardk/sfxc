@@ -257,10 +257,16 @@ class progressDialog(QtGui.QDialog):
         self.cordata = None
         self.scans = self.json_input['scans']
         self.scan = self.scans[0]
-        self.ui.scanEdit.setText(self.scan)
         self.wplot = None
         self.fplot = None
         self.status = 'CRASH'
+
+        # Make sure we skip scans before the start time of the job.
+        # This can happen during e-VLBI when the operators have
+        # selected a range of scans that includes scans that have
+        # already been completed.
+        self.scan = self.next_scan()
+        self.ui.scanEdit.setText(self.scan)
 
         # Parse the rankfile to figure out wher the input node for
         # each station runs.
@@ -417,6 +423,26 @@ class progressDialog(QtGui.QDialog):
                 pass
         return output_file
 
+    def next_scan(self):
+        scan = self.scan
+        while True:
+            stop_time = 0
+            for transfer in self.vex['SCHED'][scan].getall('station'):
+                stop_time = max(stop_time, int(transfer[2].split()[0]))
+                continue
+            stop_time += vex2time(self.vex['SCHED'][scan]['start'])
+
+            if self.time + self.integr_time < stop_time:
+                break
+
+            index = self.scans.index(scan)
+            try:
+                scan = self.scans[index + 1]
+            except:
+                break
+            continue
+        return scan
+
     def timeout(self):
         if self.cordata:
             self.cordata.read()
@@ -427,20 +453,7 @@ class progressDialog(QtGui.QDialog):
                 self.ui.timeEdit.setText(strtime)
                 self.ui.progressBar.setValue(self.time)
 
-                stop_time = 0
-                for transfer in self.vex['SCHED'][self.scan].getall('station'):
-                    stop_time = max(stop_time, int(transfer[2].split()[0]))
-                    continue
-                stop_time += vex2time(self.vex['SCHED'][self.scan]['start'])
-
-                next_scan = self.scan
-                if self.time + self.integr_time >= stop_time:
-                    index = self.scans.index(self.scan)
-                    try:
-                        next_scan = self.scans[index + 1]
-                    except:
-                        pass
-                    pass
+                next_scan = self.next_scan()
                 if next_scan != self.scan:
                     self.scan = next_scan
                     self.ui.scanEdit.setText(self.scan)
