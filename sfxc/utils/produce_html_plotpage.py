@@ -226,6 +226,7 @@ def generate_plots(integr, weights, channels, outdir, ap, integr_time):
       job["outdir"] = outdir
       if len(ch) == 3:
         job["pol1"] = ch.pol
+        job["pol2"] = ch.pol
       else:
         job["pol1"] = ch.pol1
         job["pol2"] = ch.pol2
@@ -240,7 +241,6 @@ def generate_plots(integr, weights, channels, outdir, ap, integr_time):
       plots[bl][ch] = results[i]
       i += 1
   return plots
-
 
 def plot_thread(job):
   opts_small = {'terminal': 'png font ",9" size 300,200', '_with':'lines', 'unset': 'grid', '_set': 'format y "%1.0e"'}
@@ -263,10 +263,11 @@ def plot_thread(job):
   if bl[0] == bl[1]:
     st = bl[0]
     sb = 'lsb' if job["sb"] == 0 else 'usb'
-    pol = 'rcp' if job["pol1"] == 0 else 'lcp'
+    pol1 = 'rcp' if job["pol1"] == 0 else 'lcp'
+    pol2 = 'rcp' if job["pol2"] == 0 else 'lcp'
     ampl = abs(vis) / max(1, job["ap"])
     # plot spectrum (amplitude)
-    basename = "{st}_{pol}_freq{freq}_{sb}".format(st=st, pol=pol, freq=job["freqnr"], sb=sb)
+    basename = "{st}_{pol1}_{pol2}_freq{freq}_{sb}".format(st=st, pol1=pol1, pol2=pol2, freq=job["freqnr"], sb=sb)
     name = job["outdir"] + '/' + basename + '.png'
     name_large = job["outdir"] + '/' + basename + '_large.png'
     plot = {'basename': basename}
