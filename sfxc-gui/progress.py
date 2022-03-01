@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'progress.ui'
 #
-# Created: Wed May 27 11:14:23 2020
+# Created: Tue Mar  1 13:19:53 2022
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -26,7 +26,7 @@ except AttributeError:
 class Ui_Dialog1(object):
     def setupUi(self, Dialog1):
         Dialog1.setObjectName(_fromUtf8("Dialog1"))
-        Dialog1.resize(661, 363)
+        Dialog1.resize(996, 363)
         self.gridLayout = QtGui.QGridLayout(Dialog1)
         self.gridLayout.setObjectName(_fromUtf8("gridLayout"))
         self.hboxlayout = QtGui.QHBoxLayout()
