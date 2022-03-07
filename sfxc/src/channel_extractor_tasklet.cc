@@ -23,7 +23,7 @@
 // Increase the size of the output_memory_pool_ to allow more buffering
 Channel_extractor_tasklet::
 Channel_extractor_tasklet(Data_format_reader_ptr reader)
-  : output_memory_pool_(2 * MAX_SUBBANDS * 32 * 64),
+  : output_memory_pool_(4 * MAX_SUBBANDS * 32 * 64),
     reader_(reader),
     n_subbands(0),
     fan_out(0), seqno(0),
