@@ -4,17 +4,17 @@ import optparse
 import datetime
 import vex
 import re
-from numpy import *
-from Queue import Queue
-from time import sleep
 import signal
-from threading import Thread
-from multiprocessing import Pool
+from numpy import *
+from time import sleep
+from threading import Thread, current_thread
+from multiprocessing import Queue, Process
 timeslice_header_size = 16
 uvw_header_size = 32
 stat_header_size = 24
 baseline_header_size = 8
 nskip = 0
+NSLICE_PER_INT = 32 # Divide integrations in NSLICE_PER_INT chuncks
 
 def get_configuration(vexfile, corfile, setup_station):
   # TODO: This should also determine which subbands have been correlated
@@ -432,39 +432,79 @@ def start_next_input(infile, cfg, npol_out, decimate, nwritten):
       npad = 0
     return start_time, npad
 
-def reader_thread(inqueue, infile, cfg):
+def reader_thread(outqueue, infile, cfg):
+  thread = current_thread()
+  thread.is_running = True
   timeslice_buffer = read_integration(infile, cfg)
-  while len(timeslice_buffer) > 0:
-      inqueue.put(timeslice_buffer)
+  i = 0
+  n = len(outqueue)
+  while (len(timeslice_buffer) > 0) and (thread.is_running):
+      while not outqueue[i].empty():
+        sleep(0.1)
+      for buf in timeslice_buffer:
+        outqueue[i].put(buf)
       timeslice_buffer = read_integration(infile, cfg)
-  inqueue.put([])
+      i = (i+1) % n
+  for i in range(n):
+    outqueue[i].put(tuple())
 
-def worker_thread(indata, cfg, polarization, zerodm=False, bandpass=[]):
-    data = parse_integration(indata, cfg, polarization)
+def worker_thread(inqueue, outqueue, cfg, polarization, zerodm=False, bandpass=[]):
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
     nchan = cfg["nchan"]
-    if len(bandpass) > 0:
-        # Don't blow up band edges too much
-        bp = [x if x > 1e-2 else 1. for x in bandpass]
-        data /= bp
-    if zerodm:
-        for i in range(start/nchan, end/nchan):
-            cdata = data[:, i*nchan:(i+1)*nchan]
-            for j in range(data.shape[0]):
-                cdata[j] -= cdata[j].sum() / nchan
-    return data
+    nsubband = cfg['nsubband']
+    nsubint = cfg['nsubint']
+    npol = cfg['npol']
+    
+    while(True):
+        indata = []
+        ch = 0
+        while ch < nsubband * npol:
+            d = inqueue.get()
+            if len(d) == 0:
+                outqueue.put([])
+                return
+            indata.append(d)
+            nbaseline = d[0][1]
+            if nbaseline > nsubint:
+               ch += 4 # If data has cross-polls then all polarization in each timeslice
+            else:
+               ch += 1
 
-def writer_thread(outqueue, outfile, cfg, bif, eif, decimate_frac):
+        data = parse_integration(indata, cfg, polarization)
+        if len(bandpass) > 0:
+            # Don't blow up band edges too much
+            bp = [x if x > 1e-2 else 1. for x in bandpass]
+            data /= bp
+        if zerodm:
+            for i in range(start/nchan, end/nchan):
+                cdata = data[:, i*nchan:(i+1)*nchan]
+                for j in range(data.shape[0]):
+                    cdata[j] -= cdata[j].sum() / nchan
+        m = nsubint // NSLICE_PER_INT
+        for i in range(NSLICE_PER_INT - 1):
+          outqueue.put(data[i*m:(i+1)*m])
+        outqueue.put(data[(NSLICE_PER_INT-1) * m :])
+
+def writer_thread(inqueue, outfile, cfg, bif, eif, decimate_frac):
     nchan = cfg["nchan"]
     # NB: we ordered subbands in reverse order
     start = (cfg["nsubband"] - eif - 1) * nchan
     end = (cfg["nsubband"] - bif) * nchan
-    data = outqueue.get()
+    slicenr = 0
+    i = 0
+    n = len(outqueue)
+    data = outqueue[slicenr].get()
     while len(data) > 0:
         if len(data.shape) == 3:
             data[:, :, start:end:decimate_frac].tofile(outfile)
         else:
             data[:, start:end:decimate_frac].tofile(outfile)
-        data = outqueue.get()
+        i += 1
+        if i == NSLICE_PER_INT:
+          i = 0
+          slicenr += 1
+          print "Written time slice", slicenr
+        data = inqueue[slicenr % n].get()
 #########
 ############################### Main program ##########################
 #########
@@ -501,52 +541,28 @@ if __name__ == "__main__":
       nwritten = 0
       nchan = cfg["nchan"]
       infile.seek(global_header_size)
+      nsubslice = cfg["nsubband"] * cfg["npol"]
       # Start reader thread
-      inqueue = Queue(nthreads)
+      inqueue = [Queue(nsubslice) for i in range(nthreads)]
       reader = Thread(target=reader_thread, args=(inqueue, infile, cfg))
       reader.daemon = True
       reader.start()
       # Start output thread
-      outqueue = Queue()
+      outqueue = [Queue() for i in range(nthreads)]
       decimate_frac = 2 if decimate else 1
       writer = Thread(target=writer_thread, args=(outqueue, outfile, cfg, bif, eif, decimate_frac))
       writer.start()
-      # Pool of worker threads (Multiprocessing module)
-      oldsignal = signal.signal(signal.SIGINT, signal.SIG_IGN)
-      workers = Pool(processes=nthreads) 
-      signal.signal(signal.SIGINT, oldsignal)
-      indata = inqueue.get()
-      results = []
+      # Worker processes (Multiprocessing module)
+      workers = [Process(target=worker_thread, args=(inqueue[i], outqueue[i], cfg, pol, zerodm, bandpass)) for i in range(nthreads)]
+      for worker in workers:
+        worker.start()
+      # Wait for threads to close using polling in order to keep ctrl-c working
       try:
-        while (len(indata) != 0) or (len(results) > 0):
-          #Write data
-          if (nwritten >= nskip):
-            if (len(indata) != 0) and (len(results) < nthreads):
-              results.append(workers.apply_async(worker_thread, (indata, cfg, pol, zerodm, bandpass)))
-              indata = inqueue.get()
-            else:
-              # use sleep rather than a blocking .get() to keep ctrl-c responsive
-              sleep(1)
-            while (len(results) > 0) and results[0].ready():
-              outqueue.put(results[0].get())
-              results = results[1:]
-              nwritten += 1
-              total_written += 1
-              print 'written time slice ', nwritten
-          else:
-            nwritten += 1
-            total_written += 1
-            print('skipped time slice ', nwritten)
-            indata = inqueue.get()
+        while writer.isAlive():
+          writer.join(0.5)
       except KeyboardInterrupt:
-        print 'Keyboard interrupt'
-        workers.terminate()
-        while not outqueue.empty():
-          outqueue.get()
-        outqueue.put([])
-        exit(1)
-      # close threads
-      workers.close()
-      outqueue.put([])
+        reader.is_running = False
       writer.join()
+      for worker in workers:
+        worker.join()
       reader.join()
