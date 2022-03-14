@@ -340,6 +340,7 @@ void Correlator_node::purge() {
   for (size_t i=0; i<delay_modules.size(); i++) {
     if (delay_modules[i] != Delay_correction_ptr()) {
       delay_modules[i]->empty_output_queue();
+      windowing[i]->empty_output_queue();
     }
     if(coherent_dedispersion)
       dedispersion_tasklet.empty_output_queue();

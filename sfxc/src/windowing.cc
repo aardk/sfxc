@@ -72,6 +72,12 @@ Windowing::do_task(){
     output_queue->push(cur_output);
   }
 }
+void
+Windowing::empty_output_queue(){
+  while (output_queue->size() > 0)
+    output_queue->pop();
+}
+
 
 bool
 Windowing::has_work(){
