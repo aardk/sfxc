@@ -2308,7 +2308,7 @@ get_correlation_parameters(const std::string &scan_name,
 
   corr_param.reference_station = reference_station_number();
 
-  std::set<int> stations_set;
+  std::set<int32_t> stream_set;
   for (Vex::Node::const_iterator station = scan->begin("station");
        station != scan->end("station"); ++station) {
     const std::string &channel_name =
@@ -2322,7 +2322,7 @@ get_correlation_parameters(const std::string &scan_name,
         if (channel_name != std::string()) {
           Correlation_parameters::Station_parameters station_param;
           station_param.station_number = station_number(station[0]->to_string());
-          stations_set.insert(station_param.station_number);
+          stream_set.insert(station_nr_it->second);
           station_param.station_stream = station_nr_it->second;
           station_param.bits_per_sample = bits_per_sample(mode_name, station[0]->to_string());
           station_param.sample_rate = sample_rate(mode_name, station[0]->to_string());
@@ -2365,7 +2365,7 @@ get_correlation_parameters(const std::string &scan_name,
         if (channel_name != std::string()) {
           Correlation_parameters::Station_parameters station_param;
           station_param.station_number = station_number(station[0]->to_string());
-	  if (stations_set.count(station_param.station_number) > 0)
+	  if (stream_set.count(station_nr_it->second) > 0)
 	    station_param.station_stream = station_nr_it->second + number_inputs();
 	  else
 	    station_param.station_stream = station_nr_it->second;;
