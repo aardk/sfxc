@@ -2243,6 +2243,14 @@ Control_parameters::create_path(const std::string &path) const {
 }
 
 bool
+Control_parameters::topocentric() const {
+ if (ctrl["topocentric"] == Json::Value())
+   return false;
+   
+ return ctrl["topocentric"].asBool();
+}
+
+bool
 Input_node_parameters::operator==(const Input_node_parameters &other) const {
   if (channels != other.channels)
     return false;

@@ -517,6 +517,12 @@ bool Delay_table::goto_scan(const Time &time){
   return false;
 }
 
+void Delay_table::zero_delays() {
+  for (int i = 0; i < delays.size() ; i++)
+    delays[i] = 0.0;
+}
+
+
 std::ostream &
 operator<<(std::ostream &out, const Delay_table &delay_table) {
   const std::vector<double> &times = delay_table.times;

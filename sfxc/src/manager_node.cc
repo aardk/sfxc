@@ -612,14 +612,17 @@ void Manager_node::initialise_scan(const std::string &scan) {
     }
 
     // To allow large clock offsets, the reader time is adjusted
-    const double max_offset = 1.0;
-    double reader_offset = round(offset / max_offset) * max_offset;
-    offset = offset - reader_offset;
-#if 0
-    std::cout.precision(19);
-    std::cout << "offset = " << offset << ", reader_offset = " << reader_offset << std::endl;
-#endif
-    delay_table.set_clock_offset(offset, start, rate, epoch);
+    double reader_offset;
+    if (!control_parameters.topocentric()) {
+      const double max_offset = 1.0;
+      reader_offset = round(offset / max_offset) * max_offset;
+      offset = offset - reader_offset;
+      delay_table.set_clock_offset(offset, start, rate, epoch);
+    } else {
+      reader_offset = 0.0;
+      delay_table.zero_delays();
+    }
+
     send(delay_table, /* station_nr */ 0, input_rank(station));
     control_parameters.set_reader_offset(station_name, Time(reader_offset*1e6));
     correlator_node_set_all(delay_table, station_name);

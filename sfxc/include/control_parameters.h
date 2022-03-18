@@ -249,6 +249,7 @@ public:
   bool multi_phase_center() const;
   double LO_offset(const std::string &station) const;
   bool exit_on_empty_datastream() const;
+  bool topocentric() const;
   
   Time reader_offset(const std::string &s) const{
     return reader_offsets.find(s)->second;

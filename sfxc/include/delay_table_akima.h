@@ -121,6 +121,7 @@ public:
 
   Time start_time_scan();
   Time stop_time_scan();
+  void zero_delays();
 
   bool initialised() const {
     return !scans.empty();
