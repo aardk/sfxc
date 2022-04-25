@@ -37,6 +37,11 @@ class VDIF_reader : public Input_data_format_reader {
     CHECK_ALL_HEADERS,
     CHECK_BIT_STATISTICS
   };
+  enum Header_status {
+    INVALID = 0,
+    VALID_NOT_START_BLOCK, // VALID frame, but Header.dataframe_in_second % vdif_frames_per_block != 0
+    VALID
+  };
 public:
   typedef Input_data_format_reader::Data_frame Data_frame;
 
@@ -92,7 +97,7 @@ public:
   }
 
   // NB: This checks the validity of the header not the data
-  bool check_header(Header &header);
+  Header_status check_header(Header &header);
   
   void set_parameters(const Input_node_parameters &param);
 
@@ -144,18 +149,20 @@ VDIF_reader::Header::data_size() const{
   return 8*dataframe_length-header_size();
 }
 
-inline bool VDIF_reader::check_header(Header &header) {
+inline VDIF_reader::Header_status 
+VDIF_reader::check_header(Header &header) {
   if (((uint32_t *)&current_header)[0] == 0x11223344 ||
       ((uint32_t *)&current_header)[1] == 0x11223344 ||
       ((uint32_t *)&current_header)[2] == 0x11223344 ||
       ((uint32_t *)&current_header)[3] == 0x11223344) {
     LOG_MSG(": VDIF_READER, fill pattern in header, frame_size =" << frame_size);
-    return false;
-  } else if ((current_header.ref_epoch == 0  && current_header.sec_from_epoch == 0) || 
-             (current_header.dataframe_in_second % vdif_frames_per_block != 0)) {
-    return false;
+    return INVALID;
+  } else if (current_header.ref_epoch == 0  && current_header.sec_from_epoch == 0) {
+    return INVALID;
+  } else if (current_header.dataframe_in_second % vdif_frames_per_block != 0) {
+    return VALID_NOT_START_BLOCK;
   }
-  return true;
+  return VALID;
 }
 
 
