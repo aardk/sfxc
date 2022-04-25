@@ -120,7 +120,7 @@ VDIF_reader::read_new_block(Data_frame &data) {
     Data_reader_blocking::get_bytes_s(data_reader_.get(), 16, (char *)&current_header);
     if (data_reader_->eof())
       return false;
-    if (!check_header(current_header)) {
+    if (check_header(current_header) == INVALID) {
       // NB we default to non-legacy VDIF, at this point there is no way to tell
       Data_reader_blocking::get_bytes_s(data_reader_.get(), frame_size + 16, NULL);
       if (++restarts > max_restarts)
@@ -150,7 +150,9 @@ VDIF_reader::read_new_block(Data_frame &data) {
   if (buffer.size() == 0)
     buffer.resize(size_data_block());
   
-  if (!check_header(current_header)) {
+  // NB: This check rejects frames with an invalid header (== bad headers whoose contents cannot be trusted, 
+  //     not frames with the invalid bit set), and frames for which dataframe_in_second % vdif_frames_per_block != 0 
+  if (check_header(current_header) != VALID) {
     Data_reader_blocking::get_bytes_s(data_reader_.get(), frame_size, NULL);
     if (++restarts > max_restarts)
       return false;
