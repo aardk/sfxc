@@ -244,7 +244,9 @@ class progressDialog(QtGui.QDialog):
 
         # When doing e-VLBI we don't need to generate delays for the past.
         if self.evlbi:
-            self.json_input['start'] = time2vex(time.time())
+            if time.time() > vex2time(self.json_input['start']):
+                self.json_input['start'] = time2vex(time.time())
+                pass
             pass
 
         self.start = vex2time(self.json_input['start'])
