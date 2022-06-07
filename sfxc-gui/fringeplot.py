@@ -516,6 +516,17 @@ class FringePlotWindow(Qt.QWidget):
         self.label.setText('<b>' + self.exper_name + ' - Last update ' + current_time + ' (UTC)</b>')
         time = self.cordata.time
         correlations = self.cordata.correlations
+        idx_list = []
+        for baseline in correlations:
+            if not self.reference in baseline:
+                continue
+            for idx in correlations[baseline]:
+                if not idx in idx_list:
+                    idx_list.append(idx)
+                    pass
+                continue
+            continue
+
         for baseline in correlations:
             if not self.reference in baseline:
                 continue
@@ -528,7 +539,7 @@ class FringePlotWindow(Qt.QWidget):
             for plot in self.plots:
                 if plot.station == station:
                     break
-            for idx in correlations[baseline]:
+            for idx in idx_list:
                 if station == baseline[0]:
                     pol1 = (idx >> 1) & 1
                     pol2 = (idx >> 0) & 1
@@ -572,8 +583,6 @@ class FringePlotWindow(Qt.QWidget):
                     pen.setWidth(1)
 
                     plot.curve[plot_idx] = FringePlotCurve(tip, title)
-                    plot.curve[plot_idx].setData(range(self.cordata.number_channels),
-                                            range(self.cordata.number_channels))
                     plot.curve[plot_idx].setPen(pen)
                     plot.curve[plot_idx].attach(plot)
                     if plot == self.plots[-1]:
@@ -587,6 +596,9 @@ class FringePlotWindow(Qt.QWidget):
                         plot.curve[i].attach(plot)
                         continue
                     pass
+
+                if not idx in correlations[baseline]:
+                    continue
 
                 a = correlations[baseline][idx].sum(axis=0)
                 if station == baseline[1]:
