@@ -119,8 +119,8 @@ void Correlation_core_phased::integration_step(std::vector<Complex_buffer> &inte
   int sub_integration = current_fft / number_ffts_in_sub_integration;
   SFXC_ASSERT(sub_integration < integration_buffer.size());
   for (size_t i = 0; i < number_input_streams(); i++) {
-    SFXC_ADD_FC(&input_elements[i][buf_idx],
-		&integration_buffer[sub_integration][0], fft_size() + 1);
+    SFXC_ADD_FC_I(&input_elements[i][buf_idx],
+		  &integration_buffer[sub_integration][0], fft_size() + 1);
   }
 #endif // DUMMY_CORRELATION
 }

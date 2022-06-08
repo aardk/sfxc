@@ -69,16 +69,24 @@
     ippsAdd_32f((const Ipp32f*) src1, (const Ipp32f*) src2, (Ipp32f*) dest, len);
   }
 
+  extern inline void sfxc_add_f_I(const float *src1, float *srcdest, int len){
+    ippsAdd_32f_I((const Ipp32f*) src1, (Ipp32f*) srcdest, len);
+  }
+
   extern inline void sfxc_add(const double *src1, const double *src2, double *dest, int len){
     ippsAdd_64f((const Ipp64f*) src1, (const Ipp64f*) src2, (Ipp64f*) dest, len);
   }
 
-  extern inline void sfxc_add_fc(const std::complex<float> *src, std::complex<float> *dest, int len){
-    ippsAdd_32fc_I((const Ipp32fc*) src, (Ipp32fc*) dest, len);
+  extern inline void sfxc_add_I(const double *src1, double *srcdest, int len){
+    ippsAdd_64f_I((const Ipp64f*) src1, (Ipp64f*) srcdest, len);
   }
 
-  extern inline void sfxc_add_c(const std::complex<double> *src, std::complex<double> *dest, int len){
-    ippsAdd_64fc_I((const Ipp64fc*) src, (Ipp64fc*) dest, len);
+  extern inline void sfxc_add_fc_I(const std::complex<float> *src, std::complex<float> *srcdest, int len){
+    ippsAdd_32fc_I((const Ipp32fc*) src, (Ipp32fc*) srcdest, len);
+  }
+
+  extern inline void sfxc_add_c_I(const std::complex<double> *src, std::complex<double> *srcdest, int len){
+    ippsAdd_64fc_I((const Ipp64fc*) src, (Ipp64fc*) srcdest, len);
   }
 
   extern inline void sfxc_add_product_fc(const std::complex<float> *s1, const std::complex<float> *s2, std::complex<float> *dest, int len){
@@ -106,7 +114,13 @@
     memset(p, 0, len * sizeof(std::complex<float>));
   }
 
-  extern inline void sfxc_mul_fc(const std::complex<float> *s1, const std::complex<float> *s2, std::complex<float> *dest, int len){
+  extern inline void sfxc_mul_c(const std::complex<double> *s1, const std::complex<double> *s2, std::complex<double> *dest, int len){
+    for(int i = 0; i < len; i++){
+      dest[i] = s1[i] * s2[i];
+    }
+  }
+
+   extern inline void sfxc_mul_fc(const std::complex<float> *s1, const std::complex<float> *s2, std::complex<float> *dest, int len){
     for(int i = 0; i < len; i++){
       dest[i] = s1[i] * s2[i];
     }
@@ -165,21 +179,33 @@
     }
   }
 
+  extern inline void sfxc_add_f_I(const float *src1, float *srcdest, int len){
+    for(int i = 0; i < len; i++){
+      srcdest[i] += src1[i];
+    }
+  }
+
   extern inline void sfxc_add(const double *src1, const double *src2, double *dest, int len){
     for(int i = 0; i < len; i++){
       dest[i] = src1[i] + src2[i];
     }
   }
 
-  extern inline void sfxc_add_fc(const std::complex<float> *src, std::complex<float> *dest, int len){
+  extern inline void sfxc_add_I(const double *src1, double *srcdest, int len){
     for(int i = 0; i < len; i++){
-      dest[i] += src[i];
+      srcdest[i] += src1[i];
     }
   }
 
-  extern inline void sfxc_add_c(const std::complex<double> *src, std::complex<double> *dest, int len){
+  extern inline void sfxc_add_fc_I(const std::complex<float> *src, std::complex<float> *srcdest, int len){
     for(int i = 0; i < len; i++){
-      dest[i] += src[i];
+      srcdest[i] += src[i];
+    }
+  }
+
+  extern inline void sfxc_add_c_I(const std::complex<double> *src, std::complex<double> *srcdest, int len){
+    for(int i = 0; i < len; i++){
+      srcdest[i] += src[i];
     }
   }
 
