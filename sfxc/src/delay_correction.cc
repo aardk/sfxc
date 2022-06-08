@@ -83,9 +83,7 @@ void Delay_correction::do_task() {
       memset(&temp_buffer[nsamp_per_window], 0, nsamp_per_window*sizeof(FLOAT));
     else if (window_func == SFXC_WINDOW_PFB) {
       for (int j=1; j<SFXC_NTAPS; j++) {
-        for (int k=0; k < fft_rot_size(); k++) {
-          temp_buffer[k] += temp_buffer[k + j * fft_rot_size()];
-        }
+        SFXC_ADD_F_I(&temp_buffer[j * fft_rot_size()], &temp_buffer[0], fft_rot_size());
       }
     }
 
