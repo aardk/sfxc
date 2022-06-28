@@ -118,7 +118,7 @@ public:
   Correlation_parameters()
     : number_channels(0), fft_size_delaycor(0), fft_size_correlation(0),
     fft_size_dedispersion(0), integration_nr(-1), slice_nr(-1), sample_rate(0),
-    channel_freq(0), bandwidth(0), sideband('n'), frequency_nr(-1),
+    channel_freq(0), bandwidth(0), sideband('n'), frequency_nr(-1), normalize(false),
     polarisation('n'), multi_phase_center(false), pulsar_binning(false),
     window(SFXC_WINDOW_RECT) {}
 
@@ -173,6 +173,7 @@ public:
 
   bool    cross_polarize;   // do the cross polarisations
   int32_t reference_station;// use a reference station
+  bool    normalize;        // Normalize the cross-correlations
 
   Station_list station_streams; // input streams used
   int window;                   // Windowing function to be used
@@ -238,6 +239,7 @@ public:
   int reference_station_number() const;
   std::string setup_station() const;
 
+  bool normalize() const;
   bool phased_array() const;
   bool pulsar_binning() const;
   bool multi_phase_center() const;
