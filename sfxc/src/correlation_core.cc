@@ -276,19 +276,25 @@ void Correlation_core::integration_step(std::vector<Complex_buffer> &integration
 void Correlation_core::integration_normalize(std::vector<Complex_buffer> &integration_buffer) {
   std::vector<double> norms(number_input_streams());
   memset(&norms[0], 0, norms.size() * sizeof(double));
-  // Normalize the auto correlations
-  for (size_t i = 0; i < number_input_streams(); i++) {
-    for (size_t j = 0; j < fft_size() + 1; j++) {
-      norms[i] += integration_buffer[i][j].real();
-    }
-    norms[i] /= fft_size();
-    if (norms[i] < 1)
-      norms[i] = 1;
+  if (correlation_parameters.normalize) {
+    // Normalize the auto correlations
+    for (size_t i = 0; i < number_input_streams(); i++) {
+      for (size_t j = 0; j < fft_size() + 1; j++) {
+        norms[i] += integration_buffer[i][j].real();
+      }
+      norms[i] /= fft_size();
+      if (norms[i] < 1)
+        norms[i] = 1;
 
-    for (size_t j = 0; j < fft_size() + 1; j++) {
-      // imaginary part should be zero!
-      integration_buffer[i][j] =
-        integration_buffer[i][j].real() / norms[i];
+      for (size_t j = 0; j < fft_size() + 1; j++) {
+        // imaginary part should be zero!
+        integration_buffer[i][j] =
+          integration_buffer[i][j].real() / norms[i];
+      }
+    }
+  } else {
+    for (size_t i = 0; i < number_input_streams(); i++) {
+      norms[i] = 1.;
     }
   }
 

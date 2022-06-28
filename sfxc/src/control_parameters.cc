@@ -99,6 +99,11 @@ initialise(const char *ctrl_file, const char *vex_file,
     ctrl["reference_station"] = "";
   }
 
+  // Checking reference station
+  if (ctrl["normalize"] == Json::Value()) {
+    ctrl["normalize"] = true;
+  }
+
   // Checking message level
   if (ctrl["message_level"] == Json::Value()) 
     ctrl["message_level"] = 1;
@@ -798,6 +803,11 @@ Control_parameters::sideband(int i) const {
 std::string
 Control_parameters::reference_station() const {
   return ctrl["reference_station"].asString();
+}
+
+bool
+Control_parameters::normalize() const {
+  return ctrl["normalize"].asBool();
 }
 
 std::string
@@ -2326,6 +2336,7 @@ get_correlation_parameters(const std::string &scan_name,
   }
 
   corr_param.reference_station = reference_station_number();
+  corr_param.normalize = normalize();
 
   std::set<int32_t> stream_set;
   for (Vex::Node::const_iterator station = scan->begin("station");
@@ -2602,6 +2613,7 @@ std::ostream &operator<<(std::ostream &out,
   out << "  \"sideband\": " << param.sideband << ", " << std::endl;
   out << "  \"cross_polarize\": " << (param.cross_polarize ? "true" : "false")<< ", " << std::endl;
   out << "  \"reference_station\": " << param.reference_station << ", " << std::endl;
+  out << "  \"normalize\": " << param.normalize << ", " << std::endl;
   out << "  \"station_streams\": [";
   for (size_t i=0; i<param.station_streams.size(); i++) {
     if (i!=0)
