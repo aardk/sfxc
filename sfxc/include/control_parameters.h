@@ -177,7 +177,7 @@ public:
 
   Station_list station_streams; // input streams used
   int window;                   // Windowing function to be used
-  char source[11];              // name of the source under observation
+  char source[17];              // name of the source under observation
   int32_t n_phase_centers;   // The number of phase centers in the current scan
   int32_t multi_phase_center;
   int32_t pulsar_binning;
