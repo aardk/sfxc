@@ -89,7 +89,7 @@ def write_header(cfg, outfile, npol_out, fb_nchan):
   header.append(['nchans', h])
   if (fb_nchan <= 1):
     nchan = nsubband
-  else
+  else:
     nchan = nsubband * fb_nchan
   h = struct.pack('i', nchan)
   header.append(['nbeams', h])
