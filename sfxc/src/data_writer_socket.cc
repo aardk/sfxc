@@ -34,7 +34,7 @@ Data_writer_socket::Data_writer_socket(Connexion* connexion) {
 Data_writer_socket::~Data_writer_socket() {}
 
 size_t Data_writer_socket::do_put_bytes(size_t nBytes, char const *buff) {
-  if (socket <= 0) return 0;
+  if (m_socket <= 0) return 0;
   SFXC_ASSERT(nBytes > 0);
   size_t bytes_written = 0;
 
