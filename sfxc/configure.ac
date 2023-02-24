@@ -285,6 +285,16 @@ AM_CONDITIONAL(CALCTEN, [test "$WITH_CALC" = "yes"])
 AM_CONDITIONAL(SFXC_UTILS, [test "$WITH_SFXC_UTILS" = "yes"])
 AM_CONDITIONAL(SFXC, [test "$WITH_SFXC" = "yes"])
 
+# Fix compilation of calc10 with gfortran 10+
+if test "$WITH_CALC" == "yes"; then
+  AC_LANG_PUSH([Fortran 77])
+  AX_CHECK_COMPILE_FLAG([-fallow-argument-mismatch], [gfortran_version_10plus=yes], [gfortran_version_10plus=no])
+  if test "$gfortran_version_10plus" == "yes"; then
+    FFLAGS="$FFLAGS -fallow-argument-mismatch"
+  fi
+  AC_LANG_POP([Fortran 77])
+fi
+
 AC_OUTPUT(Makefile
           lib/Makefile
           lib/calc10/Makefile
