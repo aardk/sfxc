@@ -886,7 +886,7 @@ MPI_Transfer::send(Correlation_parameters &corr_param, int rank) {
   size =
     5*sizeof(int64_t) + 2*sizeof(double) + 15*sizeof(int32_t) + sizeof(int64_t) +
     3*sizeof(char) + corr_param.station_streams.size() * (5 * sizeof(int32_t) + 3 * sizeof(int64_t) + sizeof(char) + sizeof(double)) +
-    11*sizeof(char);
+    17*sizeof(char);
   int position = 0;
   char message_buffer[size];
 
@@ -955,7 +955,7 @@ MPI_Transfer::send(Correlation_parameters &corr_param, int rank) {
            message_buffer, size, &position, MPI_COMM_WORLD);
   MPI_Pack(&corr_param.pulsar_binning, 1, MPI_INT32,
            message_buffer, size, &position, MPI_COMM_WORLD);
-  MPI_Pack(&corr_param.source[0], 11, MPI_CHAR,
+  MPI_Pack(&corr_param.source[0], 17, MPI_CHAR,
            message_buffer, size, &position, MPI_COMM_WORLD);
   MPI_Pack(&corr_param.dedispersion_ref_frequency, 1, MPI_DOUBLE,
            message_buffer, size, &position, MPI_COMM_WORLD);
@@ -1095,7 +1095,7 @@ MPI_Transfer::receive(MPI_Status &status, Correlation_parameters &corr_param) {
   MPI_Unpack(buffer, size, &position,
              &corr_param.pulsar_binning, 1, MPI_INT32, MPI_COMM_WORLD);
   MPI_Unpack(buffer, size, &position,
-               &corr_param.source[0], 11, MPI_CHAR, MPI_COMM_WORLD);
+               &corr_param.source[0], 17, MPI_CHAR, MPI_COMM_WORLD);
   MPI_Unpack(buffer, size, &position,
              &corr_param.dedispersion_ref_frequency, 1, MPI_DOUBLE,
              MPI_COMM_WORLD);
