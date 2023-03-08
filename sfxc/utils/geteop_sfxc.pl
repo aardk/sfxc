@@ -12,7 +12,8 @@
 $FINALS_FILE = "usno_finals.erp";
 #$FINALS_URL = "http://gemini.gsfc.nasa.gov/solve_save/$FINALS_FILE";
 #$FINALS_URL = "ftp://ftp.lbo.us/pub/staff/wbrisken/EOP/$FINALS_FILE";
-$FINALS_URL = "ftp://cddis.gsfc.nasa.gov/vlbi/gsfc/ancillary/solve_apriori/$FINALS_FILE";
+#$FINALS_URL = "ftp://cddis.gsfc.nasa.gov/vlbi/gsfc/ancillary/solve_apriori/$FINALS_FILE";
+$FINALS_URL = "ftp://gdc.cddis.eosdis.nasa.gov/vlbi/gsfc/ancillary/solve_apriori/$FINALS_FILE";
 $EOPVEX_FILE = "EOP_SFXC.txt";
 
 sub printUsage
@@ -83,14 +84,14 @@ if ( -f $FINALS_FILE )
 	my @fstats = stat($FINALS_FILE);
 	if ($now-$fstats[9] > 2*86400) {
 		system ("rm $FINALS_FILE");
-		system ("wget $FINALS_URL");
+                system ("curl -u anonymous:jops\@jive.nl --ftp-ssl $FINALS_URL -o $FINALS_FILE");
 	} else {
 		print "Using existing $FINALS_FILE (less than 2 days old).\n";
 	}
 }
 else
 {
-	system ("wget $FINALS_URL");
+        system ("curl -u anonymous:jops\@jive.nl --ftp-ssl $FINALS_URL -o $FINALS_FILE");
 }
 sleep(1);
 
