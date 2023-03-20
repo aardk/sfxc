@@ -152,7 +152,7 @@ Correlation_core::create_baselines(const Correlation_parameters &parameters){
   baselines.clear();
   // Autos
   for (size_t i = 0; i < number_input_streams(); i++) {
-    baselines.push_back(std::pair<size_t, size_t>(i, i));
+    baselines.push_back(std::make_pair(i, i));
   }
   // Crosses
   int ref_station = parameters.reference_station;
@@ -164,9 +164,9 @@ Correlation_core::create_baselines(const Correlation_parameters &parameters){
 	  ref_station != station1 && ref_station != station2)
 	continue;
       if (station1 < station2)
-	baselines.push_back(std::make_pair<size_t, size_t>(i, j));
+	baselines.push_back(std::make_pair(i, j));
       else
-	baselines.push_back(std::make_pair<size_t, size_t>(j, i));
+	baselines.push_back(std::make_pair(j, i));
     }
   }
 }
