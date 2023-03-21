@@ -1,4 +1,4 @@
-AM_CXXFLAGS=-I@top_srcdir@/include -I@top_srcdir@/src -I.
+AM_CXXFLAGS=-I@top_srcdir@/include -I@top_srcdir@/src -I. -std=c++11
 
 # We write our own rules for yacc and lex below. We'd rather use automake,
 # but automake makes it especially difficult for a number of reasons:
