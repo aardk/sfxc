@@ -26,6 +26,7 @@ class parameters:
     self.starttime = first_day_of_year + timedelta(days=global_header[3]-1, seconds=global_header[4])
     scan = self.get_scan_name(self.starttime)
     self.get_channels(vex['SCHED'][scan]["mode"])
+    self.get_sample_rate(vex['SCHED'][scan]["mode"])
     self.get_vex_scans()
     # Get list of scans in correlation file 
     self.scanlist = [self.read_scan_params(self.global_header_size)]
@@ -69,7 +70,6 @@ class parameters:
     chandefs = vex['FREQ'][ch_mode].getall('chan_def')
     bbcs = vex['BBC'][bbc_mode].getall('BBC_assign')
     ifs = vex['IF'][if_mode].getall('if_def')
-    self.sample_rate = float(vex['FREQ'][ch_mode]['sample_rate'].partition('Ms')[0])
 
     freqs = set()
     for ch in chandefs:
@@ -89,6 +89,49 @@ class parameters:
     self.freqs = freqs
     self.vex_channels = channels
     self.channel_names = channel_names
+
+  def get_vex2_data_block(self, station, mode):
+    vex = self.vex
+    m = vex['MODE'][mode]
+    sections = ('DATASTREAMS', 'BITSTREAMS', 'TRACKS')
+    for sec in sections:
+      ds =  m.getall(sec)
+      for line in ds:
+        if station in line[1:]:
+          return sec, line[0]
+
+    print >> sys.stderr, "Error: Could not find data format for station (" + station + ") in mode " + mode
+    sys.exit(0)
+
+  def get_sample_rate(self, mode):
+    vex = self.vex
+    setup_station = self.setup_station
+    vex_rev = float(vex['VEX_rev'])
+    if vex_rev > 1.5:
+      # Vex2
+      sec, ref = self.get_vex2_data_block(setup_station, mode)
+      if sec == 'DATASTREAMS':
+        # FIXME Each thread can have a different sample rate but we assume that all channels have the same sample_rate
+        self.sample_rate = float(vex[sec][ref]['thread'][4].partition('Ms')[0])
+      elif sec == 'BITSTREAMS':
+        stream_sample_rate = vex[sec][ref]['stream_sample_rate']
+        # The second parameter is optional, so the datatype is either list or string
+        if isinstance(stream_sample_rate, list):
+          stream_sample_rate = stream_sample_rate[0]
+        self.sample_rate = float(stream_sample_rate.partition('Ms')[0])
+      elif sec == 'TRACKS':
+        self.sample_rate = float(vex[sec][ref]['sample_rate'].partition('Ms')[0])
+    else:
+      # Vex 1.5
+      freqs = vex['MODE'][mode].getall('FREQ')
+      ch_mode = ""
+      for block in freqs:
+        if setup_station in block:
+          ch_mode = block[0]
+      if ch_mode == "":
+        print >> sys.stderr, "Error : Could not find FREQ block for setup station (" + setup_station + ") in mode " + mode
+        sys.exit(1)
+      self.sample_rate = float(vex['FREQ'][ch_mode]['sample_rate'].partition('Ms')[0])
 
   def get_vex_scans(self):
     vex_scans = []
