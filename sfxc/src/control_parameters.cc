@@ -970,7 +970,7 @@ Control_parameters::sample_rate(const std::string &mode,
       const std::string datastreams_name = get_vex().get_section("DATASTREAMS", mode, station);
       if (datastreams_name == std::string()) {
         std::cerr << "Cannot find $DATASTREAMS reference for " << station
-                  << " in mode" << mode << std::endl;
+                  << " in mode " << mode << std::endl;
         sfxc_abort();
       }
       Vex::Node::const_iterator datastreams = vex.get_root_node()["DATASTREAMS"][datastreams_name];
@@ -984,24 +984,32 @@ Control_parameters::sample_rate(const std::string &mode,
       const std::string bitstreams_name = get_vex().get_section("BITSTREAMS", mode, station);
       if (bitstreams_name == std::string()) {
         std::cerr << "Cannot find $BITSTREAMS reference for " << station
-                  << " in mode" << mode << std::endl;
+                  << " in mode " << mode << std::endl;
         sfxc_abort();
       }
       Vex::Node::const_iterator bitstreams = vex.get_root_node()["BITSTREAMS"][bitstreams_name];
       if (bitstreams->begin("stream_sample_rate") != bitstreams->end())
         return (int)(bitstreams["stream_sample_rate"]->to_double_amount("Ms/sec") * 1e6);
+      std::cerr << "Error : BITSTREAM section " << bitstreams_name 
+                << " contains no stream_sample_rate (station = " << station << ")" 
+                << std::endl;
+      sfxc_abort();
     }
 
     if ((data_format(station, mode) == "Mark4") || (data_format(station, mode) == "VLBA")) {
       const std::string tracks_name = get_vex().get_section("TRACKS", mode, station);
       if (tracks_name == std::string()) {
         std::cerr << "Cannot find $TRACKS reference for " << station
-                  << " in mode" << mode << std::endl;
+                  << " in mode " << mode << std::endl;
         sfxc_abort();
       }
       Vex::Node::const_iterator tracks = vex.get_root_node()["TRACKS"][tracks_name];
       if (tracks->begin("sample_rate") != tracks->end())
         return (int)(tracks["sample_rate"]->to_double_amount("Ms/sec") * 1e6);
+      std::cerr << "Error : TRACKS section " << tracks_name 
+                << " contains no sample_rate (station = " << station << ")" 
+                << std::endl;
+      sfxc_abort();
     }
   }
   const std::string &freq_name = get_vex().get_frequency(mode, station);
