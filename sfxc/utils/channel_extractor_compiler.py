@@ -6,12 +6,13 @@
 # generated this way is in general 2x faster than all the others known
 # approaches (channel_extractor_5, channel_extractor_fast)
 #
+from __future__ import print_function
 import tempfile
 import os,sys, types
 import re
 
 def which (filename):
-  if not os.environ.has_key('PATH') or os.environ['PATH'] == '':
+  if 'PATH' not in os.environ or os.environ['PATH'] == '':
     p = os.defpath
   else:
     p = os.environ['PATH']
@@ -86,15 +87,15 @@ if len(sys.argv) > 1:
   pass
 input_data = open(input_file).read()
 
-exec input_data # isn't that tricky :)
+exec(input_data) # isn't that tricky :)
 tmpname = tempfile.NamedTemporaryFile(mode="r+t").name
 tmpccfile = tmpname + ".cc"
 tmpname = tempfile.NamedTemporaryFile(mode="r+t", dir=".").name
 tmpsofile = tmpname + ".so"
 
 size_input_word = size_of_one_input_word
-samples_per_byte = 8/fan_out
-sequence_size = size_of_one_input_word*8/fan_out
+samples_per_byte = 8//fan_out
+sequence_size = size_of_one_input_word*8//fan_out
 #print "Channel_extractor_compiler v0.1";
 #print "N_SUBBANDS: "+`n_subbands`
 #print "FANOUT: "+`fan_out`
@@ -126,7 +127,7 @@ for i in range(0, sequence_size*8):
   data_table.append( ret )
 
 if len(data_table) == 0:
-		print "Invalid data table"
+		print("Invalid data table")
 		sys.exit(-1)
 
 #print "DATA_TABLE SIZE: "+`data_table`
@@ -162,7 +163,7 @@ for i in data_table:
 			#print ""
 
 idx = 0
-for i in reversed( range(0, len(order) ) ):
+for i in reversed( list(range(0, len(order))) ):
     dta = order[i]
     if status[ dta ] == 'i':
       tag[i] = 'f'
@@ -178,26 +179,26 @@ for i in order:
 
 
 header="/// automatically genereated Channel_extractor_compiler v0.1\n"
-header+="\n#define Tsize_input_word "+`size_input_word`
-header+="\n#define Tseqsize "+`sequence_size`
+header+="\n#define Tsize_input_word "+repr(size_input_word)
+header+="\n#define Tseqsize "+repr(sequence_size)
 header+="\n"
 
 #fpt = open('autogen_mainloop.cc', 'wt')
 mainloop = ""
-init_dest="unsigned char* output_data["+`n_subbands`+"]={\n"
+init_dest="unsigned char* output_data["+repr(n_subbands)+"]={\n"
 for i in range(0, n_subbands-1):
-	init_dest+="\t\toutput_dataIN["+`i`+"],\n"
-init_dest+="\t\toutput_dataIN["+`n_subbands-1`+"]\n\t};\n\n"
+	init_dest+="\t\toutput_dataIN["+repr(i)+"],\n"
+init_dest+="\t\toutput_dataIN["+repr(n_subbands-1)+"]\n\t};\n\n"
 #print init_dest
 #fpt.write(init_dest);
 mainloop += init_dest
 
 idx = 0
 for ch in track_positions:
-  print 'Channel: '+`idx`+" [",
+  print('Channel: '+repr(idx)+" [", end=' ')
   for j in ch:
-    print `j`+", ",
-  print ']'
+    print(repr(j)+", ", end=' ')
+  print(']')
   idx = idx+1
 
 pcroll=[]
@@ -205,7 +206,7 @@ lines=[]
 
 for i in range(0, n_subbands):
   pcroll.append(0)
-  lines.append("\t output_data["+`i`+"][outindex] =")
+  lines.append("\t output_data["+repr(i)+"][outindex] =")
 seqd = 0
 while pcroll[0] < 7:
   idx = 0
@@ -223,15 +224,15 @@ while pcroll[0] < 7:
       else:
         mask = 1; i += 1
       
-      endpos=(pcroll[idx]/bits_per_sample+1)*bits_per_sample-pcroll[idx]%bits_per_sample-1
+      endpos=(pcroll[idx]//bits_per_sample+1)*bits_per_sample-pcroll[idx]%bits_per_sample-1
       curpos=j%8
       diff = curpos-endpos
       roll = " none "
       if diff <= 0:
-        roll = "<<"+`-diff`
+        roll = "<<"+repr(-diff)
       if diff > 0:
-        roll = ">>"+`diff`
-      lines[idx]+= " (((currbuffer["+`seqd*size_input_word+j/8`+"]) & "+`(mask<<(j%8))`+") "+roll+") "
+        roll = ">>"+repr(diff)
+      lines[idx]+= " (((currbuffer["+repr(seqd*size_input_word+j//8)+"]) & "+repr((mask<<(j%8)))+") "+roll+") "
       pcroll[idx]+=1
     idx = idx+1
 
@@ -268,11 +269,11 @@ if do_compile:
     include_dir = ""
   # Perform actual compilation
   cmd = "g++ -fPIC -O3 -DNDEBUG " + tmpccfile + include_dir + " -shared -Wl,-soname," + outputname + " -o " + tmpsofile
-  print "Performing precalculation....: "+cmd
+  print("Performing precalculation....: "+cmd)
   os.system(cmd);
   #os.unlink(tmpccfile)
   os.rename(tmpsofile, outputname)
-  print "[OK]"
+  print("[OK]")
 
 sys.exit(0);
 
