@@ -857,11 +857,14 @@ void Correlation_core::get_state(std::ostream &out) {
       << "\t\t\"n_phase_centre\": " << phase_centers.size() << ",\n"
       << "\t\t\"n_phase_centre_written\": " << n_phase_centre_written << ",\n"
       << "\t\t\"tsys_witten\": " << std::boolalpha << tsys_written << ",\n"
-      << "\t\t\"n_buffer\": [" << input_buffers[station_stream(0)]->size();
-  for (size_t i = 1; i < number_input_streams(); i++) {
-    int stream = station_stream(i);
-    out << ", " << input_buffers[stream]->size();
+      << "\t\t\"n_buffer\": [";
+  if (number_input_streams() > 0) {
+    out << input_buffers[station_stream(0)]->size();
+    for (size_t i = 1; i < number_input_streams(); i++) {
+      int stream = station_stream(i);
+      out << ", " << input_buffers[stream]->size();
+    }
   }
-  out << "\t\t]\n"
+  out << " ]\n"
       << "\t}\n";
 }
