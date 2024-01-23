@@ -562,12 +562,6 @@ Control_parameters::check(std::ostream &writer) const {
     writer << "Ctrl-file: Invalid output buffer size " << std::endl;
   }
 
-  if ((slices_per_integration() > 1) && (multi_phase_center() || pulsar_binning())) {
-      ok = false;
-      writer << "Ctrl-file: sliced integrations cannot be used in combination with multiple phase centres or pulsar binning" 
-             << std::endl; 
-  }
-
   return ok;
 }
 
