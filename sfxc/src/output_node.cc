@@ -96,16 +96,18 @@ void Output_node::start() {
         SFXC_ASSERT(curr_stream >= 0);
         input_streams_order.erase(input_streams_order.begin());
         input_streams[curr_stream]->goto_next_slice(curr_slice_size, number_of_bins);
-        if (integration.size() < number_of_bins)
-          integration.resize(number_of_bins);
         total_bytes_written = 0;
         if (input_buffer.size() < (number_of_bins * curr_slice_size))
           input_buffer.resize(number_of_bins * curr_slice_size);
 	if (curr_band >= accum_buffer.size()) {
 	  accum_buffer.resize(curr_band + 1);
-          for (int bin = 0; bin < number_of_bins; bin++)
+        }
+        if (integration.size() < number_of_bins)
+          integration.resize(number_of_bins);
+        for (int bin = 0; bin < number_of_bins; bin++) {
+          if (curr_band >= integration[bin].size()) 
             integration[bin].resize(curr_band + 1, -1);
-	}
+        }
 	if (accum_buffer[curr_band].size() < (number_of_bins * curr_slice_size))
 	  accum_buffer[curr_band].resize(number_of_bins * curr_slice_size);
 	total_bytes_read = 0;
