@@ -101,8 +101,13 @@ void Output_node::start() {
           input_buffer.resize(number_of_bins * curr_slice_size);
 	if (curr_band >= accum_buffer.size()) {
 	  accum_buffer.resize(curr_band + 1);
-	  integration.resize(curr_band + 1, -1);
-	}
+        }
+        if (integration.size() < number_of_bins)
+          integration.resize(number_of_bins);
+        for (int bin = 0; bin < number_of_bins; bin++) {
+          if (curr_band >= integration[bin].size()) 
+            integration[bin].resize(curr_band + 1, -1);
+        }
 	if (accum_buffer[curr_band].size() < (number_of_bins * curr_slice_size))
 	  accum_buffer[curr_band].resize(number_of_bins * curr_slice_size);
 	total_bytes_read = 0;
@@ -127,74 +132,76 @@ void Output_node::start() {
 	break;
       }
     case ACCUMULATE_INPUT: {
-        Output_header_timeslice *timeslice =
-	  (Output_header_timeslice *)&input_buffer[4];
-	size_t stats_offset = 4 + sizeof(Output_header_timeslice) +
-	  timeslice->number_uvw_coordinates * sizeof(Output_uvw_coordinates);
-	size_t data_offset = stats_offset + 
-	  timeslice->number_statistics * sizeof(Output_header_bitstatistics);
+        for (int bin = 0; bin < number_of_bins; bin++) {
+          size_t bin_offset = bin * curr_slice_size;
+          Output_header_timeslice *timeslice =
+            (Output_header_timeslice *)&input_buffer[bin_offset + 4];
+          size_t stats_offset = bin_offset + 4 + sizeof(Output_header_timeslice) +
+            timeslice->number_uvw_coordinates * sizeof(Output_uvw_coordinates);
+          size_t data_offset = stats_offset + 
+            timeslice->number_statistics * sizeof(Output_header_bitstatistics);
 
-	if (integration[curr_band] != timeslice->integration_slice) {
-	  integration[curr_band] = timeslice->integration_slice;
+          if (integration[bin][curr_band] != timeslice->integration_slice) {
+            integration[bin][curr_band] = timeslice->integration_slice;
+            // Initialize metadata for all bins (so only do this once)
+            if (bin == 0)
+              accum_buffer[curr_band] = input_buffer;
 
-	  // Initialize metadata
-	  accum_buffer[curr_band] = input_buffer;
+            // Initialize visibilities if have more than one integration
+            // slice per integeration
+            if (!finalize_integration) {
+              for (int i = 0; i < timeslice->number_baselines ; i++) {
+                Output_header_baseline *baseline =
+                  (Output_header_baseline *)&input_buffer[data_offset];
+                data_offset += sizeof(Output_header_baseline);
+                float *input = (float *)&input_buffer[data_offset];
+                float *accum = (float *)&accum_buffer[curr_band][data_offset];
 
-	  // Initialize visibilities if have more than one integration
-	  // slice per integeration
-	  if (!finalize_integration) {
-	    for (int i = 0; i < timeslice->number_baselines; i++) {
-	      Output_header_baseline *baseline =
-		(Output_header_baseline *)&input_buffer[data_offset];
-	      data_offset += sizeof(Output_header_baseline);
-	      float *input = (float *)&input_buffer[data_offset];
-	      float *accum = (float *)&accum_buffer[curr_band][data_offset];
+                // Complex is simply a pair of doubles.
+                for (int j = 0; j < 2 * number_channels; j++)
+                  accum[j] = input[j] * baseline->weight;;
 
-	      // Complex is simply a pair of doubles.
-	      for (int j = 0; j < 2 * number_channels; j++)
-		accum[j] = input[j] * baseline->weight;;
+                data_offset += 2 * number_channels * sizeof(float);
+              }
+            }
+          } else {
+            // Accumulate statistics
+            for (int i = 0; i < timeslice->number_statistics; i++) {
+              Output_header_bitstatistics *input =
+                (Output_header_bitstatistics *)&input_buffer[stats_offset];
+              Output_header_bitstatistics *accum =
+                (Output_header_bitstatistics *)&accum_buffer[curr_band][stats_offset];
 
-	      data_offset += 2 * number_channels * sizeof(float);
-	    }
-	  }
-	} else {
-	  // Accumulate statistics
-	  for (int i = 0; i < timeslice->number_statistics; i++) {
-	    Output_header_bitstatistics *input =
-	      (Output_header_bitstatistics *)&input_buffer[stats_offset];
-	    Output_header_bitstatistics *accum =
-	      (Output_header_bitstatistics *)&accum_buffer[curr_band][stats_offset];
+              for (int j = 0; j < sizeof(input->levels) / sizeof(input->levels[0]); j++)
+                accum->levels[j] += input->levels[j];
+              accum->n_invalid += input->n_invalid;
+              stats_offset += sizeof(Output_header_bitstatistics);
+            }
 
-	    for (int j = 0; j < sizeof(input->levels) / sizeof(input->levels[0]); j++)
-	      accum->levels[j] += input->levels[j];
-	    accum->n_invalid += input->n_invalid;
-	    stats_offset += sizeof(Output_header_bitstatistics);
-	  }
+            // Accumulate visibilities
+            for (int i = 0; i < timeslice->number_baselines; i++) {
+              Output_header_baseline *input_baseline =
+                (Output_header_baseline *)&input_buffer[data_offset];
+              Output_header_baseline *accum_baseline =
+                (Output_header_baseline *)&accum_buffer[curr_band][data_offset];
+              data_offset += sizeof(Output_header_baseline);
+              float *input = (float *)&input_buffer[data_offset];
+              float *accum = (float *)&accum_buffer[curr_band][data_offset];
 
-	  // Accumulate visibilities
-	  for (int i = 0; i < timeslice->number_baselines; i++) {
-	    Output_header_baseline *input_baseline =
-	      (Output_header_baseline *)&input_buffer[data_offset];
-	    Output_header_baseline *accum_baseline =
-	      (Output_header_baseline *)&accum_buffer[curr_band][data_offset];
-	    data_offset += sizeof(Output_header_baseline);
-	    float *input = (float *)&input_buffer[data_offset];
-	    float *accum = (float *)&accum_buffer[curr_band][data_offset];
+              // Accumulate visibility weights
+              accum_baseline->weight += input_baseline->weight;
 
-	    // Accumulate visibility weights
-	    accum_baseline->weight += input_baseline->weight;
+              // Complex is simply a pair of doubles.
+              for (int j = 0; j < 2 * number_channels; j++) {
+                accum[j] += input[j] * input_baseline->weight;
+                if (finalize_integration && accum_baseline->weight != 0)
+                  accum[j] /= accum_baseline->weight;
+              }
 
-	    // Complex is simply a pair of doubles.
-	    for (int j = 0; j < 2 * number_channels; j++) {
-	      accum[j] += input[j] * input_baseline->weight;
-	      if (finalize_integration && accum_baseline->weight != 0)
-		accum[j] /= accum_baseline->weight;
-	    }
-
-	    data_offset += 2 * number_channels * sizeof(float);
-	  }
-	}
-
+              data_offset += 2 * number_channels * sizeof(float);
+            }
+          }
+        }
 	if (finalize_integration)
 	  status = WRITE_OUTPUT;
 	else

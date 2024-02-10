@@ -371,6 +371,7 @@ for ctrl_file in args[1:]:
         + options.subnet + " " \
         + "--mca oob_tcp_if_include " \
         + options.subnet + " " \
+        + "--mca btl ^openib --mca oob ^ud " \
         + "--mca orte_keep_fqdn_hostnames 1 " \
         + "--mca orte_hetero_nodes 1 "\
         + "-machinefile " + machine_file + " "\

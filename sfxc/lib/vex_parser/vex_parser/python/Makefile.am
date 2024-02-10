@@ -1,3 +1,5 @@
+AM_CXXFLAGS=-std=c++11
+
 if BUILD_PYTHONLIB
 
 instdir = $(libdir)

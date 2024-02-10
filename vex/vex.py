@@ -102,6 +102,7 @@ lexer = lex.lex()
 
 def p_vex(t):
     'vex : vex_header blocks'
+    t[2].update(t[1])
     t[0] = t[2]
     return
 

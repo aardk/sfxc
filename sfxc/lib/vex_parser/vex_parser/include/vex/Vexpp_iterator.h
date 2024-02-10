@@ -60,20 +60,20 @@ private:
 template <class Vexpp_node_iterator_type>
 Vexpp_node_iterator<Vexpp_node_iterator_type>::
 Vexpp_node_iterator()
-    : type(EMPTY), vexp(NULL), lst_it(NULL), dict_it(NULL) {}
+    : type(EMPTY), vexp(NULL) {}
 
 template <class Vexpp_node_iterator_type>
 Vexpp_node_iterator<Vexpp_node_iterator_type>::
 Vexpp_node_iterator(Node *vexp)
-    : type(NODE), vexp(vexp), lst_it(NULL), dict_it(NULL) {}
+    : type(NODE), vexp(vexp) {}
 template <class Vexpp_node_iterator_type>
 Vexpp_node_iterator<Vexpp_node_iterator_type>::
 Vexpp_node_iterator(Node *vexp, const array_iterator &lst_it)
-    : type(ARRAY), vexp(vexp), lst_it(lst_it), dict_it(NULL) {}
+    : type(ARRAY), vexp(vexp), lst_it(lst_it) {}
 template <class Vexpp_node_iterator_type>
 Vexpp_node_iterator<Vexpp_node_iterator_type>::
 Vexpp_node_iterator(Node *vexp, const dict_iterator &dict_it)
-    : type(DICT), vexp(vexp), lst_it(NULL), dict_it(dict_it) {}
+    : type(DICT), vexp(vexp), dict_it(dict_it) {}
 
 template <class Vexpp_node_iterator_type>
 typename Vexpp_node_iterator<Vexpp_node_iterator_type>::Node &
@@ -86,13 +86,13 @@ operator*() const {
       break;
     }
   case ARRAY: {
-      assert(lst_it != Vexpp_node::array_iterator(NULL));
+      assert(lst_it != Vexpp_node::array_iterator());
       assert(lst_it != vexp->lst->end());
       return *lst_it;
       break;
     }
   case DICT: {
-      assert(dict_it != Vexpp_node::dict_iterator(NULL));
+      assert(dict_it != Vexpp_node::dict_iterator());
       assert(dict_it != vexp->dict->end());
       return dict_it->second;
       break;

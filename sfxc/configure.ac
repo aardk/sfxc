@@ -62,6 +62,10 @@ AC_ARG_ENABLE(ipp,
               [  --enable-ipp             Use the Intel Performance Primitives [default=no]],
               USE_IPP="$enableval", USE_IPP="no")
 
+AC_ARG_ENABLE(armpl,
+              [  --enable-armpl           Use the Arm Performance Libraries [default=no]],
+              USE_ARMPL="$enableval", USE_ARMPL="no")
+
 AC_ARG_ENABLE(gsl,
               [  --enable-gsl             Compile with dependency to GSL [default=yes]],
               USE_GSL="$enableval", USE_GSL="yes")
@@ -82,6 +86,9 @@ AC_ARG_WITH(ipp-path,
               [  --with-ipp-path=PATH    Location of the ipp libraries [default=$IPPROOT]], 
               IPP_PATH="$withval", IPP_PATH=$IPPROOT)
 
+AC_ARG_WITH(armpl-path, 
+              [  --with-armpl-path=PATH  Location of the armpl libraries [default=$ARMPL_DIR]], 
+              ARMPL_PATH="$withval", ARMPL_PATH=$ARMPL_DIR)
 
 dnl ---------------------------------------------------------------------------
 dnl Checking external libraries and dependency
@@ -141,6 +148,14 @@ if test $USE_IPP = "yes"; then
     FFT_LDADD="$FFT_LDADD -lipps -lippvm -lippcore -liomp5"
     FFT_LDADD_FLOAT="$FFT_LDADD"
   fi
+elif test $USE_ARMPL = "yes"; then
+  USE_FFTW3="no"
+  if test "$ARMPL_PATH" != ""; then
+    FFT_LDADD="-L$ARMPL_PATH/lib -Wl,-rpath-link,$ARMPL_PATH/lib"
+    FFT_CPPFLAGS="-I$ARMPL_PATH/include"
+  fi
+  FFT_LDADD_FLOAT="$FFT_LDADD -larmpl -lamath"
+  FFT_LDADD="$FFT_LDADD -larmpl -lamath"
 else
   USE_FFTW3="yes"
   AC_CHECK_LIB(fftw3f, fftwf_execute, [], [
@@ -153,7 +168,7 @@ else
         echo "Couldn't find fftw3 library (double precision). "
         exit -1
         ])
-    FFT_LDADD=" -lfftw3"
+    FFT_LDADD="-lfftw3"
   else
     FFT_LDADD="-lfftw3f"
   fi
@@ -321,6 +336,7 @@ echo "=================== compilation summary =================="
 echo "Use mpi: $USE_MPI"
 echo "Use fftw3: $USE_FFTW3"
 echo "Use ipp: $USE_IPP"
+echo "Use armpl: $USE_ARMPL"
 echo "Use gsl: $USE_GSL"
 echo "Compile sfxc with: $SFXC_CXXFLAGS $CXXFLAGS"
 echo "Compile utils with: $UTILS_CXXFLAGS $CXXFLAGS"

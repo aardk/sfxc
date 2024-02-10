@@ -277,6 +277,8 @@ int main(int argc, char *argv[]) {
           // a valid data_size
           data_size = 8*header.dataframe_length;
           header_size = (16+16*(1-header.legacy_mode));
+          if(!quiet)
+            print_header(header);
       } else {
         if (check_header(header, prev_header)){
           data_size = 8*header.dataframe_length;

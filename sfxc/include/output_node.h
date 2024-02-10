@@ -168,7 +168,7 @@ private:
   size_t			      total_bytes_read;
 
   std::vector<std::vector<char> >     accum_buffer;
-  std::vector<int>		      integration;
+  std::vector<std::vector<int> >      integration;
 
   // Controllers:
   Output_node_controller              output_node_ctrl;

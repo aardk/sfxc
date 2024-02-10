@@ -34,11 +34,6 @@ if test "x$enable_pythonlib" = "xyes"; then
   echo ================ /ENABLE PYTHONLIB
 fi
 
-dnl export these variable (so Makefile substitutions can be made). 
-CXXFLAGS+=" -std=gnu++03"
-AC_SUBST(CXXFLAGS)
-AC_SUBST(LDFLAGS)
-
 AC_OUTPUT(vex_parser.pc
           Makefile
           include/Makefile
