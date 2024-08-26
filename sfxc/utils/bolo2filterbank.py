@@ -1,11 +1,11 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import sys, struct, pdb
 import optparse
 import datetime
 import vex
 import re
 from numpy import *
-from Queue import Queue
+from queue import Queue
 from time import sleep
 import signal
 from threading import Thread
@@ -50,7 +50,7 @@ def get_configuration(vexfile, corfile, setup_station):
   cfg["src_dec"] = src_dec
 
   cfg["mjd"] = mjd(global_header[2], global_header[3], global_header[4])
-  print "jday=", cfg["mjd"], ", year = ", global_header[2], ", day=", global_header[3], ", sec = ", global_header[4]
+  print("jday=", cfg["mjd"], ", year = ", global_header[2], ", day=", global_header[3], ", sec = ", global_header[4])
   return cfg
 
 def write_header(cfg, outfile, npol_out, fb_nchan):
@@ -79,7 +79,7 @@ def write_header(cfg, outfile, npol_out, fb_nchan):
   h=struct.pack('i', data_type)
   header.append(['data_type', h])
   fch1 = cfg["maxfreq"] - (nsubband-eif-1) * bw
-  print fch1, bif, eif
+  print(fch1, bif, eif)
   h = struct.pack('d', fch1)
   header.append(['fch1', h])
   foff = -bw 
@@ -107,10 +107,13 @@ def write_header(cfg, outfile, npol_out, fb_nchan):
   for h in header:
     hlen = struct.pack('i', len(h[0]))
     outfile.write(hlen)
-    outfile.write(h[0])
-    print h
+    outfile.write(h[0].encode())
+    print(h)
     for i in h[1:]:
-      outfile.write(i)
+      if type(i) == str:
+        outfile.write(i.encode())
+      else:
+        outfile.write(i)
 
 def get_source(vexfile, start_time):
   scan = get_scan(vexfile, start_time)
@@ -141,15 +144,15 @@ def get_freq(vexfile, start_time, setup_station):
     f0 = float(channel[1].split()[0])
     sb = 0 if (channel[2].strip().upper() == 'L') else 1
     bw = float(channel[3].split()[0])
-    print f0 + sb*bw, bw
+    print(f0 + sb*bw, bw)
     channels.add(f0 + sb*bw/2.)
   nsubband = len(channels)
   maxfreq = max(channels) 
-  print 'bw = ', bw
+  print('bw = ', bw)
   return nsubband, maxfreq, bw
 
 def get_scan(vexfile, start_time):
-  for scan in vexfile['SCHED'].iteritems():
+  for scan in vexfile['SCHED'].items():
     t = scan[1]['start']
     t = [int(x) if x !='' else 0 for x in re.split('y|d|h|m|s', t)]
     scan_start = get_time(t[0], t[1], t[2]*3600+t[3]*60+t[4])
@@ -157,13 +160,13 @@ def get_scan(vexfile, start_time):
     scan_end = scan_start + scan_len
     if start_time < scan_end:
       return scan[0]
-  print "Could not find scan for t = ", start_time
+  print("Could not find scan for t = ", start_time)
   sys.exit(1)
     
 
 def mjd(year, day_of_year, sec_of_day):
   y = int(year) + 4799
-  jdn = 365*y + (y/4) - (y/100) + (y/400) - 31738 - 2400000.5
+  jdn = 365*y + (y//4) - (y//100) + (y//400) - 31738 - 2400000.5
   
   jdn = int(jdn) + day_of_year - 1
   return jdn + sec_of_day / 86400.
@@ -172,11 +175,10 @@ def print_global_header(infile):
   infile.seek(0)
   gheader_buf = infile.read(global_header_size)
   global_header = struct.unpack('i32s2h5i4b',gheader_buf[:64])
-  hour = global_header[4] / (60*60)
-  minute = (global_header[4]%(60*60))/60
-  second = global_header[4]%60
-  n = global_header[1].index('\0')
-  print "Experiment %s, SFXC version = %s, date = %dy%dd%dh%dm%ds, nchan = %d, int_time = %d, pol = %s"%(global_header[1][:n], global_header[8], global_header[2], global_header[3], hour, minute, second, global_header[5], global_header[6], int(global_header[9]))
+  hour = global_header[4] // (60*60)
+  minute = (global_header[4] % (60*60)) // 60
+  second = global_header[4] % 60
+  print("Experiment %s, SFXC version = %s, date = %dy%dd%dh%dm%ds, nchan = %d, int_time = %d, pol = %s"%(global_header[1].decode(), global_header[8], global_header[2], global_header[3], hour, minute, second, global_header[5], global_header[6], int(global_header[9])))
 
 def parse_args():
   usage = "Usage : %prog [OPTIONS] <vex file> <cor file 1> ... <cor file N> <output_file>"
@@ -226,11 +228,11 @@ def parse_args():
     for i in range(1, nargs - 1):
       infiles.append(open(args[i], 'rb'))
   except:
-    print "Could not open file : " + args[i]
+    print("Could not open file : " + args[i])
     sys.exit()
 
   vexfile = vex.Vex(args[0])
-  outfile = open(args[-1], 'w')
+  outfile = open(args[-1], 'wb')
   return vexfile, infiles, outfile, bif, eif, pol, opts.setup_station, nchan
 
 def get_time(year, day, seconds):
@@ -314,8 +316,8 @@ def parse_integration(indata, cfg, polarization, fb_chan):
           inv_ch = nsubband - channel_nr - 1
           data[:, outpol, inv_ch] += baseline
         else:
-          print "b=("+`station1`+", "+`station2`+"), freq_nr = "+`freq_nr`+",sb="+`sideband`+",pol="+`pol`
-          print "invalid data (not a number)"
+          print("b=("+repr(station1)+", "+repr(station2)+"), freq_nr = "+repr(freq_nr)+",sb="+repr(sideband)+",pol="+repr(pol))
+          print("invalid data (not a number)")
   return data
 
 def start_next_input(infile, cfg, npol_out, nwritten):
@@ -325,7 +327,7 @@ def start_next_input(infile, cfg, npol_out, nwritten):
     gheader_buf = infile.read(global_header_size)
     global_header = struct.unpack('i32s2h5i4c',gheader_buf[:64])
     nsamples = global_header[5]
-    inttime = global_header[6] / 1000000
+    inttime = global_header[6] // 1000000
     start_time = get_time(global_header[2], global_header[3], global_header[4])
     tsheader_buf = infile.read(timeslice_header_size)
     timeslice_header = struct.unpack('4i', tsheader_buf)
@@ -333,30 +335,30 @@ def start_next_input(infile, cfg, npol_out, nwritten):
       # Check input and pad gap beteen scans with zeros
       error = False 
       if cfg["nchan"] != nchan:
-        print 'Error: number of channels not constant between files'
+        print('Error: number of channels not constant between files')
         error = True
       if cfg["nsubint"] != nsubint:
-        print 'Error: number of subints per integration differs between files'
+        print('Error: number of subints per integration differs between files')
         error = True
       if cfg["inttime"] != inttime:
-        print 'Error : interation time differs between files'
+        print('Error : interation time differs between files')
         error = True
       if start_time <= old_start_time:
-        print 'Error : Inout files not in ascending time order'
+        print('Error : Inout files not in ascending time order')
         error = True
       else:
         dt = start_time - old_start_time
         diff = dt.days*86400 + dt.seconds
         if (diff % inttime) != 0:
-          print 'Error: consequtive input files have to be an integer number of integration times appart'
+          print('Error: consequtive input files have to be an integer number of integration times appart')
           error = True
       if error:
-        print 'Current file :', infile.name
+        print('Current file :', infile.name)
         sys.exit(1)
-      npad = diff / inttime - nwritten + nskip 
-      print 'padding ', npad, 'integrations'
-      print 'diff, inttime,nwritten,nskip = ', diff, inttime, nwritten, nskip
-      pad_zeros(outfile, npad, nsubint, nchan / decimate_frac, npol)
+      npad = diff // inttime - nwritten + nskip 
+      print('padding ', npad, 'integrations')
+      print('diff, inttime,nwritten,nskip = ', diff, inttime, nwritten, nskip)
+      pad_zeros(outfile, npad, nsubint, nchan // decimate_frac, npol)
     else:
       npad = 0
     return start_time, npad
@@ -402,7 +404,7 @@ if __name__ == "__main__":
     else:
       npol_out = 4 
       if cfg["npol"] != 4:
-        print "Error: Full polarization requested, but correlator output doesn't contain cross-polls"
+        print("Error: Full polarization requested, but correlator output doesn't contain cross-polls")
         exit(1)
     # Write filterbank header
     write_header(cfg, outfile, npol_out, fb_nchan)
@@ -446,14 +448,14 @@ if __name__ == "__main__":
               results = results[1:]
               nwritten += 1
               total_written += 1
-              print 'written time slice ', nwritten
+              print('written time slice ', nwritten)
           else:
             nwritten += 1
             total_written += 1
-            print('skipped time slice ', nwritten)
+            print(('skipped time slice ', nwritten))
             indata = inqueue.get()
       except KeyboardInterrupt:
-        print 'Keyboard interrupt'
+        print('Keyboard interrupt')
         workers.terminate()
         while not outqueue.empty():
           outqueue.get()
